@@ -1,7 +1,27 @@
 <div class="view-enter mx-auto flex h-full max-w-2xl flex-col overflow-y-auto p-4">
-  <div class="mb-3">
-    <h1 class="text-lg font-semibold text-ink">Outcome Verification</h1>
-    <p class="text-xs text-muted">Confirm whether the treatment achieved its intended outcome. Conclusions are human-authored and evidence-linked.</p>
+  <div class="mb-3 flex items-start gap-2">
+    <div>
+      <h1 class="text-lg font-semibold text-ink">Outcome Verification</h1>
+      <p class="text-xs text-muted">Confirm whether the treatment achieved its intended outcome. Conclusions are human-authored and evidence-linked.</p>
+    </div>
+    @if (!selected() && !proof()) {
+      <div class="ml-auto flex items-center gap-2">
+        <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
+                class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+                [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
+                [class.border-border]="!live()" [class.text-muted]="!live()"
+                [title]="live() ? 'Live — the queue refreshes automatically' : 'Paused'">
+          <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="live()" [class.live-dot]="live()" [class.bg-muted]="!live()"></span>
+          {{ live() ? 'Live' : 'Paused' }}
+        </button>
+        <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
+                class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+                aria-label="Refresh queue">
+          <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
+          <span class="tabular-nums text-muted">{{ agoSeconds() }}s</span>
+        </button>
+      </div>
+    }
   </div>
 
   @if (!canReview()) {
@@ -43,12 +63,27 @@
   }
 
   @else if (!selected()) {
+    <!-- filter chips + count -->
+    @if (records().length) {
+      <div class="mb-2 flex flex-wrap items-center gap-1.5">
+        @for (f of filters; track f.key) {
+          <button type="button" (click)="setFilter(f.key)" [attr.aria-pressed]="filter() === f.key"
+                  class="rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors"
+                  [class.border-primary]="filter() === f.key" [class.bg-primary-soft]="filter() === f.key" [class.text-primary]="filter() === f.key"
+                  [class.border-border]="filter() !== f.key" [class.text-muted]="filter() !== f.key">
+            {{ f.label }} · {{ counts()[f.key] }}
+          </button>
+        }
+        <span class="ml-auto hidden text-[10px] text-muted sm:inline" aria-hidden="true"
+              title="Arrow keys or J/K to move, Enter to open">⌨ ↑↓ / J K · Enter</span>
+      </div>
+    }
     <!-- queue -->
     <ul class="space-y-2">
-      @for (r of records(); track r.planId) {
+      @for (r of visible(); track r.planId) {
         <li>
-          <button (click)="choose(r.planId)" [disabled]="!canReview()"
-            class="w-full rounded-lg border border-border bg-surface p-3 text-left hover:border-primary disabled:opacity-50">
+          <button [id]="'v-' + r.planId" (click)="choose(r.planId)" [disabled]="!canReview()"
+            class="w-full rounded-lg border border-border bg-surface p-3 text-left hover:border-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
             <div class="flex items-center gap-2">
               <span class="font-mono text-sm font-semibold">{{ r.workOrderRef }}</span>
               <app-status-badge [meta]="STATUS_META[r.status]" />
@@ -58,9 +93,11 @@
             <p class="mt-1 text-sm text-muted">{{ r.targetCondition }}</p>
           </button>
         </li>
-      }
-      @if (records().length === 0) {
-        <li class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">Nothing awaiting verification. Record a field execution first.</li>
+      } @empty {
+        <li class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">
+          @if (records().length) { No records match this filter. <button (click)="setFilter('all')" class="ml-1 text-primary underline">Show all</button> }
+          @else { Nothing awaiting verification. Record a field execution first. }
+        </li>
       }
     </ul>
   }
@@ -143,10 +180,33 @@
             </div>
           }
 
+          <!-- Live "will record" summary -->
+          <div class="rounded-md border border-border bg-bg p-2.5 text-xs">
+            <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Will record</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="rounded-sm bg-surface-2 px-1.5 py-0.5">Outcome: <strong class="text-ink">{{ outcomeSummary().conclusionLabel }}</strong></span>
+              @if (outcomeSummary().regrowth) { <span class="rounded-sm bg-warn-soft px-1.5 py-0.5 text-warn">regrowth</span> }
+              @if (outcomeSummary().compatible) { <span class="rounded-sm bg-ok-soft px-1.5 py-0.5 text-ok">compatible cover</span> }
+              <span class="rounded-sm px-1.5 py-0.5" [class.bg-surface-2]="outcomeSummary().hasCondition" [class.text-muted]="!outcomeSummary().hasCondition">
+                {{ outcomeSummary().hasCondition ? 'condition noted' : 'no condition note' }}
+              </span>
+              @if (needsFollowup()) {
+                <span class="rounded-sm px-1.5 py-0.5" [class.bg-ok-soft]="outcomeSummary().followupAttached" [class.text-ok]="outcomeSummary().followupAttached" [class.bg-surface-2]="!outcomeSummary().followupAttached" [class.text-muted]="!outcomeSummary().followupAttached">
+                  {{ outcomeSummary().followupAttached ? 'follow-up area attached' : 'no follow-up area' }}
+                </span>
+              }
+            </div>
+            <p class="mt-1.5 text-[11px] text-muted">{{ outcomeSummary().nextStep }}</p>
+          </div>
+
           <button (click)="submitVerify()" [disabled]="busy() || !selected()!.evidenceComplete"
             class="w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-ink disabled:opacity-50">
             {{ busy() ? 'Recording…' : 'Record verification' }}
           </button>
+          <p class="text-center text-[11px] text-muted">
+            <kbd class="rounded border border-border px-1">Ctrl</kbd>+<kbd class="rounded border border-border px-1">Enter</kbd> to record ·
+            <kbd class="rounded border border-border px-1">Esc</kbd> to go back
+          </p>
         </div>
       } @else {
         <!-- concluded: follow-up / close actions -->
@@ -160,6 +220,10 @@
               {{ busy() ? 'Closing…' : 'Close record & build Proof Pack' }}
             </button>
           </div>
+          <p class="text-[11px] text-muted">
+            <kbd class="rounded border border-border px-1">Ctrl</kbd>+<kbd class="rounded border border-border px-1">Enter</kbd> to close ·
+            <kbd class="rounded border border-border px-1">Esc</kbd> to go back
+          </p>
         </div>
       }
     </div>
