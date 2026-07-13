@@ -1,0 +1,89 @@
+import { Routes } from '@angular/router';
+
+export const routes: Routes = [
+  {
+    path: '',
+    loadComponent: () =>
+      import('./features/landing/landing.component').then((m) => m.LandingComponent),
+    title: 'CanopyOps — Treatment Assurance',
+  },
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./features/auth/login.component').then((m) => m.LoginComponent),
+    title: 'Sign in — CanopyOps',
+  },
+  {
+    path: 'console',
+    loadComponent: () =>
+      import('./features/console/console-shell.component').then(
+        (m) => m.ConsoleShellComponent,
+      ),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'overview' },
+      {
+        path: 'overview',
+        loadComponent: () =>
+          import('./features/overview/overview.component').then((m) => m.OverviewComponent),
+        title: 'Program Overview — CanopyOps',
+      },
+      {
+        path: 'command',
+        loadComponent: () =>
+          import('./features/command-center/command-center.component').then(
+            (m) => m.CommandCenterComponent,
+          ),
+        title: 'Command Center — CanopyOps',
+      },
+      {
+        path: 'plan',
+        loadComponent: () =>
+          import('./features/plan-builder/plan-builder.component').then(
+            (m) => m.PlanBuilderComponent,
+          ),
+        title: 'Treatment Plan Builder — CanopyOps',
+      },
+      {
+        path: 'execution',
+        loadComponent: () =>
+          import('./features/field-execution/field-execution.component').then(
+            (m) => m.FieldExecutionComponent,
+          ),
+        title: 'Field Execution — CanopyOps',
+      },
+      {
+        path: 'sync',
+        loadComponent: () =>
+          import('./features/sync-center/sync-center.component').then(
+            (m) => m.SyncCenterComponent,
+          ),
+        title: 'Sync & Conflict Center — CanopyOps',
+      },
+      {
+        path: 'verification',
+        loadComponent: () =>
+          import('./features/verification/verification.component').then(
+            (m) => m.VerificationComponent,
+          ),
+        title: 'Outcome Verification — CanopyOps',
+      },
+      {
+        path: 'stewardship',
+        loadComponent: () =>
+          import('./features/stewardship/stewardship.component').then(
+            (m) => m.StewardshipComponent,
+          ),
+        title: 'Stewardship & Compliance — CanopyOps',
+      },
+      {
+        path: 'engineering',
+        loadComponent: () =>
+          import('./features/engineering/engineering.component').then(
+            (m) => m.EngineeringComponent,
+          ),
+        title: 'Engineering Evidence — CanopyOps',
+      },
+    ],
+  },
+  { path: '**', redirectTo: '' },
+];

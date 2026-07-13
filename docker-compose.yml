@@ -1,0 +1,51 @@
+name: canopyops
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: canopyops
+      POSTGRES_PASSWORD: canopyops
+      POSTGRES_DB: canopyops
+    ports:
+      # Host 5433 avoids colliding with a native PostgreSQL on 5432.
+      # In-container clients still use db:5432 over the compose network.
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canopyops -d canopyops"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
+      FRONTEND_ORIGIN: http://localhost:8080
+      SEED_ON_START: "true"
+    ports:
+      # Host 8001 so the containerized API doesn't collide with a local dev
+      # uvicorn on 8000. The web container reaches it internally as api:8000.
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  db_data:

@@ -1,0 +1,388 @@
+<div class="view-enter flex h-full flex-col">
+  <!-- Filter bar -->
+  <div class="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-4 py-2.5">
+    <div class="mr-1">
+      <h1 class="text-base font-semibold leading-tight text-ink">Command Center</h1>
+      <p class="text-xs text-muted">Exceptions first — verify the outcome, not just the work order.</p>
+    </div>
+
+    <label class="relative ml-auto">
+      <span class="sr-only">Search work orders, circuits, spans</span>
+      <input
+        type="search"
+        [ngModel]="q()"
+        (ngModelChange)="onSearch($event)"
+        placeholder="Search WO / circuit / span…"
+        class="w-56 rounded-md border border-border bg-bg px-3 py-1.5 text-sm text-ink placeholder:text-muted focus:border-primary"
+      />
+    </label>
+
+    <div class="flex items-center gap-1" role="group" aria-label="Filter by priority">
+      @for (p of priorities; track p) {
+        <button
+          type="button"
+          (click)="togglePriority(p)"
+          [attr.aria-pressed]="activePriorities().has(p)"
+          class="rounded-md border px-2 py-1 text-xs font-medium transition-colors"
+          [class.border-primary]="activePriorities().has(p)"
+          [class.bg-primary-soft]="activePriorities().has(p)"
+          [class.text-primary]="activePriorities().has(p)"
+          [class.border-border]="!activePriorities().has(p)"
+          [class.text-muted]="!activePriorities().has(p)"
+        >
+          <span aria-hidden="true">{{ PRIORITY_META[p].glyph }}</span> {{ PRIORITY_META[p].label }}
+        </button>
+      }
+    </div>
+
+    <button
+      type="button"
+      (click)="toggleAttention()"
+      [attr.aria-pressed]="attentionOnly()"
+      class="rounded-md border px-2 py-1 text-xs font-semibold transition-colors"
+      [class.border-warn]="attentionOnly()"
+      [class.bg-warn-soft]="attentionOnly()"
+      [class.text-warn]="attentionOnly()"
+      [class.border-border]="!attentionOnly()"
+      [class.text-muted]="!attentionOnly()"
+    >
+      ◇ Needs attention ({{ attentionCount() }})
+    </button>
+
+    <!-- live refresh: the queue re-reads real DB state on a cadence -->
+    <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
+            class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+            [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
+            [class.border-border]="!live()" [class.text-muted]="!live()"
+            [title]="live() ? 'Live — auto-refreshing every 12s' : 'Paused'">
+      <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="live()" [class.live-dot]="live()"
+            [class.bg-muted]="!live()"></span>
+      {{ live() ? 'Live' : 'Paused' }}
+    </button>
+    <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
+            class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+            aria-label="Refresh now">
+      <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
+      <span class="tabular-nums text-muted">{{ agoSeconds() }}s</span>
+    </button>
+  </div>
+
+  <!-- Status filter chips (only statuses present in the data) -->
+  @if (statusOptions().length > 1) {
+    <div class="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface px-4 py-1.5">
+      <span class="text-[11px] font-medium uppercase tracking-wide text-muted">Status</span>
+      @for (s of statusOptions(); track s) {
+        <button type="button" (click)="toggleStatus(s)" [attr.aria-pressed]="activeStatuses().has(s)"
+                class="rounded-md border px-1.5 py-0.5 text-[11px] transition-colors"
+                [class.border-primary]="activeStatuses().has(s)" [class.bg-primary-soft]="activeStatuses().has(s)" [class.text-primary]="activeStatuses().has(s)"
+                [class.border-border]="!activeStatuses().has(s)" [class.text-muted]="!activeStatuses().has(s)">
+          <span aria-hidden="true">{{ STATUS_META[s].glyph }}</span> {{ STATUS_META[s].label }}
+        </button>
+      }
+      @if (activeStatuses().size) {
+        <button type="button" (click)="clearFilters()" class="text-[11px] text-primary underline">clear</button>
+      }
+    </div>
+  }
+
+  <!-- Assurance summary strip (backend-driven) -->
+  @if (!loading() && !error()) {
+    <div class="flex flex-wrap items-stretch gap-2 border-b border-border bg-bg px-4 py-2">
+      <div class="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5">
+        <span class="text-lg font-semibold text-ink">{{ summary().total }}</span>
+        <span class="text-[11px] leading-tight text-muted">active<br />records</span>
+      </div>
+      <div class="flex items-center gap-2 rounded-md border px-3 py-1.5"
+           [class.border-danger]="summary().overdue > 0" [class.bg-danger-soft]="summary().overdue > 0"
+           [class.live-dot--danger]="summary().overdue > 0"
+           [class.border-border]="summary().overdue === 0" [class.bg-surface]="summary().overdue === 0">
+        <span class="text-lg font-semibold" [class.text-danger]="summary().overdue > 0" [class.text-ink]="summary().overdue === 0">{{ summary().overdue }}</span>
+        <span class="text-[11px] leading-tight text-muted">⏳ verification<br />overdue</span>
+      </div>
+      <div class="flex items-center gap-2 rounded-md border px-3 py-1.5"
+           [class.border-warn]="summary().incomplete > 0" [class.bg-warn-soft]="summary().incomplete > 0"
+           [class.border-border]="summary().incomplete === 0" [class.bg-surface]="summary().incomplete === 0">
+        <span class="text-lg font-semibold" [class.text-warn]="summary().incomplete > 0" [class.text-ink]="summary().incomplete === 0">{{ summary().incomplete }}</span>
+        <span class="text-[11px] leading-tight text-muted">◇ evidence<br />incomplete</span>
+      </div>
+      <div class="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5">
+        <span class="text-lg font-semibold text-info">{{ summary().constrained }}</span>
+        <span class="text-[11px] leading-tight text-muted">≈ constraint<br />intersects</span>
+      </div>
+      <div class="ml-auto flex min-w-[140px] flex-col justify-center rounded-md border border-border bg-surface px-3 py-1.5">
+        <div class="flex items-center justify-between text-[11px] text-muted">
+          <span>Program evidence</span><span class="font-semibold text-ink">{{ summary().avgEvidence }}%</span>
+        </div>
+        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div class="h-full rounded-full bg-primary transition-all duration-500" [style.width.%]="summary().avgEvidence"></div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Mobile tab switch -->
+  <div class="flex border-b border-border bg-surface md:hidden" role="tablist">
+    <button
+      type="button" role="tab" [attr.aria-selected]="mobileTab() === 'list'"
+      (click)="mobileTab.set('list')"
+      class="flex-1 py-2 text-sm font-medium"
+      [class.text-primary]="mobileTab() === 'list'" [class.text-muted]="mobileTab() !== 'list'"
+    >Queue</button>
+    <button
+      type="button" role="tab" [attr.aria-selected]="mobileTab() === 'map'"
+      (click)="mobileTab.set('map')"
+      class="flex-1 py-2 text-sm font-medium"
+      [class.text-primary]="mobileTab() === 'map'" [class.text-muted]="mobileTab() !== 'map'"
+    >Map</button>
+  </div>
+
+  <div class="grid min-h-0 flex-1 md:grid-cols-[380px_1fr]">
+    <!-- QUEUE (accessible list equivalent of the map) -->
+    <section
+      class="min-h-0 overflow-y-auto border-r border-border bg-bg"
+      [class.hidden]="mobileTab() === 'map'"
+      [class.md:block]="true"
+      aria-label="Treatment queue"
+    >
+      <!-- Sort + count + keyboard hint (sticky) -->
+      @if (!loading() && !error() && visible().length) {
+        <div class="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-1.5 backdrop-blur">
+          <span class="text-[11px] font-semibold tabular-nums text-ink">{{ visible().length }}</span>
+          <span class="text-[11px] text-muted">in queue</span>
+          <label class="ml-auto flex items-center gap-1 text-[11px] text-muted">
+            <span class="sr-only">Sort queue</span>
+            Sort
+            <select [ngModel]="sortKey()" (ngModelChange)="setSort($event)"
+                    class="rounded border border-border bg-bg px-1.5 py-0.5 text-[11px] text-ink focus:border-primary">
+              @for (s of sorts; track s.key) {
+                <option [value]="s.key">{{ s.label }}</option>
+              }
+            </select>
+          </label>
+          <span class="hidden text-[10px] text-muted lg:inline" aria-hidden="true"
+                title="Arrow keys or J/K to navigate, Enter to open, Esc to close">⌨ ↑↓ / J K</span>
+        </div>
+      }
+      @if (loading()) {
+        <div class="space-y-2 p-3">
+          @for (i of [1,2,3,4]; track i) {
+            <div class="h-24 animate-pulse rounded-md border border-border bg-surface"></div>
+          }
+        </div>
+      } @else if (error()) {
+        <div class="m-3 rounded-md border border-danger/40 bg-danger-soft p-3 text-sm text-danger">
+          <div class="font-semibold">Couldn’t load the queue</div>
+          <div class="mt-0.5 text-xs">{{ error() }}</div>
+          <button (click)="clearFilters()" class="mt-2 rounded border border-danger/40 px-2 py-1 text-xs">Reset</button>
+        </div>
+      } @else if (visible().length === 0) {
+        <div class="p-6 text-center text-sm text-muted">
+          <div class="mb-1 text-2xl" aria-hidden="true">◎</div>
+          No records match these filters.
+          <button (click)="clearFilters()" class="mt-2 block w-full text-xs text-primary">Clear filters</button>
+        </div>
+      } @else {
+        <ul class="divide-y divide-border">
+          @for (r of visible(); track r.planId; let i = $index) {
+            <li class="stagger-in" [style.--i]="i">
+              <button
+                type="button"
+                [id]="'q-' + r.planId"
+                (click)="selectRecord(r.planId)"
+                [attr.aria-current]="selectedId() === r.planId"
+                class="w-full px-3 py-2.5 text-left transition-colors hover:bg-surface-2 focus:bg-surface-2"
+                [class.bg-primary-soft]="selectedId() === r.planId"
+                [class.ring-1]="selectedId() === r.planId"
+                [class.ring-inset]="selectedId() === r.planId"
+                [class.ring-primary]="selectedId() === r.planId"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-xs font-semibold text-ink">{{ r.workOrderRef }}</span>
+                  <app-status-badge [meta]="PRIORITY_META[r.priority]" />
+                  <span class="ml-auto text-[11px] text-muted">{{ r.corridor.circuitId }} · {{ r.corridor.spanLabel }}</span>
+                </div>
+
+                <div class="mt-1.5 flex items-center gap-2">
+                  <app-status-badge [meta]="STATUS_META[r.status]" />
+                  @if (r.verificationOverdue) {
+                    <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger">⏳ Overdue</span>
+                  }
+                </div>
+
+                <!-- Evidence completeness meter -->
+                <div class="mt-2">
+                  <div class="flex items-center justify-between text-[11px] text-muted">
+                    <span>Evidence</span>
+                    <span [class.text-ok]="r.evidenceComplete" [class.text-warn]="!r.evidenceComplete">
+                      {{ r.evidenceComplete ? 'Complete' : 'Incomplete' }} · {{ pct(r.evidenceScore) }}
+                    </span>
+                  </div>
+                  <div class="mt-0.5 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar"
+                       [attr.aria-valuenow]="pct(r.evidenceScore)" aria-valuemin="0" aria-valuemax="100">
+                    <div class="h-full rounded-full"
+                         [class.bg-ok]="r.evidenceComplete" [class.bg-warn]="!r.evidenceComplete"
+                         [style.width]="pct(r.evidenceScore)"></div>
+                  </div>
+                </div>
+
+                @if (r.constraintFlags.length) {
+                  <div class="mt-1.5 flex flex-wrap gap-1">
+                    @for (c of r.constraintFlags; track c) {
+                      <span class="rounded-sm bg-info-soft px-1.5 py-0.5 text-[10px] text-info">
+                        {{ CONSTRAINT_META[c].glyph }} {{ CONSTRAINT_META[c].label }}
+                      </span>
+                    }
+                  </div>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- MAP + detail drawer -->
+    <section class="relative min-h-0" [class.hidden]="mobileTab() === 'list'" [class.md:block]="true" aria-label="Map">
+      <app-map
+        [records]="visible()"
+        [constraints]="constraints()"
+        [corridors]="corridors()"
+        [selectedId]="selectedId()"
+        (select)="selectRecord($event)"
+      />
+
+      @if (selected(); as r) {
+        <aside
+          class="absolute inset-y-0 right-0 w-full max-w-sm overflow-y-auto border-l border-border bg-surface p-4 shadow-pop"
+          aria-label="Record detail"
+        >
+          <div class="flex items-start gap-2">
+            <div>
+              <div class="font-mono text-sm font-semibold text-ink">{{ r.workOrderRef }}</div>
+              <div class="text-xs text-muted">{{ r.corridor.name }} — {{ r.corridor.circuitId }} · {{ r.corridor.spanLabel }}</div>
+            </div>
+            <button (click)="selectRecord(null)" class="ml-auto rounded-md p-1 text-muted hover:bg-surface-2" aria-label="Close detail">✕</button>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <app-status-badge [meta]="STATUS_META[r.status]" />
+            <app-status-badge [meta]="PRIORITY_META[r.priority]" />
+            @if (r.verificationOverdue) {
+              <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger">⏳ Verification overdue</span>
+            }
+          </div>
+
+          <dl class="mt-4 space-y-3 text-sm">
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Target condition</dt>
+              <dd class="mt-0.5 text-ink">{{ r.targetCondition }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Method category</dt>
+              <dd class="mt-0.5 capitalize text-ink">{{ r.methodCategory }}</dd>
+            </div>
+
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Evidence completeness</dt>
+              <dd class="mt-1">
+                <div class="h-2 overflow-hidden rounded-full bg-surface-2">
+                  <div class="h-full rounded-full" [class.bg-ok]="r.evidenceComplete" [class.bg-warn]="!r.evidenceComplete" [style.width]="pct(r.evidenceScore)"></div>
+                </div>
+                <div class="mt-1 text-xs" [class.text-ok]="r.evidenceComplete" [class.text-warn]="!r.evidenceComplete">
+                  {{ r.evidenceComplete ? 'Complete' : 'Incomplete — verification blocked' }} ({{ pct(r.evidenceScore) }})
+                </div>
+                <ul class="mt-1.5 flex flex-wrap gap-1">
+                  @for (e of r.requiredEvidence; track e) {
+                    <li class="rounded-sm bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">{{ e.replaceAll('_', ' ') }}</li>
+                  }
+                </ul>
+              </dd>
+            </div>
+
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Planned vs. actual coverage</dt>
+              <dd class="mt-0.5 text-ink">
+                @if (r.coverageRatio !== null) {
+                  {{ pct(r.coverageRatio) }} of planned area treated
+                } @else {
+                  <span class="text-muted">No field execution recorded yet</span>
+                }
+              </dd>
+            </div>
+
+            @if (r.constraintFlags.length) {
+              <div>
+                <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Environmental constraints</dt>
+                <dd class="mt-1 flex flex-wrap gap-1">
+                  @for (c of r.constraintFlags; track c) {
+                    <span class="rounded-sm bg-info-soft px-1.5 py-0.5 text-[11px] text-info">{{ CONSTRAINT_META[c].glyph }} {{ CONSTRAINT_META[c].label }}</span>
+                  }
+                </dd>
+              </div>
+            }
+
+            @if (r.verificationDueAt) {
+              <div>
+                <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Verification due</dt>
+                <dd class="mt-0.5 text-ink">{{ r.verificationDueAt | date: 'mediumDate' }}</dd>
+              </div>
+            }
+          </dl>
+
+          <!-- Full record history (lazy-loaded Proof Pack) -->
+          @if (recordDetail(); as pp) {
+            <div class="mt-4 border-t border-border pt-3">
+              <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Record history</h3>
+
+              @if (pp.evidence.length) {
+                <div class="mb-2.5">
+                  <div class="text-[11px] font-semibold text-muted">Evidence</div>
+                  <ul class="mt-1 flex flex-wrap gap-1">
+                    @for (ev of pp.evidence; track ev.id) {
+                      <li class="rounded-sm px-1.5 py-0.5 text-[11px]"
+                          [class.bg-ok-soft]="ev.uploadStatus==='stored'" [class.text-ok]="ev.uploadStatus==='stored'"
+                          [class.bg-danger-soft]="ev.uploadStatus==='failed'" [class.text-danger]="ev.uploadStatus==='failed'"
+                          [class.bg-surface-2]="ev.uploadStatus!=='stored' && ev.uploadStatus!=='failed'"
+                          [class.text-muted]="ev.uploadStatus!=='stored' && ev.uploadStatus!=='failed'">
+                        {{ ev.type.replaceAll('_',' ') }}: {{ ev.uploadStatus }}
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              @if (pp.observations.length) {
+                <div class="mb-2.5">
+                  <div class="text-[11px] font-semibold text-muted">Verification</div>
+                  @for (o of pp.observations; track o.id) {
+                    <div class="mt-1 rounded-md bg-surface-2 p-2 text-xs">
+                      <span class="font-medium capitalize">{{ o.conclusion ? o.conclusion.replaceAll('_',' ') : '—' }}</span>
+                      @if (o.condition) { <span class="text-muted"> — {{ o.condition }}</span> }
+                      @if (o.followupGeometry) { <span class="ml-1 rounded-sm bg-danger-soft px-1 text-[10px] text-danger">targeted follow-up</span> }
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="text-[11px] font-semibold text-muted">Audit trail</div>
+              <ol class="mt-1 space-y-1">
+                @for (a of pp.auditTrail; track $index) {
+                  <li class="flex items-center gap-2 text-[11px]">
+                    <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary"></span>
+                    <span class="font-mono text-primary">{{ a.action }}</span>
+                    <span class="ml-auto text-muted">{{ a.createdAt | date: 'short' }}</span>
+                  </li>
+                }
+                @if (!pp.auditTrail.length) {
+                  <li class="text-[11px] text-muted">No audit events recorded yet (seeded record).</li>
+                }
+              </ol>
+            </div>
+          } @else {
+            <p class="mt-4 border-t border-border pt-3 text-[11px] text-muted">Loading record history…</p>
+          }
+        </aside>
+      }
+    </section>
+  </div>
+</div>

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+*.egg-info/
+
+# Node / Angular
+node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/out-tsc/
+frontend/coverage/
+frontend/cypress/videos/
+frontend/cypress/screenshots/
+
+# Env / secrets
+.env
+*.local
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

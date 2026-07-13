@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: canopyops
+          POSTGRES_PASSWORD: canopyops
+          POSTGRES_DB: canopyops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U canopyops"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@localhost:5432/canopyops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Migrate + seed
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          python -m app.seed
+      - name: Run pytest
+        working-directory: backend
+        run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+      - name: Unit tests (Jest)
+        working-directory: frontend
+        run: npm test -- --ci
+      - name: Production build
+        working-directory: frontend
+        run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the full stack (web + api + db)
+        run: docker compose up --build -d
+      - name: Wait for the app, then warm the API
+        run: |
+          ready=""
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/health >/dev/null \
+               && curl -sf http://localhost:8080/ >/dev/null; then
+              echo "stack ready"; ready=1; break
+            fi
+            sleep 3
+          done
+          if [ -z "$ready" ]; then echo "stack not ready"; docker compose logs --tail 80; exit 1; fi
+          # Warm cold code paths (shapely + PostGIS spatial) before the e2e run so
+          # the first offline-sync submit isn't slow enough to trip a timeout.
+          curl -sf http://localhost:8080/api/treatments >/dev/null || true
+          curl -sf http://localhost:8080/api/overview >/dev/null || true
+          curl -sf http://localhost:8080/api/stewardship >/dev/null || true
+          curl -sf -X POST http://localhost:8080/api/geo/analyze \
+            -H 'Content-Type: application/json' \
+            -d '{"geometry":{"type":"Polygon","coordinates":[[[-83.19,40.11],[-83.185,40.11],[-83.185,40.113],[-83.19,40.113],[-83.19,40.11]]]}}' \
+            >/dev/null || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend deps (incl. Cypress binary)
+        working-directory: frontend
+        run: npm ci
+      - name: Run Cypress critical journey (headless)
+        working-directory: frontend
+        run: npx cypress run --browser electron
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 120

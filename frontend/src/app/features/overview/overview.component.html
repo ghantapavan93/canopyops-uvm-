@@ -1,0 +1,347 @@
+<div class="view-enter h-full overflow-y-auto p-4">
+  @if (loading()) {
+    <div class="grid gap-3 md:grid-cols-3">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="h-24 animate-pulse rounded-lg border border-border bg-surface"></div>
+      }
+    </div>
+  }
+  @if (data(); as d) {
+    <!-- header -->
+    <header class="mb-4 flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <h1 class="text-lg font-semibold text-ink">Program Overview</h1>
+        <p class="text-xs text-muted">
+          Reliability-focused work planning · {{ d.periodLabel }} ·
+          <span class="text-primary">{{ d.realPlanCount }} live records</span> blended with synthetic program-scale trends
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- live refresh: the dashboard re-reads real DB state on a cadence -->
+        <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
+                class="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors"
+                [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
+                [class.border-border]="!live()" [class.text-muted]="!live()"
+                [title]="live() ? 'Live — auto-refreshing every 12s' : 'Paused'">
+          <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="live()" [class.live-dot]="live()"
+                [class.bg-muted]="!live()"></span>
+          {{ live() ? 'Live' : 'Paused' }}
+        </button>
+        <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
+                class="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+                aria-label="Refresh now">
+          <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
+          <span class="tabular-nums text-muted">updated {{ agoSeconds() }}s ago</span>
+        </button>
+        <div class="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Time period">
+          @for (p of periods; track p.key) {
+            <button type="button" (click)="setPeriod(p.key)" [attr.aria-pressed]="period() === p.key"
+                    class="px-3 py-1.5 text-xs font-medium transition-colors"
+                    [class.bg-primary]="period() === p.key" [class.text-primary-ink]="period() === p.key"
+                    [class.text-ink]="period() !== p.key" [class.hover:bg-surface-2]="period() !== p.key">
+              {{ p.label }}
+            </button>
+          }
+        </div>
+        <span class="rounded-full bg-warn-soft px-2 py-1 text-[11px] font-medium text-warn">⚠ Synthetic</span>
+      </div>
+    </header>
+
+    <!-- KPI tiles -->
+    <section class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      @for (t of d.tiles; track t.key; let i = $index) {
+        <button type="button" (click)="openTile(t)" aria-haspopup="dialog"
+                class="stagger-in lift w-full rounded-lg border border-border bg-surface p-3 text-left focus:border-primary"
+                [style.--i]="i">
+          <div class="flex items-start justify-between gap-1">
+            <span class="text-[11px] leading-tight text-muted">{{ t.label }}</span>
+            @if (t.delta !== null) {
+              <span class="flex-shrink-0 rounded-sm px-1 text-[10px] font-semibold"
+                    [class.text-ok]="deltaTone(t) === 'ok'" [class.bg-ok-soft]="deltaTone(t) === 'ok'"
+                    [class.text-danger]="deltaTone(t) === 'danger'" [class.bg-danger-soft]="deltaTone(t) === 'danger'"
+                    [class.text-muted]="deltaTone(t) === 'muted'">
+                {{ t.delta > 0 ? '▲' : '▼' }}{{ abs(t.delta) }}
+              </span>
+            }
+          </div>
+          <div class="mt-1 flex items-end gap-0.5">
+            <span class="text-2xl font-bold leading-none text-ink">{{ t.value }}</span>
+            <span class="text-sm text-muted">{{ t.unit }}</span>
+          </div>
+          <div class="mt-1.5"><app-sparkline [points]="t.spark" [tone]="t.tone" /></div>
+          @if (t.note) { <div class="mt-1 text-[10px] leading-tight text-muted">{{ t.note }}</div> }
+          <div class="mt-1 text-[10px] font-medium text-primary">View details →</div>
+        </button>
+      }
+    </section>
+
+    <!-- LIVE lifecycle + activity: both computed from real DB state -->
+    <section class="mb-5 grid gap-3 lg:grid-cols-3">
+      <!-- Real treatment lifecycle (one SQL GROUP BY); each segment is clickable -->
+      <div class="rounded-lg border border-border bg-surface p-3 lg:col-span-2">
+        <div class="mb-2 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-ink">
+            Treatment lifecycle
+            <span class="ml-1 rounded-full bg-ok-soft px-1.5 py-0.5 text-[10px] font-medium text-ok">live</span>
+          </h3>
+          <span class="text-xs text-muted">{{ lifecycleTotal() }} plans in flight</span>
+        </div>
+        @if (lifecycle().length) {
+          <div class="flex h-3 w-full overflow-hidden rounded-full">
+            @for (s of lifecycle(); track s.status) {
+              <button type="button" (click)="onStatusClick(s)"
+                      class="h-full transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary"
+                      [style.width.%]="s.pct" [style.background-color]="'var(--c-' + s.tone + ')'"
+                      [title]="s.label + ': ' + s.count + ' — click to filter the queue'"
+                      [attr.aria-label]="s.label + ': ' + s.count + ' plans'"></button>
+            }
+          </div>
+          <ul class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+            @for (s of lifecycle(); track s.status) {
+              <li>
+                <button type="button" (click)="onStatusClick(s)"
+                        class="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-surface-2 focus:bg-surface-2">
+                  <span aria-hidden="true" [style.color]="'var(--c-' + s.tone + ')'">{{ s.glyph }}</span>
+                  <span class="text-ink">{{ s.label }}</span>
+                  <span class="ml-auto font-semibold tabular-nums text-ink">{{ s.count }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+          <p class="mt-2 text-[10px] text-muted">Real state from <code>GET /api/overview</code> → <code>SELECT status, count(*) GROUP BY status</code>. Click a segment to open that slice in the Command Center.</p>
+        } @else {
+          <p class="py-4 text-center text-xs text-muted">No plans yet.</p>
+        }
+      </div>
+
+      <!-- Real recent activity (immutable audit trail) -->
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <span class="live-dot inline-block h-2 w-2 rounded-full bg-ok"></span> Recent activity
+        </h3>
+        @if (activity().length) {
+          <ol class="space-y-2">
+            @for (a of activity(); track a.at + a.entityId) {
+              <li class="flex items-start gap-2 text-xs">
+                <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary"></span>
+                <span class="min-w-0 flex-1">
+                  <span class="font-medium text-ink">{{ actionLabel(a.action) }}</span>
+                  <span class="block truncate text-muted">{{ ago(a.at) }}</span>
+                </span>
+              </li>
+            }
+          </ol>
+          <p class="mt-2 text-[10px] text-muted">From the immutable audit trail — newest first.</p>
+        } @else {
+          <p class="py-4 text-center text-xs text-muted">No activity recorded yet.</p>
+        }
+      </div>
+    </section>
+
+    <!-- Section: Program Attainment & Production -->
+    <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Program attainment &amp; production</h2>
+    <section class="mb-5 grid gap-3 lg:grid-cols-3">
+      <div class="rounded-lg border border-border bg-surface p-3 lg:col-span-2">
+        <div class="mb-1 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-ink">Planned vs. completed spans</h3>
+          <span class="text-xs text-muted">attainment {{ d.attainmentPct }}%</span>
+        </div>
+        <app-line-chart [series]="attainmentSeries()" [labels]="d.weeks" />
+      </div>
+      <div class="flex flex-col gap-3">
+        <div class="rounded-lg border border-border bg-surface p-3">
+          <h3 class="mb-1 text-sm font-semibold text-ink">Work-plan attainment</h3>
+          <app-gauge [value]="d.attainmentPct" label="of annual plan" tone="ok" />
+        </div>
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-3 lg:col-span-3">
+        <div class="mb-1 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-ink">Cycle vs. mid-cycle mix by region</h3>
+          <span class="text-[10px] text-muted">click a segment to filter →</span>
+        </div>
+        <app-bar-chart [series]="d.cycleMix" [categories]="d.cycleRegions" (segmentClick)="onSegment($event)" />
+      </div>
+    </section>
+
+    <!-- Section: Compliance & Wildfire Risk -->
+    <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Compliance &amp; wildfire risk</h2>
+    <section class="mb-5 grid gap-3 lg:grid-cols-3">
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-1 text-sm font-semibold text-ink">MVCD clearance compliance</h3>
+        <app-gauge [value]="d.mvcdPct" label="minimum clearance" tone="ok" />
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-1 text-sm font-semibold text-ink">HFTD completion by tier</h3>
+        <app-bar-chart [series]="d.hftdTiers" [categories]="d.hftdLabels" [height]="150" (segmentClick)="onSegment($event)" />
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-1 text-sm font-semibold text-ink">Tree-caused SAIDI</h3>
+        <app-line-chart [series]="saidiSeries()" [labels]="d.weeks" [showLegend]="false" suffix="" />
+        <p class="mt-1 text-[11px] text-muted">Outage minutes — trending down is good.</p>
+      </div>
+    </section>
+
+    <!-- Section: Encroachments by service district (choropleth) -->
+    @if (encroach(); as em) {
+      <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Encroachments by service district</h2>
+      <section class="mb-5 grid gap-3 lg:grid-cols-3">
+        <div class="rounded-lg border border-border bg-surface p-3 lg:col-span-2">
+          <div class="mb-1 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-ink">Grow-in / fall-in encroachments</h3>
+            <span class="text-xs text-muted">{{ em.totalEncroachments }} total · click a district →</span>
+          </div>
+          <div class="h-64 overflow-hidden rounded-md border border-border">
+            <app-choropleth-map [regions]="em.regions" [maxValue]="em.maxEncroachments"
+                                [center]="em.center" (regionClick)="onRegionClick($event)" />
+          </div>
+          <p class="mt-1 text-[10px] text-muted">{{ em.note }} Darker = more conductor conflicts.</p>
+        </div>
+        <div class="rounded-lg border border-border bg-surface p-3">
+          <h3 class="mb-2 text-sm font-semibold text-ink">Highest-risk districts</h3>
+          <ul class="space-y-1.5">
+            @for (r of topRegions().slice(0, 6); track r.id) {
+              <li>
+                <button (click)="onRegionClick(r)"
+                        class="lift flex w-full items-center gap-2 rounded-md border border-border p-2 text-left hover:border-primary">
+                  <span class="inline-block h-3 w-3 flex-shrink-0 rounded-sm" [style.background]="regionColor(r)"></span>
+                  <span class="truncate text-sm font-medium text-ink">{{ r.name }}</span>
+                  <span class="hidden text-[11px] text-muted sm:inline">{{ r.circuit }} · T{{ r.hftdTier }}</span>
+                  <span class="ml-auto text-sm font-bold"
+                        [class.text-danger]="r.tone === 'danger'" [class.text-warn]="r.tone === 'warn'" [class.text-ok]="r.tone === 'ok'">
+                    {{ r.encroachments }}
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
+    }
+
+    <!-- Section: Field Quality & Assurance -->
+    <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Field quality &amp; assurance</h2>
+    <section class="mb-5 grid gap-3 lg:grid-cols-3">
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-1 text-sm font-semibold text-ink">Audit / QA pass rate</h3>
+        <app-gauge [value]="d.auditPassPct" label="units passing audit" tone="primary" />
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-2 text-sm font-semibold text-ink">Evidence closeout</h3>
+        <app-donut [segments]="qualityDonut()" centerLabel="records" />
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-1 text-sm font-semibold text-ink">Regrowth / re-treatment</h3>
+        <app-line-chart [series]="regrowthSeries()" [labels]="d.weeks" [showLegend]="false" suffix="%" />
+        <p class="mt-1 text-[11px] text-muted">“Cycle busters” — refusals/non-access {{ d.refusalsPct }}%.</p>
+      </div>
+    </section>
+
+    <!-- Section: Cost & Efficiency + Insights -->
+    <div class="grid gap-3 lg:grid-cols-3">
+      <div class="lg:col-span-2">
+        <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Cost &amp; efficiency</h2>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-lg border border-border bg-surface p-3">
+            <h3 class="mb-1 text-sm font-semibold text-ink">Cost per span</h3>
+            <app-line-chart [series]="costSeries()" [labels]="d.weeks" [showLegend]="false" />
+            <p class="mt-1 text-[11px] text-muted">Internal trend only — a poor cross-utility benchmark.</p>
+          </div>
+          <div class="rounded-lg border border-border bg-surface p-3">
+            <h3 class="mb-1 text-sm font-semibold text-ink">Production rate</h3>
+            <app-line-chart [series]="prodSeries()" [labels]="d.weeks" [showLegend]="false" />
+            <p class="mt-1 text-[11px] text-muted">Man-hours per span — lower is more efficient.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Program insights</h2>
+        <ul class="space-y-2">
+          @for (ins of d.insights; track ins.title) {
+            <li class="rounded-lg border border-border bg-surface p-2.5 lift">
+              <span class="rounded-sm bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">{{ ins.tag }}</span>
+              <p class="mt-1 text-sm leading-snug text-ink">{{ ins.title }}</p>
+            </li>
+          }
+        </ul>
+        <p class="mt-2 text-[10px] text-muted">Illustrative UVM topics; not affiliated with or endorsed by The Davey Tree Expert Company.</p>
+      </div>
+    </div>
+
+    <!-- Drill-down drawer -->
+    @if (selectedTile(); as t) {
+      <div class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" (click)="closeTile()" aria-hidden="true"></div>
+      <aside class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col overflow-y-auto border-l border-border bg-surface shadow-pop"
+             style="animation: slide-in 0.22s cubic-bezier(0.2,0.7,0.2,1) both"
+             role="dialog" aria-modal="true" [attr.aria-label]="t.label + ' details'">
+        <div class="flex items-start gap-2 border-b border-border p-5">
+          <div>
+            <div class="text-xs font-medium uppercase tracking-wide text-muted">{{ t.label }}</div>
+            <div class="mt-1 flex items-end gap-2">
+              <span class="text-3xl font-bold leading-none text-ink">{{ t.value }}</span>
+              <span class="text-lg text-muted">{{ t.unit }}</span>
+              @if (t.delta !== null) {
+                <span class="mb-0.5 rounded-sm px-1.5 py-0.5 text-xs font-semibold"
+                      [class.text-ok]="deltaTone(t) === 'ok'" [class.bg-ok-soft]="deltaTone(t) === 'ok'"
+                      [class.text-danger]="deltaTone(t) === 'danger'" [class.bg-danger-soft]="deltaTone(t) === 'danger'"
+                      [class.text-muted]="deltaTone(t) === 'muted'">
+                  {{ t.delta > 0 ? '▲' : '▼' }}{{ abs(t.delta) }} vs. prior
+                </span>
+              }
+            </div>
+          </div>
+          <button (click)="closeTile()" class="ml-auto rounded-md p-1.5 text-muted hover:bg-surface-2" aria-label="Close details">✕</button>
+        </div>
+
+        <div class="flex-1 p-5">
+          <p class="text-sm leading-relaxed text-ink">{{ drill()?.definition }}</p>
+          <p class="mt-1.5 text-xs text-muted">{{ drill()?.benchmark }}</p>
+
+          <h3 class="mt-5 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">12-week trend</h3>
+          <div class="rounded-lg border border-border p-2">
+            <app-line-chart [series]="drillSeries()" [labels]="d.weeks" [showLegend]="false"
+                            [suffix]="t.unit === '%' ? '%' : ''" [height]="150" />
+          </div>
+
+          @switch (drill()?.context) {
+            @case ('cycle') {
+              <h3 class="mt-5 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Cycle mix by region</h3>
+              <div class="rounded-lg border border-border p-2">
+                <app-bar-chart [series]="d.cycleMix" [categories]="d.cycleRegions" [height]="150" />
+              </div>
+            }
+            @case ('hftd') {
+              <h3 class="mt-5 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Completion by HFTD tier</h3>
+              <div class="rounded-lg border border-border p-2">
+                <app-bar-chart [series]="d.hftdTiers" [categories]="d.hftdLabels" [height]="150" />
+              </div>
+            }
+            @case ('quality') {
+              <h3 class="mt-5 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Evidence closeout</h3>
+              <div class="rounded-lg border border-border p-3">
+                <app-donut [segments]="qualityDonut()" centerLabel="records" />
+              </div>
+            }
+            @case ('cost') {
+              <h3 class="mt-5 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Cost per span &amp; production rate</h3>
+              <div class="rounded-lg border border-border p-2">
+                <app-line-chart [series]="costSeries()" [labels]="d.weeks" [showLegend]="false" [height]="120" />
+              </div>
+              <div class="mt-2 rounded-lg border border-border p-2">
+                <app-line-chart [series]="prodSeries()" [labels]="d.weeks" [showLegend]="false" [height]="120" />
+              </div>
+            }
+          }
+        </div>
+
+        @if (drill()?.link; as lk) {
+          <div class="border-t border-border p-4">
+            <a [routerLink]="lk.route" [queryParams]="lk.query ?? {}" (click)="closeTile()"
+               class="flex items-center justify-center gap-1 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-ink no-underline hover:opacity-90">
+              {{ lk.label }} →
+            </a>
+          </div>
+        }
+      </aside>
+    }
+  }
+</div>

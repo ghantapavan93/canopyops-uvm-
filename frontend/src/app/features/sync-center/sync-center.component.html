@@ -1,0 +1,114 @@
+<div class="view-enter mx-auto flex h-full max-w-2xl flex-col overflow-y-auto p-4">
+  <!-- connectivity + actions -->
+  <div class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-3">
+    <span class="flex items-center gap-2 text-sm font-medium">
+      <span class="inline-block h-2.5 w-2.5 rounded-full" [class.bg-ok]="conn.online()" [class.bg-danger]="!conn.online()"></span>
+      {{ conn.online() ? 'Online' : 'Offline' }}
+    </span>
+    <div class="flex overflow-hidden rounded-md border border-border">
+      <button (click)="conn.setForced(true)" class="px-3 py-1 text-xs font-medium" [class.bg-primary]="conn.online()" [class.text-primary-ink]="conn.online()">On</button>
+      <button (click)="conn.setForced(false)" class="px-3 py-1 text-xs font-medium" [class.bg-danger]="!conn.online()" [class.text-white]="!conn.online()">Off</button>
+    </div>
+    <button (click)="sync.syncAll()" [disabled]="!conn.online()"
+      class="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-ink disabled:opacity-50">Sync now</button>
+    <button (click)="sync.clearSynced()" class="rounded-md border border-border px-3 py-1.5 text-xs text-muted">Clear synced</button>
+    <a routerLink="/console/execution" class="ml-auto text-xs font-semibold text-primary underline">+ Record execution</a>
+  </div>
+
+  <div class="mb-3">
+    <h1 class="text-lg font-semibold text-ink">Sync &amp; Conflict Center</h1>
+    <p class="text-xs text-muted">
+      Every mutation carries an idempotency key (no duplicates on retry) and a plan revision
+      (no silent overwrites). {{ sync.pending() }} queued · {{ sync.conflicts() }} need resolution.
+    </p>
+  </div>
+
+  @if (items().length === 0) {
+    <div class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">
+      <div class="mb-1 text-2xl" aria-hidden="true">⇅</div>
+      Outbox is empty. Record a field execution — try it with connectivity <strong>Off</strong> —
+      and watch it queue here, then sync safely when you go back online.
+    </div>
+  }
+
+  <ul class="space-y-2">
+    @for (item of items(); track item.id; let i = $index) {
+      <li class="stagger-in rounded-lg border bg-surface p-3"
+          [style.--i]="i"
+          [class.border-danger]="item.status === 'conflict'"
+          [class.live-dot--danger]="item.status === 'conflict'"
+          [class.border-border]="item.status !== 'conflict'">
+        <div class="flex items-center gap-2">
+          <span class="rounded-sm px-1.5 py-0.5 text-[11px] font-semibold" [class]="chip(item.status)">
+            {{ meta[item.status].glyph }} {{ meta[item.status].label }}
+          </span>
+          <span class="text-sm font-medium">{{ item.label }}</span>
+          @if (item.attempts > 0) {
+            <span class="text-[11px] text-muted">· {{ item.attempts }} attempt(s)</span>
+          }
+        </div>
+
+        <!-- local capture summary -->
+        <div class="mt-1.5 text-xs text-muted">
+          {{ item.payload.evidence.length }} evidence item(s) captured · plan revision seen: {{ item.payload.planRevision }}
+          @if (item.payload.constraintAcknowledged) { · constraints acknowledged }
+        </div>
+
+        <!-- SYNCED result -->
+        @if (item.status === 'synced' && item.result; as r) {
+          <div class="mt-2 rounded-md bg-surface-2 p-2 text-xs">
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+              <span>Server: <strong [class.text-info]="r.syncStatus==='duplicate'">{{ r.syncStatus }}</strong></span>
+              <span>Coverage: <strong [class.text-warn]="(r.coverageRatio ?? 1) < 1">{{ pct(r.coverageRatio ?? 0) }}</strong></span>
+              <span>Evidence: <strong [class.text-ok]="r.evidenceComplete" [class.text-warn]="!r.evidenceComplete">{{ pct(r.evidenceScore) }} {{ r.evidenceComplete ? 'complete' : 'incomplete' }}</strong></span>
+              <span>Status: <strong>{{ r.planStatus.replaceAll('_',' ') }}</strong></span>
+            </div>
+            @if (!r.evidenceComplete) {
+              <div class="mt-1.5 text-warn">A failed upload is blocking verification. Retry it below.</div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                @for (ev of r.evidence; track ev.id) {
+                  <button (click)="sync.retryEvidence(item, ev.id)"
+                    class="rounded border px-1.5 py-0.5 text-[11px]"
+                    [class.border-warn]="ev.uploadStatus==='failed'" [class.text-warn]="ev.uploadStatus==='failed'"
+                    [class.border-border]="ev.uploadStatus!=='failed'" [class.text-muted]="ev.uploadStatus!=='failed'"
+                    [disabled]="ev.uploadStatus!=='failed'">
+                    {{ ev.type.replaceAll('_',' ') }}: {{ ev.uploadStatus }}{{ ev.uploadStatus==='failed' ? ' — retry' : '' }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- CONFLICT -->
+        @if (item.status === 'conflict' && item.conflict; as c) {
+          <div class="mt-2 rounded-md border border-danger/40 bg-danger-soft p-2 text-xs text-danger">
+            <div class="font-semibold">{{ c.message }}</div>
+            <div class="mt-1 grid grid-cols-2 gap-2">
+              <div class="rounded bg-surface p-1.5 text-center"><div class="text-[10px] text-muted">Your revision</div><div class="text-base font-bold">{{ c.yourRevision }}</div></div>
+              <div class="rounded bg-surface p-1.5 text-center"><div class="text-[10px] text-muted">Server revision</div><div class="text-base font-bold">{{ c.serverRevision }}</div></div>
+            </div>
+            <div class="mt-2 flex gap-2">
+              <button (click)="sync.resolveWithServer(item)" class="rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-ink">Adopt server revision &amp; re-apply</button>
+              <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted">Discard</button>
+            </div>
+          </div>
+        }
+
+        <!-- FAILED -->
+        @if (item.status === 'failed') {
+          <div class="mt-2 text-xs text-warn">{{ item.lastError }}</div>
+        }
+
+        <!-- actions for pending/failed -->
+        @if (item.status === 'pending' || item.status === 'failed') {
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button (click)="sync.retry(item)" [disabled]="!conn.online()" class="rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-ink disabled:opacity-50">Retry now</button>
+            <button (click)="simulateEdit(item)" class="rounded-md border border-warn/50 px-2.5 py-1 text-[11px] font-medium text-warn">⚡ Simulate concurrent edit</button>
+            <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted">Discard</button>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+</div>

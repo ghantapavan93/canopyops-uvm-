@@ -1,0 +1,230 @@
+<div class="view-enter mx-auto h-full max-w-5xl overflow-y-auto p-4">
+  <header class="mb-3">
+    <h1 class="text-lg font-semibold text-ink">Treatment Plan Builder</h1>
+    <p class="text-xs text-muted">Prescribe a treatment: draw the area, define the target outcome, required evidence, and a verification window.</p>
+  </header>
+
+  @if (!canCreate()) {
+    <div class="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
+      Only a Program Manager can create treatment plans. Switch role in the header.
+    </div>
+  }
+
+  <!-- success -->
+  @if (created(); as rec) {
+    <div class="rounded-lg border border-ok/50 bg-ok-soft p-4">
+      <div class="flex items-center gap-2">
+        <span class="text-lg" aria-hidden="true">✓</span>
+        <h2 class="font-semibold text-ok">Plan created — {{ rec.workOrderRef }}</h2>
+      </div>
+      <p class="mt-1 text-sm text-ink">
+        {{ rec.corridor.circuitId }} · {{ rec.corridor.spanLabel }} — status <strong>{{ rec.status.replaceAll('_',' ') }}</strong>.
+        @if (rec.constraintFlags.length) { {{ rec.constraintFlags.length }} environmental constraint(s) intersect this area. }
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button (click)="startAnother()" class="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-ink">Create another</button>
+        <a routerLink="/console/command" [queryParams]="{ q: rec.corridor.circuitId }" class="rounded-md border border-border px-3 py-1.5 text-xs no-underline">View in Command Center</a>
+        <a routerLink="/console/execution" class="rounded-md border border-border px-3 py-1.5 text-xs no-underline">Send to Field Execution →</a>
+      </div>
+    </div>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" class="grid gap-3 md:grid-cols-2">
+      <!-- form fields -->
+      <div class="space-y-3 rounded-lg border border-border bg-surface p-4">
+        <label class="block">
+          <span class="text-xs font-semibold text-muted">Corridor (circuit · span)</span>
+          <select formControlName="corridorId" class="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm">
+            <option value="" disabled>Select a corridor…</option>
+            @for (c of corridors(); track c.id) {
+              <option [value]="c.id">{{ c.circuitId }} · {{ c.spanLabel }} — {{ c.name }}</option>
+            }
+          </select>
+        </label>
+
+        <div>
+          <span class="text-xs font-semibold text-muted">Priority</span>
+          <div class="mt-1 flex gap-1.5">
+            @for (p of ['routine','elevated','hazard']; track p) {
+              <button type="button" (click)="form.controls.priority.setValue(p)"
+                      class="flex-1 rounded-md border px-2 py-1.5 text-xs font-medium capitalize"
+                      [class.border-primary]="form.controls.priority.value === p"
+                      [class.bg-primary-soft]="form.controls.priority.value === p"
+                      [class.text-primary]="form.controls.priority.value === p"
+                      [class.border-border]="form.controls.priority.value !== p"
+                      [class.text-muted]="form.controls.priority.value !== p">{{ p }}</button>
+            }
+          </div>
+        </div>
+
+        <label class="block">
+          <span class="text-xs font-semibold text-muted">Target vegetation outcome</span>
+          <textarea formControlName="targetCondition" rows="2"
+                    placeholder="e.g. Restore MVCD clearance; establish low-growing compatible cover in the wire zone."
+                    class="mt-1 w-full rounded-md border border-border bg-bg p-2 text-sm"></textarea>
+          @if (form.controls.targetCondition.touched && form.controls.targetCondition.invalid) {
+            <span class="text-[11px] text-danger">Describe the intended outcome (at least 12 characters).</span>
+          }
+        </label>
+
+        <label class="block">
+          <span class="text-xs font-semibold text-muted">Method category</span>
+          <select formControlName="methodCategory" class="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm capitalize">
+            @for (mth of methods; track mth) { <option [value]="mth" class="capitalize">{{ mth }}</option> }
+          </select>
+          <span class="text-[11px] text-muted">Category only — no product, rate, or mixing guidance.</span>
+        </label>
+
+        <div>
+          <span class="text-xs font-semibold text-muted">Required evidence</span>
+          <div class="mt-1 flex flex-wrap gap-1.5">
+            @for (ev of evidenceTypes; track ev) {
+              <button type="button" (click)="toggleEvidence(ev)" [attr.aria-pressed]="requiredEvidence().has(ev)"
+                      class="rounded-md border px-2 py-1 text-[11px] capitalize"
+                      [class.border-primary]="requiredEvidence().has(ev)" [class.bg-primary-soft]="requiredEvidence().has(ev)" [class.text-primary]="requiredEvidence().has(ev)"
+                      [class.border-border]="!requiredEvidence().has(ev)" [class.text-muted]="!requiredEvidence().has(ev)">
+                {{ ev.replaceAll('_',' ') }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs font-semibold text-muted">Verify within (days)</span>
+            <input type="number" formControlName="verificationWindowDays" class="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-xs font-semibold text-muted">Cycle</span>
+            <select formControlName="cycle" class="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm">
+              <option value="cycle">Cycle</option>
+              <option value="mid_cycle">Mid-cycle</option>
+            </select>
+          </label>
+        </div>
+
+        @if (error()) { <div class="rounded-md bg-danger-soft p-2 text-sm text-danger">{{ error() }}</div> }
+
+        <!-- Live readiness checklist -->
+        <div class="rounded-md border border-border bg-bg p-2.5">
+          <div class="mb-1.5 flex items-center justify-between">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-muted">Readiness</span>
+            <span class="text-[11px] font-medium" [class.text-ok]="remaining() === 0" [class.text-muted]="remaining() > 0">
+              {{ remaining() === 0 ? 'Ready to create' : remaining() + ' left' }}
+            </span>
+          </div>
+          <ul class="space-y-1">
+            @for (item of checklist(); track item.label) {
+              <li class="flex items-center gap-2 text-xs" [class.text-ink]="item.done" [class.text-muted]="!item.done">
+                <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]"
+                      [class.bg-ok]="item.done" [class.text-primary-ink]="item.done"
+                      [class.bg-surface-2]="!item.done" aria-hidden="true">{{ item.done ? '✓' : '' }}</span>
+                {{ item.label }}
+              </li>
+            }
+          </ul>
+        </div>
+
+        <button type="submit" [disabled]="!ready() || busy()"
+                class="w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-50">
+          {{ busy() ? 'Creating…' : 'Create treatment plan' }}
+        </button>
+        <p class="text-center text-[11px] text-muted">
+          @if (remaining() > 0) { {{ remaining() }} item(s) remaining to enable creation }
+          @else { Ready — press <kbd class="rounded border border-border px-1">Ctrl</kbd>+<kbd class="rounded border border-border px-1">Enter</kbd> or click Create }
+        </p>
+      </div>
+
+      <!-- draw map + live analysis -->
+      <div class="flex flex-col gap-2 rounded-lg border border-border bg-surface p-2">
+        <div class="h-[380px] overflow-hidden rounded-md border border-border">
+          <app-polygon-draw-map [corridors]="corridors()" [focusCorridorId]="selectedCorridor()?.id ?? null"
+                                (geometryChange)="onGeometry($event)" />
+        </div>
+
+        @if (analysis(); as a) {
+          <div class="rounded-md border border-border p-2.5">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-medium text-ink">Drawn area</span>
+              <span class="font-mono text-ink">{{ a.areaAcres }} acres</span>
+            </div>
+
+            @if (a.intersectingConstraints.length === 0) {
+              <div class="mt-1.5 flex items-center gap-1.5 text-xs text-ok">
+                <span aria-hidden="true">✓</span> No environmental constraints intersect this area.
+              </div>
+            } @else {
+              <div class="mt-1.5 space-y-1">
+                <div class="text-xs font-semibold" [class.text-danger]="a.blocking" [class.text-warn]="!a.blocking">
+                  {{ a.blocking ? '⛔ Intersects a BLOCKING constraint' : '⚠ Intersects constraint(s)' }}
+                </div>
+                @for (c of a.intersectingConstraints; track c.id) {
+                  <div class="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[11px]"
+                       [class.bg-danger-soft]="c.severity==='blocking'" [class.text-danger]="c.severity==='blocking'"
+                       [class.bg-warn-soft]="c.severity!=='blocking'" [class.text-warn]="c.severity!=='blocking'">
+                    <span aria-hidden="true">{{ CONSTRAINT_META[c.category].glyph }}</span>
+                    {{ c.name }} <span class="ml-auto uppercase">{{ c.severity }}</span>
+                  </div>
+                }
+                @if (a.blocking) {
+                  <label class="mt-1 flex items-start gap-2 rounded-md bg-danger-soft p-2 text-[11px] text-danger">
+                    <input type="checkbox" [checked]="ackBlocking()" (change)="ackBlocking.set(!ackBlocking())" class="mt-0.5" />
+                    <span>I acknowledge this area intersects a blocking constraint and has been routed for authorized review.</span>
+                  </label>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Live prescription preview — updates as the form is filled -->
+        <div class="rounded-md border border-border bg-bg p-2.5">
+          <div class="mb-1.5 flex items-center gap-1.5">
+            <span class="live-dot inline-block h-2 w-2 rounded-full bg-primary"></span>
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-muted">Prescription preview</span>
+          </div>
+          <dl class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+            <div class="col-span-2">
+              <dt class="text-muted">Corridor</dt>
+              <dd class="text-ink">
+                @if (selectedCorridor(); as c) { {{ c.circuitId }} · {{ c.spanLabel }} — {{ c.name }} }
+                @else { <span class="text-muted">— not selected</span> }
+              </dd>
+            </div>
+            <div>
+              <dt class="text-muted">Priority</dt>
+              <dd class="capitalize text-ink">{{ formValue().priority }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted">Method</dt>
+              <dd class="capitalize text-ink">{{ formValue().methodCategory }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted">Drawn area</dt>
+              <dd class="text-ink">
+                @if (analysis(); as a) { {{ a.areaAcres }} acres } @else { <span class="text-muted">— draw to measure</span> }
+              </dd>
+            </div>
+            <div>
+              <dt class="text-muted">Field work due</dt>
+              <dd class="text-ink">{{ dueDate() | date: 'mediumDate' }}</dd>
+            </div>
+            <div class="col-span-2">
+              <dt class="text-muted">Verify within</dt>
+              <dd class="text-ink">{{ formValue().verificationWindowDays }} days of execution · {{ formValue().cycle === 'cycle' ? 'cycle' : 'mid-cycle' }}</dd>
+            </div>
+            <div class="col-span-2">
+              <dt class="text-muted">Required evidence</dt>
+              <dd class="mt-0.5 flex flex-wrap gap-1">
+                @for (ev of requiredEvidence(); track ev) {
+                  <span class="rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] capitalize text-muted">{{ ev.replaceAll('_',' ') }}</span>
+                } @empty {
+                  <span class="text-[11px] text-warn">none selected</span>
+                }
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </form>
+  }
+</div>

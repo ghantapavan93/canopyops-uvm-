@@ -1,0 +1,167 @@
+<div class="view-enter mx-auto flex h-full max-w-2xl flex-col overflow-y-auto p-4">
+  <div class="mb-3">
+    <h1 class="text-lg font-semibold text-ink">Outcome Verification</h1>
+    <p class="text-xs text-muted">Confirm whether the treatment achieved its intended outcome. Conclusions are human-authored and evidence-linked.</p>
+  </div>
+
+  @if (!canReview()) {
+    <div class="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
+      Only a Quality or Compliance Reviewer can verify outcomes. Switch role in the header.
+    </div>
+  }
+
+  <!-- PROOF PACK (after close) -->
+  @if (proof(); as p) {
+    <div class="rounded-lg border border-ok/50 bg-ok-soft p-4">
+      <div class="flex items-center gap-2">
+        <span class="text-lg" aria-hidden="true">✓</span>
+        <h2 class="font-semibold text-ok">Record closed — Proof Pack assembled</h2>
+      </div>
+      <p class="mt-1 text-xs text-ink">{{ p.record.workOrderRef }} · {{ p.record.corridor.circuitId }} · {{ p.record.corridor.spanLabel }}</p>
+      <div class="mt-3 grid gap-2 text-sm md:grid-cols-2">
+        <div class="rounded-md bg-surface p-2"><span class="text-xs text-muted">Coverage</span><div>{{ pct(p.record.coverageRatio) }}</div></div>
+        <div class="rounded-md bg-surface p-2"><span class="text-xs text-muted">Evidence</span><div>{{ pct(p.record.evidenceScore) }} {{ p.record.evidenceComplete ? 'complete' : 'incomplete' }}</div></div>
+        <div class="rounded-md bg-surface p-2"><span class="text-xs text-muted">Outcome</span><div>{{ p.observations[0]?.conclusion?.replaceAll('_',' ') || '—' }}</div></div>
+        <div class="rounded-md bg-surface p-2"><span class="text-xs text-muted">Targeted follow-up</span><div>{{ p.observations[0]?.followupGeometry ? 'geometry recorded' : 'none' }}</div></div>
+      </div>
+      <div class="mt-3">
+        <div class="text-xs font-semibold uppercase tracking-wide text-muted">Audit trail</div>
+        <ol class="mt-1 space-y-0.5">
+          @for (a of p.auditTrail; track $index) {
+            <li class="flex items-center gap-2 text-xs">
+              <span class="font-mono text-primary">{{ a.action }}</span>
+              <span class="text-muted">{{ a.createdAt | date: 'short' }}</span>
+            </li>
+          }
+        </ol>
+      </div>
+      <div class="mt-4 flex gap-2">
+        <button (click)="proof.set(null); selectedId.set(null)" class="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-ink">Verify another</button>
+        <a routerLink="/console/command" class="rounded-md border border-border px-3 py-1.5 text-xs">Back to Command Center</a>
+      </div>
+    </div>
+  }
+
+  @else if (!selected()) {
+    <!-- queue -->
+    <ul class="space-y-2">
+      @for (r of records(); track r.planId) {
+        <li>
+          <button (click)="choose(r.planId)" [disabled]="!canReview()"
+            class="w-full rounded-lg border border-border bg-surface p-3 text-left hover:border-primary disabled:opacity-50">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-sm font-semibold">{{ r.workOrderRef }}</span>
+              <app-status-badge [meta]="STATUS_META[r.status]" />
+              @if (r.verificationOverdue) { <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger">⏳ Overdue</span> }
+              <span class="ml-auto text-xs text-muted">coverage {{ pct(r.coverageRatio) }}</span>
+            </div>
+            <p class="mt-1 text-sm text-muted">{{ r.targetCondition }}</p>
+          </button>
+        </li>
+      }
+      @if (records().length === 0) {
+        <li class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">Nothing awaiting verification. Record a field execution first.</li>
+      }
+    </ul>
+  }
+
+  @else {
+    <!-- detail + verify -->
+    <div class="rounded-lg border border-border bg-surface p-4">
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-sm font-semibold">{{ selected()!.workOrderRef }}</span>
+        <app-status-badge [meta]="STATUS_META[selected()!.status]" />
+        <button (click)="selectedId.set(null)" class="ml-auto text-xs text-muted underline">change</button>
+      </div>
+
+      <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+        <div class="rounded-md bg-surface-2 p-2"><span class="text-xs text-muted">Coverage</span><div [class.text-warn]="(selected()!.coverageRatio ?? 1) < 1">{{ pct(selected()!.coverageRatio) }}</div></div>
+        <div class="rounded-md bg-surface-2 p-2"><span class="text-xs text-muted">Evidence</span><div [class.text-ok]="selected()!.evidenceComplete" [class.text-warn]="!selected()!.evidenceComplete">{{ pct(selected()!.evidenceScore) }} {{ selected()!.evidenceComplete ? 'complete' : 'incomplete' }}</div></div>
+      </div>
+
+      @if (error()) {
+        <div class="mt-3 rounded-md bg-danger-soft p-2 text-sm text-danger">{{ error() }}</div>
+      }
+
+      <!-- evidence gate -->
+      @if (!selected()!.evidenceComplete) {
+        <div class="mt-3 rounded-md border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
+          <div class="font-semibold">Verification blocked</div>
+          <div class="mt-0.5 text-xs">A required upload is still missing. Recover it in the Sync Center, then verify.</div>
+          <a routerLink="/console/sync" class="mt-1.5 inline-block text-xs font-semibold underline">Open Sync Center →</a>
+        </div>
+      }
+
+      @if (selected()!.status === 'awaiting_verification') {
+        <!-- verify form -->
+        <div class="mt-4 space-y-3" [class.pointer-events-none]="!selected()!.evidenceComplete" [class.opacity-50]="!selected()!.evidenceComplete">
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wide text-muted">Outcome</div>
+            <div class="mt-1 grid grid-cols-2 gap-1.5">
+              @for (c of conclusions; track c.value) {
+                <button (click)="conclusion.set(c.value)" [attr.aria-pressed]="conclusion() === c.value"
+                  class="rounded-md border px-2 py-1.5 text-sm"
+                  [class.border-primary]="conclusion() === c.value" [class.bg-primary-soft]="conclusion() === c.value" [class.text-primary]="conclusion() === c.value"
+                  [class.border-border]="conclusion() !== c.value">
+                  {{ c.label }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <label class="block">
+            <span class="text-xs font-semibold text-muted">Observed condition</span>
+            <textarea [ngModel]="condition()" (ngModelChange)="condition.set($event)" rows="2"
+              placeholder="e.g. Partial regrowth in the south subsection near the water buffer."
+              class="mt-1 w-full rounded-md border border-border bg-bg p-2 text-sm"></textarea>
+          </label>
+
+          <div class="flex flex-wrap gap-4 text-sm">
+            <label class="flex items-center gap-2"><input type="checkbox" [ngModel]="regrowth()" (ngModelChange)="regrowth.set($event)" /> Regrowth observed</label>
+            <label class="flex items-center gap-2"><input type="checkbox" [ngModel]="compatible()" (ngModelChange)="compatible.set($event)" /> Compatible cover established</label>
+          </div>
+
+          @if (needsFollowup()) {
+            <div class="rounded-md border border-border p-2">
+              <div class="mb-1 flex items-center justify-between">
+                <span class="text-xs font-semibold text-muted">Draw only the rework area</span>
+                <span class="text-[11px]" [class.text-ok]="drawnFollowup()" [class.text-warn]="!drawnFollowup()">
+                  {{ drawnFollowup() ? '✓ area drawn' : 'not drawn yet' }}
+                </span>
+              </div>
+              <div class="h-64 overflow-hidden rounded-md border border-border">
+                <app-polygon-draw-map
+                  [plannedGeometry]="selected()!.plannedGeometry"
+                  [actualGeometry]="selected()!.actualGeometry"
+                  drawColor="#b4231f"
+                  (geometryChange)="onFollowupGeometry($event)" />
+              </div>
+              <p class="mt-1 text-[11px] text-muted">
+                Planned (dashed blue) vs. completed (green). Draw only the geometry needing another pass —
+                not a blind full-corridor repeat. Optional.
+              </p>
+            </div>
+          }
+
+          <button (click)="submitVerify()" [disabled]="busy() || !selected()!.evidenceComplete"
+            class="w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-ink disabled:opacity-50">
+            {{ busy() ? 'Recording…' : 'Record verification' }}
+          </button>
+        </div>
+      } @else {
+        <!-- concluded: follow-up / close actions -->
+        <div class="mt-4 space-y-2">
+          <p class="text-sm text-muted">Outcome recorded. Decide the next step to close the loop.</p>
+          <div class="flex flex-wrap gap-2">
+            @if (selected()!.status !== 'effective' && selected()!.status !== 'follow_up_planned') {
+              <button (click)="planFollowup()" [disabled]="busy()" class="rounded-md border border-border px-3 py-1.5 text-sm font-medium">Plan targeted follow-up</button>
+            }
+            <button (click)="close()" [disabled]="busy()" class="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-ink disabled:opacity-50">
+              {{ busy() ? 'Closing…' : 'Close record & build Proof Pack' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

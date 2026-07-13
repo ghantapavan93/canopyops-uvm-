@@ -1,0 +1,224 @@
+import {
+  Component,
+  ElementRef,
+  afterNextRender,
+  effect,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
+import maplibregl, { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
+
+import {
+  Corridor,
+  EnvironmentalConstraint,
+  TreatmentRecord,
+} from '../../core/models';
+import { STATUS_META, TONE_HEX } from '../../core/status';
+
+type FC = GeoJSON.FeatureCollection;
+
+const EMPTY: FC = { type: 'FeatureCollection', features: [] };
+
+/** MapLibre wrapper. Fully self-contained style — no external tiles — so the
+ *  map keeps working offline, matching the field-tool narrative. Renders
+ *  corridors, constraint buffers, and planned/actual treatment polygons, and
+ *  coordinates selection bidirectionally with the queue. */
+@Component({
+  selector: 'app-map',
+  standalone: true,
+  template: `
+    <div class="relative h-full w-full">
+      <div
+        #mapEl
+        class="h-full w-full"
+        role="application"
+        aria-label="Treatment map. A synchronized list of all records is available in the queue panel."
+      ></div>
+
+      <!-- Legend (also serves as non-map status key) -->
+      <div
+        class="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border bg-surface/90 p-2 text-[11px] shadow-card backdrop-blur"
+      >
+        <div class="mb-1 font-semibold text-ink">Legend</div>
+        <div class="flex items-center gap-1.5 text-muted">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#5b9be0"></span>
+          Constraint buffer
+        </div>
+        <div class="flex items-center gap-1.5 text-muted">
+          <span class="inline-block h-0.5 w-3 bg-muted"></span> ROW corridor
+        </div>
+        <div class="flex items-center gap-1.5 text-muted">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm border-2 border-white" style="background:#1f6f4b"></span>
+          Planned treatment (by status)
+        </div>
+      </div>
+    </div>
+  `,
+})
+export class MapComponent {
+  readonly records = input<TreatmentRecord[]>([]);
+  readonly constraints = input<EnvironmentalConstraint[]>([]);
+  readonly corridors = input<Corridor[]>([]);
+  readonly selectedId = input<string | null>(null);
+  readonly select = output<string>();
+
+  private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
+  private map?: MlMap;
+  private ready = signal(false);
+  private dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+
+  constructor() {
+    afterNextRender(() => this.initMap());
+
+    // Push data whenever inputs or map-readiness change.
+    effect(() => {
+      const records = this.records();
+      const constraints = this.constraints();
+      const corridors = this.corridors();
+      const selected = this.selectedId();
+      if (!this.ready() || !this.map) return;
+      this.setSource('constraints', this.constraintFC(constraints));
+      this.setSource('corridors', this.corridorFC(corridors));
+      this.setSource('planned', this.plannedFC(records, selected));
+      this.fit(records);
+    });
+  }
+
+  private initMap(): void {
+    const bg = this.dark ? '#0e1512' : '#eef2ee';
+    this.map = new maplibregl.Map({
+      container: this.mapEl().nativeElement,
+      style: {
+        version: 8,
+        sources: {},
+        layers: [{ id: 'bg', type: 'background', paint: { 'background-color': bg } }],
+      },
+      center: [-83.16, 40.11],
+      zoom: 12,
+      attributionControl: false,
+    });
+    this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+    this.map.on('load', () => {
+      const m = this.map!;
+      m.addSource('constraints', { type: 'geojson', data: EMPTY });
+      m.addSource('corridors', { type: 'geojson', data: EMPTY });
+      m.addSource('planned', { type: 'geojson', data: EMPTY });
+
+      m.addLayer({
+        id: 'constraint-fill', type: 'fill', source: 'constraints',
+        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.14 },
+      });
+      m.addLayer({
+        id: 'constraint-line', type: 'line', source: 'constraints',
+        paint: { 'line-color': ['get', 'color'], 'line-dasharray': [2, 2], 'line-width': 1 },
+      });
+      m.addLayer({
+        id: 'corridor-line', type: 'line', source: 'corridors',
+        paint: {
+          'line-color': this.dark ? '#9db0a5' : '#5b6b62',
+          'line-width': 2, 'line-opacity': 0.8,
+        },
+      });
+      m.addLayer({
+        id: 'planned-fill', type: 'fill', source: 'planned',
+        paint: {
+          'fill-color': ['get', 'color'],
+          'fill-opacity': ['case', ['boolean', ['get', 'selected'], false], 0.55, 0.3],
+        },
+      });
+      m.addLayer({
+        id: 'planned-outline', type: 'line', source: 'planned',
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5],
+        },
+      });
+
+      m.on('click', 'planned-fill', (e) => {
+        const id = e.features?.[0]?.properties?.['planId'];
+        if (id) this.select.emit(String(id));
+      });
+      m.on('mouseenter', 'planned-fill', () => (m.getCanvas().style.cursor = 'pointer'));
+      m.on('mouseleave', 'planned-fill', () => (m.getCanvas().style.cursor = ''));
+
+      this.ready.set(true);
+    });
+  }
+
+  private setSource(id: string, data: FC): void {
+    (this.map?.getSource(id) as GeoJSONSource | undefined)?.setData(data);
+  }
+
+  private plannedFC(records: TreatmentRecord[], selected: string | null): FC {
+    return {
+      type: 'FeatureCollection',
+      features: records
+        .filter((r) => r.plannedGeometry)
+        .map((r) => ({
+          type: 'Feature',
+          geometry: r.plannedGeometry as GeoJSON.Geometry,
+          properties: {
+            planId: r.planId,
+            color: this.toneHex(STATUS_META[r.status].tone),
+            selected: r.planId === selected,
+          },
+        })),
+    };
+  }
+
+  private constraintFC(constraints: EnvironmentalConstraint[]): FC {
+    return {
+      type: 'FeatureCollection',
+      features: constraints
+        .filter((c) => c.geometry)
+        .map((c) => ({
+          type: 'Feature',
+          geometry: c.geometry as GeoJSON.Geometry,
+          properties: { color: this.dark ? '#5b9be0' : '#1f5fa8', name: c.name },
+        })),
+    };
+  }
+
+  private corridorFC(corridors: Corridor[]): FC {
+    return {
+      type: 'FeatureCollection',
+      features: corridors
+        .filter((c) => c.centerline)
+        .map((c) => ({
+          type: 'Feature',
+          geometry: c.centerline as GeoJSON.Geometry,
+          properties: { circuit: c.circuitId },
+        })),
+    };
+  }
+
+  private toneHex(tone: keyof typeof TONE_HEX): string {
+    const t = TONE_HEX[tone];
+    return this.dark ? t.dark : t.light;
+  }
+
+  private fit(records: TreatmentRecord[]): void {
+    const coords: [number, number][] = [];
+    for (const r of records) {
+      const g = r.plannedGeometry;
+      if (g?.type === 'Polygon') {
+        for (const ring of g.coordinates as number[][][]) {
+          for (const p of ring) coords.push([p[0], p[1]]);
+        }
+      }
+    }
+    if (coords.length < 2) return;
+    const lons = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+    this.map?.fitBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      { padding: 64, maxZoom: 15, duration: 500 },
+    );
+  }
+}

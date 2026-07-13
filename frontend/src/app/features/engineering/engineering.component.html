@@ -1,0 +1,111 @@
+<div class="view-enter mx-auto h-full max-w-3xl overflow-y-auto p-4">
+  <header class="mb-4">
+    <h1 class="text-lg font-semibold text-ink">Engineering Evidence</h1>
+    <p class="text-xs text-muted">
+      For the technical reviewer: what is built, tested, and bounded — line by line, honestly.
+    </p>
+  </header>
+
+  <!-- test scoreboard -->
+  <div class="mb-4 grid grid-cols-3 gap-2">
+    <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
+      <div class="text-2xl font-bold text-ok">26</div>
+      <div class="text-[11px] text-muted">backend pytest</div>
+    </div>
+    <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
+      <div class="text-2xl font-bold text-ok">12</div>
+      <div class="text-[11px] text-muted">frontend Jest</div>
+    </div>
+    <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
+      <div class="text-2xl font-bold text-ok">1</div>
+      <div class="text-[11px] text-muted">Cypress journey (passing)</div>
+    </div>
+  </div>
+
+  <a href="/api/docs" target="_blank" rel="noopener"
+     class="mb-4 flex items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary no-underline hover:opacity-90">
+    🔌 Open the live OpenAPI contract — /api/docs →
+  </a>
+
+  <!-- Live system health (from the API's in-process metrics registry) -->
+  @if (health(); as h) {
+    <section class="mb-4 rounded-lg border border-border bg-surface p-4">
+      <h2 class="flex items-center gap-2 text-sm font-semibold text-ink">
+        <span class="live-dot inline-block h-2 w-2 rounded-full bg-ok"></span> Live system health
+        <span class="ml-auto text-[11px] font-normal text-muted">uptime {{ h.uptime_s }}s · refreshes every 5s</span>
+      </h2>
+      <div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
+        <div class="rounded-md bg-surface-2 p-2 text-center">
+          <div class="text-lg font-bold text-ink">{{ h.total_requests }}</div>
+          <div class="text-[10px] text-muted">requests</div>
+        </div>
+        <div class="rounded-md bg-surface-2 p-2 text-center">
+          <div class="text-lg font-bold" [class.text-ok]="h.error_rate === 0" [class.text-danger]="h.error_rate > 0">{{ (h.error_rate * 100).toFixed(1) }}%</div>
+          <div class="text-[10px] text-muted">error rate</div>
+        </div>
+        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p50 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p50</div></div>
+        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p95 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p95</div></div>
+        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p99 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p99</div></div>
+      </div>
+      @if (h.endpoints.length) {
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-left text-muted">
+                <th class="py-1 font-medium">Endpoint</th><th class="py-1 text-right font-medium">Reqs</th>
+                <th class="py-1 text-right font-medium">Err</th><th class="py-1 text-right font-medium">p50</th>
+                <th class="py-1 text-right font-medium">p95</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of h.endpoints; track e.endpoint) {
+                <tr class="border-t border-border">
+                  <td class="py-1 pr-2 font-mono text-[11px]">{{ e.endpoint }}</td>
+                  <td class="py-1 text-right">{{ e.count }}</td>
+                  <td class="py-1 text-right" [class.text-danger]="e.errors > 0">{{ e.errors }}</td>
+                  <td class="py-1 text-right">{{ e.p50_ms }}ms</td>
+                  <td class="py-1 text-right">{{ e.p95_ms }}ms</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      <p class="mt-2 text-[10px] text-muted">Structured JSON access logs (correlation-id + latency) stream to stdout; this feed is the API's in-process metrics registry at <code>GET /api/metrics</code>.</p>
+    </section>
+  }
+
+  @for (s of sections; track s.title) {
+    <section class="mb-4 rounded-lg border border-border bg-surface p-4">
+      <h2 class="flex items-center gap-2 text-sm font-semibold text-ink">
+        <span aria-hidden="true">{{ s.glyph }}</span> {{ s.title }}
+      </h2>
+      <ul class="mt-2 space-y-2">
+        @for (i of s.items; track i.label) {
+          <li class="flex gap-2 text-sm">
+            @if (i.ok !== undefined) {
+              <span class="mt-0.5 flex-shrink-0" [class.text-ok]="i.ok" [class.text-warn]="!i.ok" aria-hidden="true">
+                {{ i.ok ? '✓' : '◔' }}
+              </span>
+            } @else {
+              <span class="mt-0.5 flex-shrink-0 text-muted" aria-hidden="true">•</span>
+            }
+            <span>
+              <span class="font-medium text-ink">{{ i.label }}</span>
+              <span class="text-muted"> — {{ i.detail }}</span>
+            </span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  <section class="mb-8 rounded-lg border border-warn/30 bg-warn-soft/40 p-4">
+    <h2 class="flex items-center gap-2 text-sm font-semibold text-warn">
+      <span aria-hidden="true">⚠</span> Known limitations (stated on purpose)
+    </h2>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
+      @for (l of limitations; track l) { <li>{{ l }}</li> }
+    </ul>
+  </section>
+</div>

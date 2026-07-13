@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+/* CanopyOps Treatment Assurance — global design tokens & base.
+   Restrained, operations-grade UI. 8-point spacing, strong hierarchy,
+   status conveyed by text + icon + shape + color (never color alone),
+   theme-aware, reduced-motion honored. */
+
+:root {
+  /* Spacing scale (4/8-point) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  /* Radii & elevation */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-1: 0 1px 2px rgba(15, 30, 25, 0.08), 0 1px 3px rgba(15, 30, 25, 0.06);
+  --shadow-2: 0 6px 20px rgba(15, 30, 25, 0.12);
+
+  /* Brand-neutral canopy palette (synthetic, not Davey brand) */
+  --c-bg: #f5f7f5;
+  --c-surface: #ffffff;
+  --c-surface-2: #eef2ee;
+  --c-border: #d7ded7;
+  --c-text: #16211c;
+  --c-text-muted: #5b6b62;
+  --c-primary: #1f6f4b;      /* canopy green */
+  --c-primary-ink: #ffffff;
+  --c-primary-soft: #e2f0e8;
+  --c-focus: #0a84ff;
+
+  /* Semantic status (each also gets an icon + shape in components) */
+  --c-ok: #1f8a54;
+  --c-ok-soft: #dff2e6;
+  --c-warn: #a8720a;
+  --c-warn-soft: #fbefd4;
+  --c-danger: #b4231f;
+  --c-danger-soft: #fbe0de;
+  --c-info: #1f5fa8;
+  --c-info-soft: #dde9f8;
+  --c-neutral: #5b6b62;
+  --c-neutral-soft: #e7ece8;
+
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Cascadia Code", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --header-h: 56px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0e1512;
+    --c-surface: #16201b;
+    --c-surface-2: #1d2a23;
+    --c-border: #2a3a31;
+    --c-text: #e7efe9;
+    --c-text-muted: #9db0a5;
+    --c-primary: #37b57e;
+    --c-primary-ink: #06110b;
+    --c-primary-soft: #16362a;
+    --c-ok-soft: #123324;
+    --c-warn-soft: #33270c;
+    --c-danger-soft: #35130f;
+    --c-info-soft: #10233a;
+    --c-neutral-soft: #1e2a24;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { margin: 0 0 var(--space-2); line-height: 1.25; font-weight: 650; }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+a { color: var(--c-primary); }
+
+button { font-family: inherit; }
+
+/* Universal visible focus — accessibility is a first-class requirement. */
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Screen-reader-only helper for accessible map/list equivalence. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   Motion layer — CSS-driven (compositor), robust even when a tab
+   is backgrounded (unlike requestAnimationFrame-based JS tweens).
+   ============================================================ */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.92); }
+  60%  { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(31, 111, 75, 0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(31, 111, 75, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(31, 111, 75, 0); }
+}
+@keyframes pulse-ring-danger {
+  0%   { box-shadow: 0 0 0 0 rgba(180, 35, 31, 0.5); }
+  70%  { box-shadow: 0 0 0 8px rgba(180, 35, 31, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(180, 35, 31, 0); }
+}
+@keyframes shimmer {
+  100% { background-position: 200% 0; }
+}
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Transform-only entrances — content is never blank even if an animation is
+   frozen (e.g. a backgrounded tab); at worst it sits a few px offset. */
+@keyframes slide-up { from { transform: translateY(12px); } to { transform: none; } }
+@keyframes slide-up-lg { from { transform: translateY(20px); } to { transform: none; } }
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: none; } }
+
+/* Routed view entrance — plays once per navigation (components recreate). */
+.view-enter { animation: slide-up 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Staggered list-item entrance. Set --i to the row index. */
+.stagger-in {
+  animation: slide-up-lg 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+/* Hover lift for cards/rows. */
+.lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+
+/* Live pulsing dot. */
+.live-dot { animation: pulse-ring 2s ease-out infinite; }
+.live-dot--danger { animation: pulse-ring-danger 1.6s ease-out infinite; }
+
+/* Meter fill grows in. */
+.meter-grow { transform-origin: left; animation: grow-x 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Reduced motion: neutralize the jarring translational entrances/reveals, but
+   keep subtle, non-flashing ambient motion so the UI never feels dead. */
+@media (prefers-reduced-motion: reduce) {
+  .view-enter, .stagger-in { animation: none !important; transform: none !important; }
+  .lift { transition: none !important; }
+}

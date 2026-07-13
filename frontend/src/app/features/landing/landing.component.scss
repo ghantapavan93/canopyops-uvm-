@@ -1,0 +1,209 @@
+/* Cinematic landing — a deliberate single dark "futuristic" look (not theme-
+   reactive), so the hiring reviewer's first 30 seconds are consistently
+   jaw-dropping. The operational console stays restrained + theme-aware. */
+
+:host {
+  --ink: #e8f2ec;
+  --ink-dim: #9fb4a8;
+  --edge: rgba(120, 200, 160, 0.14);
+  --canopy: #37e29a;
+  --canopy-2: #22c3e6;
+  --canopy-3: #7c5cff;
+  --panel: rgba(14, 22, 19, 0.55);
+
+  display: block;
+  position: relative;
+  color: var(--ink);
+  background: #060b09;
+  font-feature-settings: 'ss01', 'cv01';
+  overflow-x: clip;
+}
+
+/* ---- Animated aurora + mesh background ---- */
+.stage {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+}
+.aurora {
+  position: fixed;
+  inset: -25% -15% auto -15%;
+  height: 140vh;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(45% 45% at 18% 22%, rgba(55, 226, 154, 0.55), transparent 60%),
+    radial-gradient(40% 40% at 82% 18%, rgba(34, 195, 230, 0.45), transparent 62%),
+    radial-gradient(55% 55% at 62% 78%, rgba(124, 92, 255, 0.42), transparent 60%);
+  filter: blur(36px) saturate(150%);
+  animation: drift 14s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  0%   { transform: translate3d(-6%, -4%, 0) scale(1.05) rotate(-2deg); }
+  100% { transform: translate3d(8%, 6%, 0) scale(1.14) rotate(2deg); }
+}
+
+/* subtle film grain for depth */
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.wrap { position: relative; z-index: 2; }
+
+/* ---- Glass surfaces ---- */
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+/* ---- Kinetic gradient text ---- */
+.grad {
+  background: linear-gradient(100deg, var(--canopy), var(--canopy-2) 40%, var(--canopy-3) 70%, var(--canopy));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 300% 100%;
+  animation: sheen 4.5s linear infinite;
+}
+@keyframes sheen {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* Rotating conic halo behind the hero visual — obvious, continuous motion. */
+.spin-glow {
+  position: absolute;
+  inset: -30%;
+  z-index: -1;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #37e29a55, #22c3e655, #7c5cff55, #37e29a55);
+  filter: blur(46px);
+  opacity: 0.55;
+  animation: spin 12s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.eyebrow {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+.hero-title {
+  font-weight: 780;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  font-size: clamp(2.6rem, 7vw, 5.6rem);
+}
+
+.lead { color: var(--ink-dim); }
+
+.btn-primary {
+  background: linear-gradient(100deg, var(--canopy), var(--canopy-2));
+  color: #04120c;
+  font-weight: 650;
+  box-shadow: 0 8px 30px rgba(55, 226, 154, 0.28);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 40px rgba(55, 226, 154, 0.4); }
+
+.btn-ghost {
+  border: 1px solid var(--edge);
+  color: var(--ink);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(120, 200, 160, 0.3); }
+
+/* ---- Floating hero visual (assurance card) ---- */
+.float { animation: float 6s ease-in-out infinite; }
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-0.4deg); }
+  50% { transform: translateY(-12px) rotate(0.4deg); }
+}
+.meter-fill {
+  background: linear-gradient(90deg, var(--canopy), var(--canopy-2));
+  box-shadow: 0 0 18px rgba(55, 226, 154, 0.5);
+}
+
+/* map motif — animated scanning line */
+.scan { position: relative; overflow: hidden; }
+.scan::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 40%, rgba(55, 226, 154, 0.18) 50%, transparent 60%);
+  transform: translateX(-100%);
+  animation: scan 3.4s ease-in-out infinite;
+}
+@keyframes scan { to { transform: translateX(100%); } }
+
+/* ---- marquee ---- */
+.marquee { mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.marquee__row { display: inline-flex; gap: 2.5rem; animation: slide 16s linear infinite; }
+@keyframes slide { to { transform: translateX(-50%); } }
+
+/* ---- step spine ---- */
+.spine { background: linear-gradient(180deg, var(--canopy), var(--canopy-3)); }
+.node {
+  background: #0b1512;
+  border: 2px solid var(--canopy);
+  box-shadow: 0 0 0 4px rgba(55, 226, 154, 0.12), 0 0 22px rgba(55, 226, 154, 0.35);
+}
+
+.card-hover { transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease; }
+.card-hover:hover { transform: translateY(-4px); border-color: rgba(55, 226, 154, 0.35); background: rgba(20, 32, 27, 0.7); }
+
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--edge), transparent); }
+
+/* ---- entrance + scroll reveal ----
+   ROBUSTNESS RULE: content is fully visible (opacity 1) at rest. Motion is
+   transform-only, so even if an animation is frozen or never runs, the content
+   is never blank — at worst it sits a few px offset. */
+@keyframes lrise {
+  from { transform: translateY(24px); }
+  to   { transform: none; }
+}
+
+[data-anim='hero'] { animation: lrise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+[data-anim='hero']:nth-child(2) { animation-delay: 0.07s; }
+[data-anim='hero']:nth-child(3) { animation-delay: 0.14s; }
+[data-anim='hero']:nth-child(4) { animation-delay: 0.21s; }
+[data-anim='hero']:nth-child(5) { animation-delay: 0.28s; }
+[data-anim='herovis'] { animation: lrise 0.85s 0.16s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Reveals: visible at rest; a subtle lift settles when scrolled into view. */
+[data-reveal], [data-step] {
+  transform: translateY(20px);
+  transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+[data-reveal].in, [data-step].in { transform: none; }
+
+/* ---- cursor-follow glow ---- */
+.cursor-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 25%),
+    rgba(55, 226, 154, 0.10),
+    transparent 60%
+  );
+  transition: background 0.12s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep ambient (aurora/grad/marquee/float) — subtle, non-flashing. Only the
+     one-shot translational entrances are neutralized. */
+  [data-anim='hero'], [data-anim='herovis'] { animation: none !important; transform: none; }
+  [data-reveal], [data-step] { transform: none !important; transition: none; }
+}

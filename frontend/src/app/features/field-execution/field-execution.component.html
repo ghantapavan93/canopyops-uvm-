@@ -1,0 +1,122 @@
+<div class="view-enter mx-auto flex h-full max-w-2xl flex-col overflow-y-auto p-4">
+  <!-- connectivity control -->
+  <div class="mb-3 flex items-center gap-3 rounded-lg border border-border bg-surface p-3">
+    <span class="flex items-center gap-2 text-sm font-medium">
+      <span class="inline-block h-2.5 w-2.5 rounded-full" [class.bg-ok]="conn.online()" [class.bg-danger]="!conn.online()"></span>
+      {{ conn.online() ? 'Online' : 'Offline' }}
+    </span>
+    <span class="text-xs text-muted">Simulate field connectivity →</span>
+    <div class="ml-auto flex overflow-hidden rounded-md border border-border">
+      <button (click)="conn.setForced(true)" class="px-3 py-1 text-xs font-medium" [class.bg-primary]="conn.online()" [class.text-primary-ink]="conn.online()">On</button>
+      <button (click)="conn.setForced(false)" class="px-3 py-1 text-xs font-medium" [class.bg-danger]="!conn.online()" [class.text-white]="!conn.online()">Off</button>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <h1 class="text-lg font-semibold text-ink">Field Execution</h1>
+    <p class="text-xs text-muted">Record what happened on site. Works fully offline — saved locally, synced later.</p>
+  </div>
+
+  @if (!canRecord()) {
+    <div class="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
+      Only Field Crew or Manager can record execution. Use the role switch in the header.
+    </div>
+  }
+
+  @if (savedMsg()) {
+    <div class="mb-3 flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-soft p-3 text-sm text-ok">
+      <span aria-hidden="true">✓</span> {{ savedMsg() }}
+      <a routerLink="/console/sync" class="ml-auto font-semibold underline">Open Sync Center ({{ pending() }}) →</a>
+    </div>
+  }
+
+  <!-- pick a plan -->
+  @if (!selected()) {
+    <ul class="space-y-2">
+      @for (p of plans(); track p.planId) {
+        <li>
+          <button (click)="choose(p.planId)" [disabled]="!canRecord()"
+            class="lift w-full rounded-lg border border-border bg-surface p-3 text-left hover:border-primary disabled:opacity-50">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-sm font-semibold">{{ p.workOrderRef }}</span>
+              <app-status-badge [meta]="STATUS_META[p.status]" />
+              <span class="ml-auto text-xs text-muted">{{ p.corridor.circuitId }} · {{ p.corridor.spanLabel }}</span>
+            </div>
+            <p class="mt-1 text-sm text-muted">{{ p.targetCondition }}</p>
+          </button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <!-- capture form -->
+    <div class="rounded-lg border border-border bg-surface p-4">
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-sm font-semibold">{{ selected()!.workOrderRef }}</span>
+        <app-status-badge [meta]="STATUS_META[selected()!.status]" />
+        <button (click)="selectedId.set(null)" class="ml-auto text-xs text-muted underline">change</button>
+      </div>
+
+      <!-- planned vs actual preview -->
+      <div class="mt-3 grid grid-cols-[120px_1fr] items-center gap-4">
+        <svg viewBox="0 0 100 100" class="w-full rounded-md border border-border bg-bg" aria-label="Planned versus actual coverage preview">
+          @if (preview(); as pv) {
+            <polygon [attr.points]="pv.planned" fill="none" stroke="var(--c-primary)" stroke-width="1.2" stroke-dasharray="3 2" />
+            @if (pv.actual) {
+              <polygon [attr.points]="pv.actual" fill="var(--c-primary)" fill-opacity="0.35" stroke="var(--c-primary)" stroke-width="1" />
+            }
+          }
+        </svg>
+        <div>
+          <label class="text-xs font-semibold text-muted" for="cov">Area treated (coverage)</label>
+          <input id="cov" type="range" min="20" max="100" step="5" [ngModel]="coverage()" (ngModelChange)="coverage.set($event)" class="w-full" />
+          <div class="text-sm">
+            <span class="text-2xl font-bold" [class.text-warn]="coverage() < 100" [class.text-ok]="coverage() === 100">{{ coverage() }}%</span>
+            <span class="text-muted"> of planned polygon</span>
+          </div>
+          @if (coverage() < 100) {
+            <p class="text-xs text-warn">Partial coverage — the record will stay incomplete until the gap is addressed.</p>
+          }
+        </div>
+      </div>
+
+      <!-- evidence -->
+      <div class="mt-4">
+        <div class="text-xs font-semibold uppercase tracking-wide text-muted">Required evidence</div>
+        <ul class="mt-1.5 space-y-1.5">
+          @for (row of evidence(); track row.type) {
+            <li class="flex items-center gap-3 rounded-md border border-border p-2">
+              <button (click)="toggleCaptured(row)" [attr.aria-pressed]="row.captured"
+                class="grid h-6 w-6 flex-shrink-0 place-items-center rounded border"
+                [class.bg-ok]="row.captured" [class.text-white]="row.captured" [class.border-ok]="row.captured" [class.border-border]="!row.captured">
+                {{ row.captured ? '✓' : '' }}
+              </button>
+              <span class="text-sm capitalize">{{ row.type.replaceAll('_', ' ') }}</span>
+              @if (row.canFail && row.captured) {
+                <label class="ml-auto flex items-center gap-1.5 text-xs text-muted">
+                  <input type="checkbox" [ngModel]="row.simulateFail" (ngModelChange)="toggleFail(row)" />
+                  simulate upload failure
+                </label>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+
+      @if (selected()!.constraintFlags.length) {
+        <label class="mt-4 flex items-start gap-2 rounded-md bg-info-soft p-3 text-sm text-info">
+          <input type="checkbox" [ngModel]="constraintAck()" (ngModelChange)="constraintAck.set($event)" class="mt-0.5" />
+          <span>
+            I acknowledge the environmental constraints intersecting this span:
+            <strong>{{ selected()!.constraintFlags.length }}</strong>
+            ({{ selected()!.constraintFlags.length === 1 ? CONSTRAINT_META[selected()!.constraintFlags[0]].label : 'multiple' }}).
+          </span>
+        </label>
+      }
+
+      <button (click)="save()" [disabled]="!canRecord()"
+        class="mt-4 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-50">
+        {{ conn.online() ? 'Record & sync execution' : 'Record execution (save offline)' }}
+      </button>
+    </div>
+  }
+</div>
