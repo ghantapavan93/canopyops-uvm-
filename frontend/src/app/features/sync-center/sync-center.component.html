@@ -11,6 +11,14 @@
     </div>
     <button (click)="sync.syncAll()" [disabled]="!conn.online()"
       class="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-ink disabled:opacity-50">Sync now</button>
+    @if (failedCount() > 0) {
+      <button (click)="retryAllFailed()" [disabled]="!conn.online()"
+        class="rounded-md border border-warn/50 px-3 py-1.5 text-xs font-medium text-warn disabled:opacity-50">Retry all failed ({{ failedCount() }})</button>
+    }
+    @if (conflictCount() > 0) {
+      <button (click)="resolveAllConflicts()" [disabled]="!conn.online()"
+        class="rounded-md border border-danger/50 px-3 py-1.5 text-xs font-medium text-danger disabled:opacity-50">Resolve all conflicts ({{ conflictCount() }})</button>
+    }
     <button (click)="sync.clearSynced()" class="rounded-md border border-border px-3 py-1.5 text-xs text-muted">Clear synced</button>
     <a routerLink="/console/execution" class="ml-auto text-xs font-semibold text-primary underline">+ Record execution</a>
   </div>
@@ -29,10 +37,43 @@
       Outbox is empty. Record a field execution — try it with connectivity <strong>Off</strong> —
       and watch it queue here, then sync safely when you go back online.
     </div>
+  } @else {
+    <!-- Live composition bar + clickable status filters -->
+    <div class="mb-3 rounded-lg border border-border bg-surface p-3">
+      <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+        @for (seg of composition(); track seg.status) {
+          <button type="button" (click)="setFilter(seg.status)"
+                  class="h-full transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary"
+                  [style.width.%]="seg.pct" [style.background-color]="'var(--c-' + seg.tone + ')'"
+                  [title]="seg.label + ': ' + seg.count"
+                  [attr.aria-label]="seg.label + ': ' + seg.count"></button>
+        }
+      </div>
+      <div class="mt-2.5 flex flex-wrap gap-1.5">
+        <button type="button" (click)="setFilter('all')" [attr.aria-pressed]="filter() === 'all'"
+                class="rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors"
+                [class.border-primary]="filter() === 'all'" [class.bg-primary-soft]="filter() === 'all'" [class.text-primary]="filter() === 'all'"
+                [class.border-border]="filter() !== 'all'" [class.text-muted]="filter() !== 'all'">
+          All · {{ items().length }}
+        </button>
+        @for (s of statusOrder; track s) {
+          @if (counts()[s] > 0) {
+            <button type="button" (click)="setFilter(s)" [attr.aria-pressed]="filter() === s"
+                    class="flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors"
+                    [class.border-primary]="filter() === s" [class.bg-primary-soft]="filter() === s"
+                    [class.border-border]="filter() !== s">
+              <span aria-hidden="true" [style.color]="'var(--c-' + meta[s].tone + ')'">{{ meta[s].glyph }}</span>
+              <span [class.text-primary]="filter() === s" [class.text-ink]="filter() !== s">{{ meta[s].label }}</span>
+              <span class="tabular-nums font-semibold" [class.text-primary]="filter() === s" [class.text-muted]="filter() !== s">{{ counts()[s] }}</span>
+            </button>
+          }
+        }
+      </div>
+    </div>
   }
 
   <ul class="space-y-2">
-    @for (item of items(); track item.id; let i = $index) {
+    @for (item of visible(); track item.id; let i = $index) {
       <li class="stagger-in rounded-lg border bg-surface p-3"
           [style.--i]="i"
           [class.border-danger]="item.status === 'conflict'"
@@ -53,6 +94,22 @@
           {{ item.payload.evidence.length }} evidence item(s) captured · plan revision seen: {{ item.payload.planRevision }}
           @if (item.payload.constraintAcknowledged) { · constraints acknowledged }
         </div>
+        <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+          <span class="font-mono" title="Idempotency-Key — replays under this key never duplicate">🔑 {{ keyShort(item.idempotencyKey) }}…</span>
+          @if (item.createdAt) { <span>· queued {{ ago(item.createdAt) }}</span> }
+          <button type="button" (click)="toggleExpand(item.id)" [attr.aria-expanded]="isExpanded(item.id)"
+                  class="ml-auto rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted hover:bg-surface-2">
+            {{ isExpanded(item.id) ? 'Hide payload' : 'Inspect payload' }}
+          </button>
+        </div>
+        @if (isExpanded(item.id)) {
+          <div class="mt-1.5 rounded-md border border-border bg-bg p-2">
+            <div class="mb-1 flex items-center justify-between text-[10px] text-muted">
+              <span>POST /api/executions · header <span class="font-mono">Idempotency-Key: {{ item.idempotencyKey }}</span></span>
+            </div>
+            <pre class="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-surface-2 p-2 text-[10px] leading-relaxed text-ink"><code>{{ payloadJson(item) }}</code></pre>
+          </div>
+        }
 
         <!-- SYNCED result -->
         @if (item.status === 'synced' && item.result; as r) {
@@ -108,6 +165,11 @@
             <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted">Discard</button>
           </div>
         }
+      </li>
+    } @empty {
+      <li class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted">
+        No items match this filter.
+        <button (click)="setFilter('all')" class="ml-1 text-primary underline">Show all</button>
       </li>
     }
   </ul>
