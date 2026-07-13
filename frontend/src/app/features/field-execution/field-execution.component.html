@@ -12,9 +12,29 @@
     </div>
   </div>
 
-  <div class="mb-3">
-    <h1 class="text-lg font-semibold text-ink">Field Execution</h1>
-    <p class="text-xs text-muted">Record what happened on site. Works fully offline — saved locally, synced later.</p>
+  <div class="mb-3 flex items-start gap-2">
+    <div>
+      <h1 class="text-lg font-semibold text-ink">Field Execution</h1>
+      <p class="text-xs text-muted">Record what happened on site. Works fully offline — saved locally, synced later.</p>
+    </div>
+    @if (!selected()) {
+      <div class="ml-auto flex items-center gap-2">
+        <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
+                class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+                [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
+                [class.border-border]="!live()" [class.text-muted]="!live()"
+                [title]="live() ? 'Live — new plans appear automatically' : 'Paused'">
+          <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="live()" [class.live-dot]="live()" [class.bg-muted]="!live()"></span>
+          {{ live() ? 'Live' : 'Paused' }}
+        </button>
+        <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
+                class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+                aria-label="Refresh plan list">
+          <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
+          <span class="tabular-nums text-muted">{{ agoSeconds() }}s</span>
+        </button>
+      </div>
+    }
   </div>
 
   @if (!canRecord()) {
@@ -32,11 +52,19 @@
 
   <!-- pick a plan -->
   @if (!selected()) {
+    @if (plans().length) {
+      <div class="mb-1.5 flex items-center gap-2 px-1">
+        <span class="text-[11px] font-semibold tabular-nums text-ink">{{ plans().length }}</span>
+        <span class="text-[11px] text-muted">plans ready to record</span>
+        <span class="ml-auto hidden text-[10px] text-muted sm:inline" aria-hidden="true"
+              title="Arrow keys or J/K to move, Enter to open">⌨ ↑↓ / J K · Enter</span>
+      </div>
+    }
     <ul class="space-y-2">
       @for (p of plans(); track p.planId) {
         <li>
-          <button (click)="choose(p.planId)" [disabled]="!canRecord()"
-            class="lift w-full rounded-lg border border-border bg-surface p-3 text-left hover:border-primary disabled:opacity-50">
+          <button [id]="'plan-' + p.planId" (click)="choose(p.planId)" [disabled]="!canRecord()"
+            class="lift w-full rounded-lg border border-border bg-surface p-3 text-left hover:border-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
             <div class="flex items-center gap-2">
               <span class="font-mono text-sm font-semibold">{{ p.workOrderRef }}</span>
               <app-status-badge [meta]="STATUS_META[p.status]" />
@@ -69,9 +97,19 @@
         <div>
           <label class="text-xs font-semibold text-muted" for="cov">Area treated (coverage)</label>
           <input id="cov" type="range" min="20" max="100" step="5" [ngModel]="coverage()" (ngModelChange)="coverage.set($event)" class="w-full" />
-          <div class="text-sm">
-            <span class="text-2xl font-bold" [class.text-warn]="coverage() < 100" [class.text-ok]="coverage() === 100">{{ coverage() }}%</span>
-            <span class="text-muted"> of planned polygon</span>
+          <div class="mt-1 flex items-center gap-2">
+            <div class="text-sm">
+              <span class="text-2xl font-bold" [class.text-warn]="coverage() < 100" [class.text-ok]="coverage() === 100">{{ coverage() }}%</span>
+              <span class="text-muted"> of planned polygon</span>
+            </div>
+            <div class="ml-auto flex gap-1">
+              @for (p of coveragePresets; track p) {
+                <button type="button" (click)="setCoverage(p)" [attr.aria-pressed]="coverage() === p"
+                        class="rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors"
+                        [class.border-primary]="coverage() === p" [class.bg-primary-soft]="coverage() === p" [class.text-primary]="coverage() === p"
+                        [class.border-border]="coverage() !== p" [class.text-muted]="coverage() !== p">{{ p }}%</button>
+              }
+            </div>
           </div>
           @if (coverage() < 100) {
             <p class="text-xs text-warn">Partial coverage — the record will stay incomplete until the gap is addressed.</p>
@@ -100,6 +138,26 @@
             </li>
           }
         </ul>
+
+        <!-- Live evidence completeness — mirrors the server gate exactly -->
+        <div class="mt-2 rounded-md border p-2"
+             [class.border-ok]="evidenceComplete()" [class.bg-ok-soft]="evidenceComplete()"
+             [class.border-warn]="!evidenceComplete()" [class.bg-warn-soft]="!evidenceComplete()">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold" [class.text-ok]="evidenceComplete()" [class.text-warn]="!evidenceComplete()">
+              Evidence {{ evidenceComplete() ? 'complete' : 'incomplete' }} · {{ evidenceStored() }}/{{ evidenceRequired() }}
+            </span>
+            <span class="tabular-nums" [class.text-ok]="evidenceComplete()" [class.text-warn]="!evidenceComplete()">{{ pct(evidenceScore()) }}</span>
+          </div>
+          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+            <div class="h-full rounded-full transition-all duration-300"
+                 [class.bg-ok]="evidenceComplete()" [class.bg-warn]="!evidenceComplete()"
+                 [style.width]="pct(evidenceScore())"></div>
+          </div>
+          @if (!evidenceComplete()) {
+            <p class="mt-1 text-[11px] text-warn">A missing or failed upload keeps this record incomplete — verification stays blocked until it's recovered.</p>
+          }
+        </div>
       </div>
 
       @if (selected()!.constraintFlags.length) {
@@ -113,10 +171,34 @@
         </label>
       }
 
+      <!-- Live submission summary — what will actually happen on save -->
+      <div class="mt-4 rounded-md border border-border bg-bg p-2.5 text-xs">
+        <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">On record</div>
+        <ul class="space-y-1">
+          @for (item of checklist(); track item.label) {
+            <li class="flex items-center gap-2" [class.text-ink]="item.done" [class.text-muted]="!item.done">
+              <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]"
+                    [class.bg-ok]="item.done" [class.text-primary-ink]="item.done"
+                    [class.bg-warn-soft]="!item.done" [class.text-warn]="!item.done" aria-hidden="true">{{ item.done ? '✓' : '!' }}</span>
+              {{ item.label }}
+            </li>
+          }
+        </ul>
+        <p class="mt-1.5 border-t border-border pt-1.5 text-[11px] text-muted">
+          Submits as <strong class="text-ink">applied</strong> ·
+          <span [class.text-ok]="evidenceComplete()" [class.text-warn]="!evidenceComplete()">
+            {{ evidenceComplete() ? 'ready for verification' : 'verification blocked until evidence recovered' }}</span>.
+        </p>
+      </div>
+
       <button (click)="save()" [disabled]="!canRecord()"
-        class="mt-4 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-50">
+        class="mt-3 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-50">
         {{ conn.online() ? 'Record & sync execution' : 'Record execution (save offline)' }}
       </button>
+      <p class="mt-1 text-center text-[11px] text-muted">
+        <kbd class="rounded border border-border px-1">Ctrl</kbd>+<kbd class="rounded border border-border px-1">Enter</kbd> to record ·
+        <kbd class="rounded border border-border px-1">Esc</kbd> to go back
+      </p>
     </div>
   }
 </div>
