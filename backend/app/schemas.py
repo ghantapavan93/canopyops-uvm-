@@ -218,6 +218,13 @@ class ProximityOut(Schema):
     note: str = "Synthetic constraints — illustrative only. Distances via PostGIS geography."
 
 
+class ZonesSnapshot(Schema):
+    """A cacheable snapshot of protected zones — the payload a field device
+    stores so geofence alerts still work with no connectivity."""
+    version: str
+    zones: list[ConstraintOut]
+
+
 class PlanCreate(Schema):
     corridor_id: str
     priority: e.WorkOrderPriority = e.WorkOrderPriority.ROUTINE

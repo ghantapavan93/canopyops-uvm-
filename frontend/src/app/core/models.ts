@@ -105,6 +105,11 @@ export interface ProximityResult {
   note: string;
 }
 
+export interface ZonesSnapshot {
+  version: string;
+  zones: EnvironmentalConstraint[];
+}
+
 /** Flattened queue/detail row: a plan joined with its work order + corridor,
  *  plus derived assurance signals the Command Center ranks on. */
 export interface TreatmentRecord {

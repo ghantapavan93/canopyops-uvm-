@@ -2,9 +2,11 @@ import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 
 import { ApiService } from '../../core/api.service';
 import { ConnectivityService } from '../../core/connectivity.service';
+import { evaluateProximity } from '../../core/geofence';
 import {
   Corridor, EnvironmentalConstraint, ProximityLevel, ProximityResult, ProximityZone,
 } from '../../core/models';
+import { ZoneCacheService } from '../../core/zone-cache.service';
 import { GeofenceMapComponent } from './geofence-map.component';
 
 interface AlertEvent {
@@ -31,6 +33,7 @@ const PATROL: [number, number][] = Array.from({ length: 22 }, (_, i) => {
 })
 export class GeofenceComponent implements OnDestroy {
   private api = inject(ApiService);
+  private zoneCache = inject(ZoneCacheService);
   conn = inject(ConnectivityService);
 
   readonly constraints = signal<EnvironmentalConstraint[]>([]);
@@ -40,6 +43,14 @@ export class GeofenceComponent implements OnDestroy {
   readonly result = signal<ProximityResult | null>(null);
   readonly log = signal<AlertEvent[]>([]);
   readonly patrolling = signal(false);
+
+  // Where the last result was computed, plus the cached zone snapshot version —
+  // this is what makes the offline story concrete and inspectable.
+  readonly source = signal<'server' | 'on-device'>('server');
+  readonly zoneVersion = signal<string>('');
+  /** When online, whether the on-device engine agrees with the server. */
+  readonly parity = signal<boolean | null>(null);
+  private cachedZones: EnvironmentalConstraint[] = [];
 
   private prevLevels = new Map<string, ProximityLevel>();
   private patrolId: ReturnType<typeof setInterval> | null = null;
@@ -59,9 +70,33 @@ export class GeofenceComponent implements OnDestroy {
   readonly warningPresets = [60, 120, 200];
 
   constructor() {
-    this.api.listConstraints().subscribe((c) => this.constraints.set(c));
     this.api.listCorridors().subscribe((c) => this.corridors.set(c));
-    this.check();
+    this.loadZones();
+  }
+
+  /** Load the protected-zone snapshot: show the cached copy instantly (works
+   *  offline), then refresh from the server and re-cache when reachable. */
+  private loadZones(): void {
+    this.zoneCache.load().then((snap) => {
+      if (snap && !this.cachedZones.length) {
+        this.applyZones(snap.zones, snap.version);
+        this.check();
+      }
+    });
+    this.api.getZones().subscribe({
+      next: (s) => {
+        this.applyZones(s.zones, s.version);
+        void this.zoneCache.save({ version: s.version, zones: s.zones, cachedAt: new Date().toISOString() });
+        this.check();
+      },
+      error: () => this.check(),  // offline on first load → use whatever cache we have
+    });
+  }
+
+  private applyZones(zones: EnvironmentalConstraint[], version: string): void {
+    this.constraints.set(zones);
+    this.cachedZones = zones;
+    this.zoneVersion.set(version);
   }
 
   ngOnDestroy(): void {
@@ -79,13 +114,38 @@ export class GeofenceComponent implements OnDestroy {
     this.check();
   }
 
-  /** Server-authoritative geofence check for the current position. */
+  /** Geofence check: server-authoritative when online (with an on-device parity
+   *  check), on-device from cached zones when offline or the API is unreachable. */
   private check(): void {
     const [lon, lat] = this.position();
+    if (!this.conn.online()) { this.computeLocal(lon, lat); return; }
     this.api.proximity(lon, lat, this.warningMeters()).subscribe({
-      next: (r) => { this.result.set(r); this.record(r); },
-      error: () => {},
+      next: (r) => {
+        this.result.set(r);
+        this.source.set('server');
+        if (this.cachedZones.length) {
+          const local = evaluateProximity(lon, lat, this.cachedZones, this.warningMeters());
+          this.parity.set(local.overallLevel === r.overallLevel);
+        }
+        this.record(r);
+      },
+      error: () => this.computeLocal(lon, lat),
     });
+  }
+
+  /** On-device fallback using the cached zone snapshot — mirrors the server. */
+  private computeLocal(lon: number, lat: number): void {
+    const r = evaluateProximity(lon, lat, this.cachedZones, this.warningMeters());
+    this.result.set(r);
+    this.source.set('on-device');
+    this.parity.set(null);
+    this.record(r);
+  }
+
+  /** Demo control: flip connectivity to prove alerts survive going offline. */
+  toggleOffline(): void {
+    this.conn.setForced(!this.conn.online());
+    this.check();
   }
 
   /** Append an alert-log entry whenever a zone escalates to a higher level. */

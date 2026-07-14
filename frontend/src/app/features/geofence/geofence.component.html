@@ -59,10 +59,33 @@
                 [class.border-border]="warningMeters() !== m" [class.text-muted]="warningMeters() !== m">{{ m }} m</button>
       }
     </div>
-    <span class="ml-auto flex items-center gap-1.5 text-[11px]">
+    <button type="button" (click)="toggleOffline()"
+            class="ml-auto flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+            [class.border-ok]="conn.online()" [class.text-ok]="conn.online()"
+            [class.border-danger]="!conn.online()" [class.bg-danger-soft]="!conn.online()" [class.text-danger]="!conn.online()"
+            [title]="conn.online() ? 'Online — click to simulate losing signal' : 'Offline — alerts computed on-device'">
       <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="conn.online()" [class.bg-danger]="!conn.online()"></span>
-      {{ conn.online() ? 'Online' : 'Offline' }}
+      {{ conn.online() ? 'Online' : 'Offline — on-device' }}
+    </button>
+  </div>
+
+  <!-- compute-source telemetry: makes the offline story concrete -->
+  <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg p-2 text-[11px]">
+    <span class="font-semibold uppercase tracking-wide text-muted">Computed by</span>
+    <span class="rounded-sm px-1.5 py-0.5 font-semibold"
+          [class.bg-info-soft]="source() === 'server'" [class.text-info]="source() === 'server'"
+          [class.bg-warn-soft]="source() === 'on-device'" [class.text-warn]="source() === 'on-device'">
+      {{ source() === 'server' ? 'server · PostGIS' : 'on-device · cached zones' }}
     </span>
+    <span class="text-muted">· zones cached <span class="font-mono">v{{ zoneVersion() || '—' }}</span> ({{ constraints().length }})</span>
+    @if (parity() !== null) {
+      <span class="rounded-sm px-1.5 py-0.5"
+            [class.bg-ok-soft]="parity()" [class.text-ok]="parity()"
+            [class.bg-danger-soft]="!parity()" [class.text-danger]="!parity()">
+        on-device parity {{ parity() ? '✓ matches server' : '✗ differs' }}
+      </span>
+    }
+    <span class="ml-auto text-muted">IndexedDB · works after a full refresh with no signal</span>
   </div>
 
   <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_320px]">

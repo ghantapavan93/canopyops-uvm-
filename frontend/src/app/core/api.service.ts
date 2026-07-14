@@ -16,6 +16,7 @@ import {
   ProofPack,
   ProximityResult,
   StewardshipPayload,
+  ZonesSnapshot,
   SystemHealth,
   TreatmentRecord,
   VerificationInput,
@@ -124,6 +125,11 @@ export class ApiService {
     return this.http.post<ProximityResult>(`${this.base}/geo/proximity`, {
       lon, lat, warningMeters,
     });
+  }
+
+  /** Versioned protected-zone snapshot cached on-device for offline geofencing. */
+  getZones(): Observable<ZonesSnapshot> {
+    return this.http.get<ZonesSnapshot>(`${this.base}/geo/zones`);
   }
 
   getMetrics(): Observable<SystemHealth> {

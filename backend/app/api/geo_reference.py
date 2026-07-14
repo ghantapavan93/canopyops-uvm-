@@ -1,6 +1,10 @@
 """Corridors and environmental constraints — the map's context layers, plus a
 live geometry-analysis endpoint used while a manager draws a treatment plan."""
-from fastapi import APIRouter, Depends, HTTPException
+import hashlib
+import json
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi.responses import JSONResponse
 from shapely.geometry import shape
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -17,6 +21,7 @@ from app.schemas import (
     ProximityIn,
     ProximityOut,
     ProximityZone,
+    ZonesSnapshot,
 )
 from app.services.geo import to_geojson
 
@@ -82,6 +87,33 @@ def analyze_geometry(payload: GeoAnalyzeIn, db: Session = Depends(get_db)) -> Ge
         intersecting_constraints=constraints,
         blocking=blocking,
     )
+
+
+@router.get("/geo/zones")
+def geo_zones(
+    if_none_match: str | None = Header(None), db: Session = Depends(get_db)
+) -> Response:
+    """A versioned, cacheable snapshot of the protected zones. A field device
+    stores this so the geofence still works offline (client-side point-in-polygon
+    against the same geometry). Content-addressed ``version`` + ETag mean a device
+    only re-downloads when the zones actually change (``If-None-Match`` → 304)."""
+    rows = db.scalars(select(m.EnvironmentalConstraint)).all()
+    zones = [
+        ConstraintOut(
+            id=c.id, name=c.name, category=c.category, severity=c.severity,
+            geometry=to_geojson(c.geometry),
+        )
+        for c in rows
+    ]
+    zdump = [z.model_dump(by_alias=True) for z in zones]
+    digest = hashlib.sha1(
+        json.dumps(zdump, sort_keys=True, default=str).encode()
+    ).hexdigest()[:12]
+    etag = f'W/"{digest}"'
+    if if_none_match and if_none_match.strip() == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+    body = ZonesSnapshot(version=digest, zones=zones).model_dump(by_alias=True)
+    return JSONResponse(body, headers={"ETag": etag, "Cache-Control": "no-cache"})
 
 
 @router.post("/geo/proximity", response_model=ProximityOut)

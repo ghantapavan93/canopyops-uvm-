@@ -39,3 +39,19 @@ def test_zones_sorted_nearest_first(client):
     res = client.post("/api/geo/proximity", json={**FAR, "warningMeters": 60}).json()
     dists = [z["distanceM"] for z in res["zones"]]
     assert dists == sorted(dists)
+
+
+def test_zones_snapshot_has_version_and_etag(client):
+    res = client.get("/api/geo/zones")
+    assert res.status_code == 200
+    assert res.headers.get("ETag")
+    body = res.json()
+    assert body["version"]
+    assert len(body["zones"]) == 3               # three seeded constraints
+    assert all(z["geometry"] for z in body["zones"])  # geometry travels for offline use
+
+
+def test_zones_snapshot_conditional_request_returns_304(client):
+    etag = client.get("/api/geo/zones").headers["ETag"]
+    again = client.get("/api/geo/zones", headers={"If-None-Match": etag})
+    assert again.status_code == 304
