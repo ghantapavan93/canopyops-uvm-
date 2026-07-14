@@ -84,6 +84,21 @@ def seed() -> None:
                     centerline=geom(centerline),
                 )
             )
+        # A ridge-crossing span for the 3D-terrain / slope demo: its centerline
+        # climbs the synthetic escarpment, so its elevation profile shows a steep
+        # (>30%) section — where access and fall-protection planning matter. No
+        # treatment plan is attached (the lifecycle loop below covers the first 6).
+        ridge_line = LineString([(-83.1304, 40.109), (-83.1304, 40.145)])
+        corridors.append(
+            m.Corridor(
+                circuit_id="CKT-8848",
+                span_label="RIDGE CROSSING",
+                name="Ridge-crossing ROW (steep-grade demo)",
+                voltage_kv=138,
+                centerline=geom(ridge_line),
+            )
+        )
+
         db.add_all(corridors)
         db.flush()
 

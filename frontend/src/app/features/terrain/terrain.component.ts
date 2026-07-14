@@ -59,7 +59,9 @@ export class TerrainComponent {
     this.api.listConstraints().subscribe((c) => this.constraints.set(c));
     this.api.listCorridors().subscribe((c) => {
       this.corridors.set(c);
-      if (c.length) this.selectCorridor(c[0].id);
+      // Default to the ridge-crossing span so the steep-slope profile is visible.
+      const preferred = c.find((x) => /ridge/i.test(x.spanLabel)) ?? c[0];
+      if (preferred) this.selectCorridor(preferred.id);
     });
   }
 

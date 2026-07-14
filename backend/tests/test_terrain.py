@@ -32,6 +32,14 @@ def test_terrain_profile_computes_gain_and_slope(client):
     assert max(elevs) > min(elevs)
 
 
+def test_ridge_crossing_profile_flags_steep_sections(client):
+    # The seeded "RIDGE CROSSING" span climbs the synthetic escarpment.
+    line = {"type": "LineString", "coordinates": [[-83.1304, 40.109], [-83.1304, 40.145]]}
+    res = client.post("/api/geo/terrain/profile", json={"geometry": line, "samples": 48}).json()
+    assert res["maxSlopePct"] >= 30                 # exceeds the steep threshold
+    assert res["steepSections"] >= 1
+
+
 def test_terrain_profile_handles_degenerate_line(client):
     line = {"type": "LineString", "coordinates": [[-83.19, 40.11]]}
     res = client.post("/api/geo/terrain/profile", json={"geometry": line}).json()

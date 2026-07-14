@@ -15,6 +15,7 @@ Deterministic + content-addressed ETag, so a device caches it for offline use.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 
 from fastapi import APIRouter, Header, Response
@@ -44,8 +45,13 @@ def elevation(lon: float, lat: float) -> float:
     ridge = 95.0 * math.exp(-(((v - 0.55 - 0.15 * math.sin(u * 3.14159)) ** 2) / 0.02))
     hill1 = 60.0 * math.exp(-(((u - 0.30) ** 2) / 0.020 + ((v - 0.30) ** 2) / 0.020))
     hill2 = 48.0 * math.exp(-(((u - 0.76) ** 2) / 0.015 + ((v - 0.72) ** 2) / 0.020))
+    # A localized steep escarpment on the east side — a short, sharp grade a
+    # corridor can cross so its slope profile exceeds the steep threshold
+    # (bluffs/ravines are exactly where access & fall-protection planning matters).
+    escarp = 72.0 * (0.5 + 0.5 * math.tanh((v - 0.42) / 0.010)) \
+        * math.exp(-(((u - 0.58) ** 2) / 0.030))
     regional = 42.0 * u        # gentle rise to the east
-    return round(base + ridge + hill1 + hill2 + regional, 1)
+    return round(base + ridge + hill1 + hill2 + escarp + regional, 1)
 
 
 def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -72,7 +78,10 @@ def terrain(cols: int = 56, rows: int = 36, if_none_match: str | None = Header(N
             mn, mx = min(mn, e), max(mx, e)
         grid.append(line)
 
-    etag = f'W/"terrain-{cols}x{rows}"'  # deterministic → content-addressed
+    digest = hashlib.sha1(
+        json.dumps(grid, separators=(",", ":")).encode()
+    ).hexdigest()[:12]
+    etag = f'W/"terrain-{cols}x{rows}-{digest}"'  # content-addressed
     if if_none_match and if_none_match.strip() == etag:
         return Response(status_code=304, headers={"ETag": etag})
     body = TerrainGrid(
