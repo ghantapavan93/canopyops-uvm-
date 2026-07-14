@@ -57,7 +57,7 @@ export class EngineeringComponent implements OnDestroy {
     title: 'Architecture',
     glyph: '⚙',
     items: [
-      { label: 'Frontend', detail: 'Angular 18 (standalone, Signals + RxJS), MapLibre GL (self-contained style), IndexedDB outbox, Tailwind design tokens, CSS-driven motion (compositor-based; robust when a tab is backgrounded, and never gates content visibility).' },
+      { label: 'Frontend', detail: 'Angular 18 (standalone, Signals + RxJS), MapLibre GL with switchable basemaps — real OSM streets / Esri World Imagery satellite (with attribution) layered under the synthetic operational data, or a fully self-contained offline style — IndexedDB outbox, Tailwind design tokens, CSS-driven motion (compositor-based; robust when a tab is backgrounded, and never gates content visibility).' },
       { label: 'Backend', detail: 'FastAPI modular monolith, SQLAlchemy 2 + GeoAlchemy2, Alembic migrations, JWT auth + role-based access, structured error envelopes + correlation IDs.' },
       { label: 'Data', detail: 'PostgreSQL 16 + PostGIS: server-side spatial filtering (ST_Intersects, ST_MakeEnvelope), GIST indexes on all geometry columns.' },
       { label: 'Delivery', detail: 'Docker Compose (web + api + db), one-command local environment, GitHub Actions lint/test/build.' },

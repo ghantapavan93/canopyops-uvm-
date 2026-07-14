@@ -11,6 +11,7 @@ import {
 import maplibregl, { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 
 import { Corridor, Geometry } from '../../core/models';
+import { BASEMAPS, BasemapKind, applyBasemap } from './basemap';
 
 type FC = GeoJSON.FeatureCollection;
 const EMPTY: FC = { type: 'FeatureCollection', features: [] };
@@ -35,8 +36,17 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
                 class="rounded border border-border px-1.5 py-0.5 text-muted hover:bg-surface-2 disabled:opacity-40">Clear</button>
       </div>
 
+      <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-[10px] shadow-card backdrop-blur">
+        @for (b of basemaps; track b.key) {
+          <button (click)="basemap.set(b.key)" [attr.aria-pressed]="basemap() === b.key"
+                  class="px-1.5 py-0.5 font-medium transition-colors"
+                  [class.bg-primary]="basemap() === b.key" [class.text-primary-ink]="basemap() === b.key"
+                  [class.text-muted]="basemap() !== b.key">{{ b.label }}</button>
+        }
+      </div>
+
       @if (plannedGeometry() || actualGeometry()) {
-        <div class="pointer-events-none absolute right-2 top-2 z-10 rounded-md border border-border bg-surface/90 p-1.5 text-[10px] shadow-card backdrop-blur">
+        <div class="pointer-events-none absolute right-2 top-9 z-10 rounded-md border border-border bg-surface/90 p-1.5 text-[10px] shadow-card backdrop-blur">
           @if (plannedGeometry()) { <div class="flex items-center gap-1"><span class="inline-block h-0 w-3 border-t-2 border-dashed" style="border-color:#1f5fa8"></span>Planned</div> }
           @if (actualGeometry()) { <div class="flex items-center gap-1"><span class="inline-block h-2.5 w-3" style="background:rgba(31,138,84,.35)"></span>Completed</div> }
           <div class="flex items-center gap-1"><span class="inline-block h-2.5 w-3" [style.background]="drawFillRgba()"></span>Your draw</div>
@@ -61,6 +71,8 @@ export class PolygonDrawMapComponent {
   readonly geometryChange = output<Geometry | null>();
 
   readonly points = signal<[number, number][]>([]);
+  readonly basemaps = BASEMAPS;
+  readonly basemap = signal<BasemapKind>('synthetic');
 
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map?: MlMap;
@@ -69,6 +81,11 @@ export class PolygonDrawMapComponent {
 
   constructor() {
     afterNextRender(() => this.initMap());
+    effect(() => {
+      const kind = this.basemap();
+      if (!this.ready() || !this.map) return;
+      applyBasemap(this.map, kind, 'corridor-line');
+    });
     effect(() => {
       const corridors = this.corridors();
       const pts = this.points();
@@ -185,6 +202,7 @@ export class PolygonDrawMapComponent {
       center: this.center(), zoom: 13, attributionControl: false,
     });
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    this.map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     this.map.on('load', () => {
       const m = this.map!;
       for (const id of ['corridors', 'focus', 'planned', 'actual', 'draw-fill', 'draw-line', 'draw-verts']) {

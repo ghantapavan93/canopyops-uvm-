@@ -78,7 +78,7 @@ cd frontend && npm install && npm start        # http://localhost:4200
 
 | Module | What it proves |
 |---|---|
-| **Command Center** | MapLibre GIS map + prioritized exception queue + detail, bidirectional selection, URL-persisted filters, backend-driven assurance summary |
+| **Command Center** | MapLibre GIS map with **switchable basemaps** (real OSM streets / Esri satellite, or an offline synthetic style) + prioritized exception queue + detail, bidirectional selection, URL-persisted filters, backend-driven assurance summary |
 | **Field Execution** | Mobile-first capture, coverage control, evidence checklist, **offline save** to IndexedDB |
 | **Sync & Conflict Center** | Idempotent sync, **revision-conflict resolution**, failed-upload recovery, connectivity simulation |
 | **Outcome Verification** | Evidence-gated verification, targeted follow-up geometry, close → **Proof Pack** with audit trail |

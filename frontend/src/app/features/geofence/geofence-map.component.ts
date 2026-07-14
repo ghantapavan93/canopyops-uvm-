@@ -1,9 +1,10 @@
 import {
-  Component, ElementRef, afterNextRender, effect, input, output, viewChild,
+  Component, ElementRef, afterNextRender, effect, input, output, signal, viewChild,
 } from '@angular/core';
 import maplibregl, { GeoJSONSource, Map as MlMap, Marker } from 'maplibre-gl';
 
 import { Corridor, EnvironmentalConstraint, ProximityLevel } from '../../core/models';
+import { BASEMAPS, BasemapKind, applyBasemap } from '../../shared/charts/basemap';
 
 type FC = GeoJSON.FeatureCollection;
 const EMPTY: FC = { type: 'FeatureCollection', features: [] };
@@ -24,6 +25,14 @@ const LEVEL_HEX: Record<ProximityLevel, string> = {
   template: `<div class="relative h-full w-full">
     <div #mapEl class="h-full w-full" role="application"
          aria-label="Field-safety map. Drag the crew marker or click to move it."></div>
+    <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-[11px] shadow-card backdrop-blur">
+      @for (b of basemaps; track b.key) {
+        <button type="button" (click)="basemap.set(b.key)" [attr.aria-pressed]="basemap() === b.key"
+                class="px-2 py-1 font-medium transition-colors"
+                [class.bg-primary]="basemap() === b.key" [class.text-primary-ink]="basemap() === b.key"
+                [class.text-muted]="basemap() !== b.key">{{ b.label }}</button>
+      }
+    </div>
     <div class="pointer-events-none absolute bottom-2 left-2 z-10 rounded-md border border-border bg-surface/90 px-2 py-1 text-[11px] text-muted shadow-card backdrop-blur">
       Drag the crew marker — or click the map — to move. Detection radius {{ warningMeters() }} m.
     </div>
@@ -37,10 +46,14 @@ export class GeofenceMapComponent {
   readonly levels = input<Record<string, ProximityLevel>>({});
   readonly positionChange = output<[number, number]>();
 
+  readonly basemaps = BASEMAPS;
+  readonly basemap = signal<BasemapKind>('synthetic');
+
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map?: MlMap;
   private marker?: Marker;
   private ready = false;
+  private readyTick = signal(0);
   private dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 
   constructor() {
@@ -56,6 +69,12 @@ export class GeofenceMapComponent {
       this.setSrc('zones', this.zoneFC(constraints, levels));
       this.setSrc('detection', this.circleFC(pos, warn));
       this.marker?.setLngLat(pos);
+    });
+    effect(() => {
+      const kind = this.basemap();
+      this.readyTick();
+      if (!this.ready || !this.map) return;
+      applyBasemap(this.map, kind, 'detection-line');
     });
   }
 
@@ -104,6 +123,7 @@ export class GeofenceMapComponent {
       center: this.position(), zoom: 13.5, attributionControl: false,
     }));
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    m.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     // Crew marker — a pulsing dot; draggable.
     const el = document.createElement('div');
@@ -139,6 +159,7 @@ export class GeofenceMapComponent {
       });
 
       this.ready = true;
+      this.readyTick.set(1);   // let the basemap effect apply once layers exist
       // Prime the sources now that layers exist.
       this.setSrc('corridors', this.corridorFC(this.corridors()));
       this.setSrc('zones', this.zoneFC(this.constraints(), this.levels()));

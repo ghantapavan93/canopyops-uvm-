@@ -16,6 +16,7 @@ import {
   TreatmentRecord,
 } from '../../core/models';
 import { STATUS_META, TONE_HEX } from '../../core/status';
+import { BASEMAPS, BasemapKind, applyBasemap } from '../../shared/charts/basemap';
 
 type FC = GeoJSON.FeatureCollection;
 
@@ -36,6 +37,16 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
         role="application"
         aria-label="Treatment map. A synchronized list of all records is available in the queue panel."
       ></div>
+
+      <!-- Basemap switcher -->
+      <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-[11px] shadow-card backdrop-blur">
+        @for (b of basemaps; track b.key) {
+          <button type="button" (click)="basemap.set(b.key)" [attr.aria-pressed]="basemap() === b.key"
+                  class="px-2 py-1 font-medium transition-colors"
+                  [class.bg-primary]="basemap() === b.key" [class.text-primary-ink]="basemap() === b.key"
+                  [class.text-muted]="basemap() !== b.key" [class.hover:bg-surface-2]="basemap() !== b.key">{{ b.label }}</button>
+        }
+      </div>
 
       <!-- Legend (also serves as non-map status key) -->
       <div
@@ -64,6 +75,9 @@ export class MapComponent {
   readonly selectedId = input<string | null>(null);
   readonly select = output<string>();
 
+  readonly basemaps = BASEMAPS;
+  readonly basemap = signal<BasemapKind>('synthetic');
+
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map?: MlMap;
   private ready = signal(false);
@@ -84,6 +98,13 @@ export class MapComponent {
       this.setSource('planned', this.plannedFC(records, selected));
       this.fit(records);
     });
+
+    // React to basemap switches (real imagery slides under the synthetic layers).
+    effect(() => {
+      const kind = this.basemap();
+      if (!this.ready() || !this.map) return;
+      applyBasemap(this.map, kind, 'constraint-fill');
+    });
   }
 
   private initMap(): void {
@@ -100,6 +121,8 @@ export class MapComponent {
       attributionControl: false,
     });
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    // Compact attribution — required once real (OSM/Esri) tiles are shown.
+    this.map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     this.map.on('load', () => {
       const m = this.map!;
