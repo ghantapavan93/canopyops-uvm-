@@ -128,14 +128,15 @@ facade — not a real SAP connection.
 ## Testing
 
 ```bash
-cd backend && pytest        # 37 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
+cd backend && pytest        # 43 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
                             #   full loop, plan creation + validation, overview periods, stewardship, choropleth,
                             #   geo-analyze, OpenAPI contract, GeoJSON import, metrics endpoint, pagination,
-                            #   the OData surface ($metadata, $filter/$select/$expand, deferred nav, ETag/304),
+                            #   the OData surface ($metadata, $filter w/ grouping, deferred nav, ETag/304),
                             #   geofence proximity alerts (ST_Distance/ST_Contains), offline zones snapshot,
-                            #   and 3D terrain (synthetic DEM grid + corridor elevation/slope profile)
-cd frontend && npm test     # 20 passing — coverage math, status system, component render, chart utilities,
-                            #   and the on-device geofence engine (point-in-polygon, distance, escalation)
+                            #   and 3D terrain (synthetic DEM grid + corridor elevation/slope profile, steep flag)
+cd frontend && npm test     # 25 passing — coverage math, status system, component render, chart utilities,
+                            #   and the on-device geofence engine (point-in-polygon, distance, escalation,
+                            #   MultiPolygon parity with PostGIS)
 cd frontend && npm run e2e  # Cypress critical journey — 1 passing (headless, against the running stack)
 ```
 

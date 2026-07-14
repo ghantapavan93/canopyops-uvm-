@@ -53,10 +53,7 @@ function pointToSegmentMeters(lon: number, lat: number, a: number[], b: number[]
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-/** Distance (m) from a point to a polygon boundary; 0 if inside. */
-export function distanceToPolygonMeters(lon: number, lat: number, geometry: Geometry): number {
-  if (geometry.type !== 'Polygon') return Infinity;
-  const polygon = geometry.coordinates as unknown as number[][][];
+function distanceToRingsMeters(lon: number, lat: number, polygon: number[][][]): number {
   if (pointInPolygon(lon, lat, polygon)) return 0;
   let min = Infinity;
   for (const ring of polygon) {
@@ -65,6 +62,37 @@ export function distanceToPolygonMeters(lon: number, lat: number, geometry: Geom
     }
   }
   return min;
+}
+
+/** Inside test for a Polygon OR MultiPolygon (parity with PostGIS ST_Contains). */
+export function pointInGeometry(lon: number, lat: number, geometry: Geometry): boolean {
+  if (geometry.type === 'Polygon') {
+    return pointInPolygon(lon, lat, geometry.coordinates as unknown as number[][][]);
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return (geometry.coordinates as unknown as number[][][][])
+      .some((poly) => pointInPolygon(lon, lat, poly));
+  }
+  return false;
+}
+
+/** Distance (m) to a Polygon OR MultiPolygon boundary; 0 if inside any part. */
+export function distanceToGeometryMeters(lon: number, lat: number, geometry: Geometry): number {
+  if (geometry.type === 'Polygon') {
+    return distanceToRingsMeters(lon, lat, geometry.coordinates as unknown as number[][][]);
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return Math.min(
+      ...(geometry.coordinates as unknown as number[][][][])
+        .map((poly) => distanceToRingsMeters(lon, lat, poly)),
+    );
+  }
+  return Infinity;
+}
+
+/** Back-compat alias — distance to a (Multi)Polygon boundary; 0 if inside. */
+export function distanceToPolygonMeters(lon: number, lat: number, geometry: Geometry): number {
+  return distanceToGeometryMeters(lon, lat, geometry);
 }
 
 function levelFor(inside: boolean, severity: string, distance: number, warningM: number): ProximityLevel {
@@ -88,9 +116,8 @@ export function evaluateProximity(
   const out: ProximityZone[] = [];
   for (const z of zones) {
     if (!z.geometry) continue;
-    const inside = z.geometry.type === 'Polygon'
-      && pointInPolygon(lon, lat, z.geometry.coordinates as unknown as number[][][]);
-    const distance = inside ? 0 : Math.round(distanceToPolygonMeters(lon, lat, z.geometry) * 10) / 10;
+    const inside = pointInGeometry(lon, lat, z.geometry);
+    const distance = inside ? 0 : Math.round(distanceToGeometryMeters(lon, lat, z.geometry) * 10) / 10;
     const level = levelFor(inside, z.severity, distance, warningMeters);
     out.push({
       id: z.id, name: z.name, category: z.category, severity: z.severity,

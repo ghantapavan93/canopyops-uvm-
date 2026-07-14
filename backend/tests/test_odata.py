@@ -45,6 +45,24 @@ def test_filter_subset(client):
     assert all(r["Status"] == "awaiting_verification" for r in res["value"])
 
 
+def test_filter_parenthesised_grouping_and_precedence(client):
+    # Seeded: UVM.2026.1003 = applied + hazard; 1005 = draft + routine; 1006 = hazard.
+    grouped = client.get(
+        "/api/odata/WbsElements"
+        "?$filter=(Status eq 'draft' or Status eq 'applied') and Priority eq 'hazard'"
+        "&$select=Wbs"
+    ).json()["value"]
+    assert [r["Wbs"] for r in grouped] == ["UVM.2026.1003"]
+
+    # Without parentheses, `and` binds tighter: draft OR (applied AND hazard) → 2 rows.
+    ungrouped = client.get(
+        "/api/odata/WbsElements"
+        "?$filter=Status eq 'draft' or Status eq 'applied' and Priority eq 'hazard'"
+        "&$select=Wbs"
+    ).json()["value"]
+    assert {r["Wbs"] for r in ungrouped} == {"UVM.2026.1003", "UVM.2026.1005"}
+
+
 def test_etag_conditional_request_returns_304(client):
     first = client.get("/api/odata/CatsEntries")
     etag = first.headers.get("ETag")

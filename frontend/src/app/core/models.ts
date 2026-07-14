@@ -52,7 +52,7 @@ export type SyncStatus = 'accepted' | 'duplicate' | 'conflict' | 'rejected';
 
 /** GeoJSON-lite (we only ever handle Point/LineString/Polygon here). */
 export interface Geometry {
-  type: 'Point' | 'LineString' | 'Polygon';
+  type: 'Point' | 'LineString' | 'Polygon' | 'MultiPolygon';
   coordinates: any;
 }
 

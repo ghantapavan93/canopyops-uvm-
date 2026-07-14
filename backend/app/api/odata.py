@@ -161,21 +161,68 @@ def _predicate(rows: list[dict], clause: str) -> list[dict]:
     return [r for r in rows if fn(r.get(field), val)]
 
 
+def _split_top(expr: str, op: str) -> list[str]:
+    """Split on ` op ` at parenthesis depth 0 and outside quoted strings, so
+    `and`/`or` inside `(...)` or a `contains(...)` call are left intact."""
+    token = f" {op} "
+    parts: list[str] = []
+    depth = 0
+    in_quote = False
+    buf = ""
+    i = 0
+    while i < len(expr):
+        ch = expr[i]
+        if ch == "'":
+            in_quote = not in_quote
+            buf += ch
+            i += 1
+            continue
+        if not in_quote:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            if depth == 0 and expr[i:i + len(token)].lower() == token:
+                parts.append(buf)
+                buf = ""
+                i += len(token)
+                continue
+        buf += ch
+        i += 1
+    parts.append(buf)
+    return parts
+
+
 def _apply_filter(rows: list[dict], expr: str) -> list[dict]:
-    """Subset grammar: predicates joined by top-level `and` / `or` (no grouping)."""
-    if " or " in f" {expr} ":
+    """OData $filter with precedence and parenthesised grouping:
+    `or` (lowest) → `and` → parenthesised group or a single predicate."""
+    expr = expr.strip()
+    if not expr:
+        return rows
+
+    ors = _split_top(expr, "or")
+    if len(ors) > 1:
         result: list[dict] = []
         seen: set[int] = set()
-        for part in expr.split(" or "):
+        for part in ors:
             for r in _apply_filter(rows, part):
                 if id(r) not in seen:
                     seen.add(id(r))
                     result.append(r)
         return result
-    out = rows
-    for part in expr.split(" and "):
-        out = _predicate(out, part)
-    return out
+
+    ands = _split_top(expr, "and")
+    if len(ands) > 1:
+        out = rows
+        for part in ands:
+            allowed = {id(r) for r in _apply_filter(rows, part)}
+            out = [r for r in out if id(r) in allowed]
+        return out
+
+    # A single factor: a parenthesised group, or a leaf predicate.
+    if expr.startswith("(") and expr.endswith(")"):
+        return _apply_filter(rows, expr[1:-1])
+    return _predicate(rows, expr)
 
 
 def _apply_orderby(rows: list[dict], expr: str) -> list[dict]:

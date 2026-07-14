@@ -1,6 +1,7 @@
 import { EnvironmentalConstraint } from './models';
 import {
-  distanceToPolygonMeters, evaluateProximity, haversineMeters, pointInPolygon,
+  distanceToGeometryMeters, distanceToPolygonMeters, evaluateProximity,
+  haversineMeters, pointInGeometry, pointInPolygon,
 } from './geofence';
 
 // A ~square zone around (-83.17, 40.112), matching the seeded water buffer box.
@@ -60,5 +61,40 @@ describe('evaluateProximity (offline fallback)', () => {
   it('treats an advisory zone as entered (not breach)', () => {
     const r = evaluateProximity(-83.17, 40.112, [zone({ severity: 'advisory' })], 60);
     expect(r.zones[0].level).toBe('entered');
+  });
+});
+
+describe('MultiPolygon support (parity with PostGIS)', () => {
+  // Two disjoint boxes: one around (-83.17,40.112), one far east near (-83.10,40.112).
+  const multi: number[][][][] = [
+    [[[-83.18, 40.108], [-83.16, 40.108], [-83.16, 40.116], [-83.18, 40.116], [-83.18, 40.108]]],
+    [[[-83.11, 40.108], [-83.09, 40.108], [-83.09, 40.116], [-83.11, 40.116], [-83.11, 40.108]]],
+  ];
+  const mp = (): EnvironmentalConstraint => ({
+    id: 'mp', name: 'Split habitat', category: 'habitat', severity: 'blocking',
+    geometry: { type: 'MultiPolygon', coordinates: multi } as any,
+  });
+
+  it('detects a point inside the FIRST part', () => {
+    expect(pointInGeometry(-83.17, 40.112, mp().geometry!)).toBe(true);
+  });
+
+  it('detects a point inside the SECOND part', () => {
+    expect(pointInGeometry(-83.10, 40.112, mp().geometry!)).toBe(true);
+  });
+
+  it('is outside when between the two parts', () => {
+    expect(pointInGeometry(-83.135, 40.112, mp().geometry!)).toBe(false);
+  });
+
+  it('distance is 0 inside a part, and to the nearest part otherwise', () => {
+    expect(distanceToGeometryMeters(-83.17, 40.112, mp().geometry!)).toBe(0);
+    const between = distanceToGeometryMeters(-83.135, 40.112, mp().geometry!);
+    expect(between).toBeGreaterThan(0);
+  });
+
+  it('evaluateProximity breaches inside either part of a blocking MultiPolygon', () => {
+    expect(evaluateProximity(-83.10, 40.112, [mp()], 60).overallLevel).toBe('breach');
+    expect(distanceToPolygonMeters(-83.10, 40.112, mp().geometry!)).toBe(0); // alias still works
   });
 });

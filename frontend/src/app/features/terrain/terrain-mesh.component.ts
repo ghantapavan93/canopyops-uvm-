@@ -2,7 +2,7 @@ import {
   Component, ElementRef, afterNextRender, effect, input, viewChild,
 } from '@angular/core';
 
-import { pointInPolygon } from '../../core/geofence';
+import { pointInGeometry } from '../../core/geofence';
 import { Corridor, EnvironmentalConstraint, TerrainGrid } from '../../core/models';
 
 type RGB = [number, number, number];
@@ -100,7 +100,8 @@ export class TerrainMeshComponent {
     this.zoneTint = [];
     if (!t || !this.showZones()) return;
     const [minLon, minLat, maxLon, maxLat] = t.bbox;
-    const zones = this.constraints().filter((z) => z.geometry?.type === 'Polygon');
+    const zones = this.constraints().filter(
+      (z) => z.geometry?.type === 'Polygon' || z.geometry?.type === 'MultiPolygon');
     for (let i = 0; i < t.rows - 1; i++) {
       const row: (RGB | null)[] = [];
       for (let j = 0; j < t.cols - 1; j++) {
@@ -108,7 +109,7 @@ export class TerrainMeshComponent {
         const lon = minLon + u * (maxLon - minLon), lat = minLat + v * (maxLat - minLat);
         let tint: RGB | null = null;
         for (const z of zones) {
-          if (pointInPolygon(lon, lat, z.geometry!.coordinates as unknown as number[][][])) {
+          if (pointInGeometry(lon, lat, z.geometry!)) {
             tint = z.severity === 'blocking' ? [180, 35, 31] : [168, 114, 10];
             break;
           }
