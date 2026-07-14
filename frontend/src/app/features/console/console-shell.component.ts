@@ -5,6 +5,7 @@ import { AuthService } from '../../core/auth.service';
 import { ConnectivityService } from '../../core/connectivity.service';
 import { Role } from '../../core/models';
 import { SyncService } from '../../core/sync.service';
+import { CommandPaletteComponent } from '../../shared/command-palette.component';
 
 interface NavItem {
   label: string;
@@ -23,7 +24,7 @@ const DEMO_USERS: { role: Role; label: string; email: string }[] = [
 @Component({
   selector: 'app-console-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommandPaletteComponent],
   template: `
     <div class="flex h-screen flex-col bg-bg text-ink">
       <!-- Synthetic-data banner: honesty is a first-class requirement -->
@@ -47,6 +48,13 @@ const DEMO_USERS: { role: Role; label: string; email: string }[] = [
           <span class="font-semibold tracking-tight text-ink">CanopyOps</span>
           <span class="hidden text-xs text-muted sm:inline">Treatment Assurance</span>
         </a>
+
+        <button type="button" (click)="palette.show()"
+                class="ml-3 hidden items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted hover:bg-surface-2 sm:flex"
+                aria-label="Open command palette">
+          <span aria-hidden="true">⌕</span> Jump to…
+          <kbd class="rounded border border-border px-1 text-[10px]">⌘K</kbd>
+        </button>
 
         <div class="ml-auto flex items-center gap-2">
           <span class="flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-[11px] font-medium"
@@ -114,6 +122,8 @@ const DEMO_USERS: { role: Role; label: string; email: string }[] = [
           <router-outlet />
         </main>
       </div>
+
+      <app-command-palette #palette />
     </div>
   `,
 })

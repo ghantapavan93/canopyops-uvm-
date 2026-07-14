@@ -133,7 +133,7 @@ facade — not a real SAP connection.
 ## Testing
 
 ```bash
-cd backend && pytest        # 43 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
+cd backend && pytest        # 46 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
                             #   full loop, plan creation + validation, overview periods, stewardship, choropleth,
                             #   geo-analyze, OpenAPI contract, GeoJSON import, metrics endpoint, pagination,
                             #   the OData surface ($metadata, $filter w/ grouping, deferred nav, ETag/304),
