@@ -132,6 +132,7 @@ export class ConsoleShellComponent {
     { label: 'Sync & Conflict', route: '/console/sync', glyph: '⇅', ready: true },
     { label: 'Outcome Verification', route: '/console/verification', glyph: '✓', ready: true },
     { label: 'Stewardship', route: '/console/stewardship', glyph: '❋', ready: true },
+    { label: 'Integration · OData', route: '/console/integration', glyph: '🔌', ready: true },
     { label: 'Engineering Evidence', route: '/console/engineering', glyph: '⚙', ready: true },
   ];
 

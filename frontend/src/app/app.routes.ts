@@ -76,6 +76,14 @@ export const routes: Routes = [
         title: 'Stewardship & Compliance — CanopyOps',
       },
       {
+        path: 'integration',
+        loadComponent: () =>
+          import('./features/integration-odata/integration-odata.component').then(
+            (m) => m.IntegrationOdataComponent,
+          ),
+        title: 'Integration · OData — CanopyOps',
+      },
+      {
         path: 'engineering',
         loadComponent: () =>
           import('./features/engineering/engineering.component').then(

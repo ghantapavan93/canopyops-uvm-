@@ -82,6 +82,7 @@ cd frontend && npm install && npm start        # http://localhost:4200
 | **Field Execution** | Mobile-first capture, coverage control, evidence checklist, **offline save** to IndexedDB |
 | **Sync & Conflict Center** | Idempotent sync, **revision-conflict resolution**, failed-upload recovery, connectivity simulation |
 | **Outcome Verification** | Evidence-gated verification, targeted follow-up geometry, close → **Proof Pack** with audit trail |
+| **Integration · OData** | SAP-style OData v4 service — treatment plan → **WBS element**, field execution → **CATS** time confirmation; `$metadata`, `$filter/$select/$expand`, deferred navigation, and ETag/304 caching, consumed by an Angular OData client |
 | **Engineering Evidence** | Test results, architecture, accessibility, perf, and boundaries for a technical reviewer |
 
 ## Architecture
@@ -102,6 +103,15 @@ failure map. See [`docs/INTEGRATION.md`](docs/INTEGRATION.md) for how a utility
 integrates it with their own systems (live OpenAPI at `/api/docs`, a
 bring-your-own-data GeoJSON import, and the synthetic→real adapter seam).
 
+**Enterprise-integration seam (SAP lingua franca).** A live **OData v4** service at
+`/api/odata/` (with EDMX `$metadata`) projects the domain into SAP terms — a
+treatment plan is a **WBS element**, a field execution is a **CATS** time
+confirmation — and implements server-driven paging, `$filter/$select/$orderby/$expand`,
+**deferred navigation**, and **ETag/`If-None-Match` (304) caching**. The
+*Integration · OData* console page consumes it with an app-level ETag cache and
+shows the 200-vs-304 revalidation live. It is a synthetic, OData-compatible
+facade — not a real SAP connection.
+
 ### Assurance guarantees (server-enforced, not UI-only)
 
 - **Idempotency** — every mobile mutation carries an `Idempotency-Key`; replays and
@@ -116,9 +126,10 @@ bring-your-own-data GeoJSON import, and the synthetic→real adapter seam).
 ## Testing
 
 ```bash
-cd backend && pytest        # 26 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
+cd backend && pytest        # 31 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
                             #   full loop, plan creation + validation, overview periods, stewardship, choropleth,
-                            #   geo-analyze, OpenAPI contract, GeoJSON import, metrics endpoint, pagination
+                            #   geo-analyze, OpenAPI contract, GeoJSON import, metrics endpoint, pagination,
+                            #   and the OData surface ($metadata, $filter/$select/$expand, deferred nav, ETag/304)
 cd frontend && npm test     # 12 passing — coverage math, status system, component render, chart utilities
 cd frontend && npm run e2e  # Cypress critical journey — 1 passing (headless, against the running stack)
 ```

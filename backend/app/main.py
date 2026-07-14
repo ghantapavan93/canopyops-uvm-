@@ -23,6 +23,7 @@ from app.api import (
     health,
     integration,
     observability,
+    odata,
     overview,
     plans,
     stewardship,
@@ -131,6 +132,7 @@ app.include_router(verifications.router, prefix="/api")
 app.include_router(overview.router, prefix="/api")
 app.include_router(stewardship.router, prefix="/api")
 app.include_router(integration.router, prefix="/api")
+app.include_router(odata.router, prefix="/api")
 
 
 @app.get("/api")
