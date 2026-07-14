@@ -10,6 +10,11 @@ A full-stack proof-of-work for **Utility Vegetation Management (UVM)**, built wi
 the stack the role calls for: **Angular + MapLibre + IndexedDB/PWA** on the front,
 **FastAPI + PostgreSQL/PostGIS** on the back.
 
+Installable **offline-first PWA**: an Angular service worker precaches the app
+shell and caches read-only API responses (network-first), so the console loads
+and shows last-known data with no signal — on top of the IndexedDB outbox
+(queued field mutations) and an on-device geofence engine.
+
 > **Independent concept. All data is synthetic.** Not affiliated with, or endorsed
 > by, The Davey Tree Expert Company. No real utility, worker, location, chemical,
 > or client data appears anywhere in this project.

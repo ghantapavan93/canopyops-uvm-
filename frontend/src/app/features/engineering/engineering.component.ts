@@ -60,6 +60,7 @@ export class EngineeringComponent implements OnDestroy {
       { label: 'Frontend', detail: 'Angular 18 (standalone, Signals + RxJS), MapLibre GL with switchable basemaps — real OSM streets / Esri World Imagery satellite (with attribution) layered under the synthetic operational data, or a fully self-contained offline style — IndexedDB outbox, Tailwind design tokens, CSS-driven motion (compositor-based; robust when a tab is backgrounded, and never gates content visibility).' },
       { label: 'Backend', detail: 'FastAPI modular monolith, SQLAlchemy 2 + GeoAlchemy2, Alembic migrations, JWT auth + role-based access, structured error envelopes + correlation IDs.' },
       { label: 'Data', detail: 'PostgreSQL 16 + PostGIS: server-side spatial filtering (ST_Intersects, ST_MakeEnvelope), GIST indexes on all geometry columns.' },
+      { label: 'Offline-first PWA', detail: 'Installable web app: an Angular service worker precaches the app shell (HTML/JS/CSS + manifest) and caches read-only API GETs with a network-first (freshness) strategy, so the whole console loads and shows last-known data with no connectivity — layered on the IndexedDB outbox (queued mutations) and the on-device geofence engine. A version-ready handler prompts and reloads on new deploys.' },
       { label: 'Delivery', detail: 'Docker Compose (web + api + db), one-command local environment, GitHub Actions lint/test/build.' },
     ],
   };
