@@ -76,6 +76,14 @@ export const routes: Routes = [
         title: 'Stewardship & Compliance — CanopyOps',
       },
       {
+        path: 'geofence',
+        loadComponent: () =>
+          import('./features/geofence/geofence.component').then(
+            (m) => m.GeofenceComponent,
+          ),
+        title: 'Field Safety · Geofencing — CanopyOps',
+      },
+      {
         path: 'integration',
         loadComponent: () =>
           import('./features/integration-odata/integration-odata.component').then(

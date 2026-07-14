@@ -80,6 +80,31 @@ export interface EnvironmentalConstraint {
   geometry: Geometry | null;
 }
 
+/** Geofence proximity — escalating alert levels for a crew position. */
+export type ProximityLevel = 'clear' | 'warning' | 'entered' | 'breach';
+
+export interface ProximityZone {
+  id: string;
+  name: string;
+  category: ConstraintCategory;
+  severity: ConstraintSeverity;
+  distanceM: number;
+  inside: boolean;
+  level: ProximityLevel;
+  action: string;
+}
+
+export interface ProximityResult {
+  lon: number;
+  lat: number;
+  warningMeters: number;
+  overallLevel: ProximityLevel;
+  nearestName: string | null;
+  nearestDistanceM: number | null;
+  zones: ProximityZone[];
+  note: string;
+}
+
 /** Flattened queue/detail row: a plan joined with its work order + corridor,
  *  plus derived assurance signals the Command Center ranks on. */
 export interface TreatmentRecord {

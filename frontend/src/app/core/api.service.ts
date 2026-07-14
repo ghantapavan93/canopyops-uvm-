@@ -14,6 +14,7 @@ import {
   OverviewPayload,
   PlanInput,
   ProofPack,
+  ProximityResult,
   StewardshipPayload,
   SystemHealth,
   TreatmentRecord,
@@ -116,6 +117,13 @@ export class ApiService {
 
   analyzeGeometry(geometry: Geometry): Observable<GeoAnalyze> {
     return this.http.post<GeoAnalyze>(`${this.base}/geo/analyze`, { geometry });
+  }
+
+  /** Geofence check for a crew position — server-computed distances/levels. */
+  proximity(lon: number, lat: number, warningMeters: number): Observable<ProximityResult> {
+    return this.http.post<ProximityResult>(`${this.base}/geo/proximity`, {
+      lon, lat, warningMeters,
+    });
   }
 
   getMetrics(): Observable<SystemHealth> {

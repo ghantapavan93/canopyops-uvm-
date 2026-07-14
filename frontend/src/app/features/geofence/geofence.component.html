@@ -1,0 +1,140 @@
+<div class="view-enter mx-auto flex h-full max-w-5xl flex-col overflow-y-auto p-4">
+  <header class="mb-3 flex flex-wrap items-start gap-2">
+    <div>
+      <h1 class="text-lg font-semibold text-ink">Field Safety · Protected-Zone Geofencing</h1>
+      <p class="text-xs text-muted">
+        Live proximity alerts as a crew nears environmental buffers, habitat windows,
+        and no-work zones. Distances and breach checks are computed server-side with
+        PostGIS — the alert logic never lives only on the device.
+      </p>
+    </div>
+    <span class="ml-auto rounded-full bg-warn-soft px-2 py-1 text-[11px] font-medium text-warn">⚠ Synthetic zones</span>
+  </header>
+
+  <!-- ALERT BANNER -->
+  @if (result(); as r) {
+    <div class="mb-3 flex items-center gap-3 rounded-lg border p-3"
+         [class.border-danger]="overall() === 'breach' || overall() === 'entered'"
+         [class.bg-danger-soft]="overall() === 'breach' || overall() === 'entered'"
+         [class.live-dot--danger]="overall() === 'breach'"
+         [class.border-warn]="overall() === 'warning'" [class.bg-warn-soft]="overall() === 'warning'"
+         [class.border-ok]="overall() === 'clear'" [class.bg-ok-soft]="overall() === 'clear'">
+      <span class="text-2xl" aria-hidden="true">
+        @switch (overall()) { @case ('breach') { ⛔ } @case ('entered') { ⚠ } @case ('warning') { ▲ } @default { ✓ } }
+      </span>
+      <div class="min-w-0">
+        <div class="text-sm font-bold"
+             [class.text-danger]="overall() === 'breach' || overall() === 'entered'"
+             [class.text-warn]="overall() === 'warning'" [class.text-ok]="overall() === 'clear'">
+          {{ levelLabel(overall()) }}
+          @if (overall() !== 'clear' && nearest()) { — {{ nearest()!.name }} }
+        </div>
+        <div class="text-xs text-ink">
+          @if (nearest(); as n) {
+            {{ n.action }}
+          } @else { No protected zones nearby. }
+        </div>
+      </div>
+      <div class="ml-auto text-right">
+        <div class="text-lg font-bold tabular-nums text-ink">{{ meters(r.nearestDistanceM) }}</div>
+        <div class="text-[10px] text-muted">to nearest zone</div>
+      </div>
+    </div>
+  }
+
+  <!-- controls -->
+  <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-2.5 text-xs">
+    <button type="button" (click)="togglePatrol()"
+            class="rounded-md px-3 py-1.5 font-semibold"
+            [class.bg-primary]="!patrolling()" [class.text-primary-ink]="!patrolling()"
+            [class.bg-danger]="patrolling()" [class.text-white]="patrolling()">
+      {{ patrolling() ? '■ Stop patrol' : '▶ Simulate patrol' }}
+    </button>
+    <span class="text-muted">Detection radius</span>
+    <div class="flex gap-1">
+      @for (m of warningPresets; track m) {
+        <button type="button" (click)="setWarning(m)" [attr.aria-pressed]="warningMeters() === m"
+                class="rounded border px-1.5 py-0.5 font-medium transition-colors"
+                [class.border-primary]="warningMeters() === m" [class.bg-primary-soft]="warningMeters() === m" [class.text-primary]="warningMeters() === m"
+                [class.border-border]="warningMeters() !== m" [class.text-muted]="warningMeters() !== m">{{ m }} m</button>
+      }
+    </div>
+    <span class="ml-auto flex items-center gap-1.5 text-[11px]">
+      <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="conn.online()" [class.bg-danger]="!conn.online()"></span>
+      {{ conn.online() ? 'Online' : 'Offline' }}
+    </span>
+  </div>
+
+  <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_320px]">
+    <!-- map -->
+    <div class="min-h-[360px] overflow-hidden rounded-lg border border-border">
+      <app-geofence-map
+        [constraints]="constraints()"
+        [corridors]="corridors()"
+        [position]="position()"
+        [warningMeters]="warningMeters()"
+        [levels]="levels()"
+        (positionChange)="onPositionChange($event)" />
+    </div>
+
+    <!-- side: zones + log -->
+    <div class="flex min-h-0 flex-col gap-3">
+      <!-- zone proximity list -->
+      <div class="rounded-lg border border-border bg-surface p-3">
+        <h3 class="mb-2 text-sm font-semibold text-ink">Zones by distance</h3>
+        <ul class="space-y-2">
+          @for (z of zones(); track z.id) {
+            <li>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                      [class.bg-danger-soft]="z.level === 'breach' || z.level === 'entered'" [class.text-danger]="z.level === 'breach' || z.level === 'entered'"
+                      [class.bg-warn-soft]="z.level === 'warning'" [class.text-warn]="z.level === 'warning'"
+                      [class.bg-ok-soft]="z.level === 'clear'" [class.text-ok]="z.level === 'clear'">
+                  {{ levelLabel(z.level) }}
+                </span>
+                <span class="ml-auto tabular-nums text-muted">{{ meters(z.distanceM) }}</span>
+              </div>
+              <div class="mt-0.5 truncate text-[11px] text-ink" [title]="z.name">{{ z.name }}</div>
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                <div class="h-full rounded-full transition-all duration-300"
+                     [class.bg-danger]="z.level === 'breach' || z.level === 'entered'"
+                     [class.bg-warn]="z.level === 'warning'" [class.bg-ok]="z.level === 'clear'"
+                     [style.width.%]="barPct(z)"></div>
+              </div>
+            </li>
+          } @empty {
+            <li class="text-xs text-muted">No zones loaded.</li>
+          }
+        </ul>
+      </div>
+
+      <!-- alert log -->
+      <div class="min-h-0 flex-1 rounded-lg border border-border bg-surface p-3">
+        <div class="mb-2 flex items-center justify-between">
+          <h3 class="flex items-center gap-1.5 text-sm font-semibold text-ink">
+            <span class="live-dot inline-block h-2 w-2 rounded-full bg-danger"></span> Alert log
+          </h3>
+          @if (log().length) { <button (click)="resetLog()" class="text-[11px] text-primary underline">clear</button> }
+        </div>
+        @if (log().length) {
+          <ol class="space-y-1.5">
+            @for (e of log(); track e.at) {
+              <li class="flex items-start gap-2 text-[11px]">
+                <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                      [class.bg-danger]="e.level === 'breach' || e.level === 'entered'" [class.bg-warn]="e.level === 'warning'"></span>
+                <span class="min-w-0">
+                  <span class="font-semibold"
+                        [class.text-danger]="e.level === 'breach' || e.level === 'entered'" [class.text-warn]="e.level === 'warning'">{{ levelLabel(e.level) }}</span>
+                  <span class="text-ink"> · {{ e.zone }}</span>
+                  <span class="block text-muted">{{ meters(e.distanceM) }} from boundary</span>
+                </span>
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="text-[11px] text-muted">No alerts yet. Drag the crew marker toward a zone, or run a patrol.</p>
+        }
+      </div>
+    </div>
+  </div>
+</div>

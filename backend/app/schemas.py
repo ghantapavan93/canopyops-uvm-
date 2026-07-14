@@ -188,6 +188,36 @@ class GeoAnalyzeOut(Schema):
     blocking: bool
 
 
+# --- geofence / proximity alerts ---
+class ProximityIn(Schema):
+    lon: float
+    lat: float
+    # Detection radius: crews are warned this far from a protected boundary.
+    warning_meters: float = 60.0
+
+
+class ProximityZone(Schema):
+    id: str
+    name: str
+    category: e.ConstraintCategory
+    severity: e.ConstraintSeverity
+    distance_m: float
+    inside: bool
+    level: str  # clear | warning | entered | breach
+    action: str
+
+
+class ProximityOut(Schema):
+    lon: float
+    lat: float
+    warning_meters: float
+    overall_level: str
+    nearest_name: str | None
+    nearest_distance_m: float | None
+    zones: list[ProximityZone]
+    note: str = "Synthetic constraints — illustrative only. Distances via PostGIS geography."
+
+
 class PlanCreate(Schema):
     corridor_id: str
     priority: e.WorkOrderPriority = e.WorkOrderPriority.ROUTINE

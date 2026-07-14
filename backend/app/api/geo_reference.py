@@ -14,10 +14,37 @@ from app.schemas import (
     CorridorOut,
     GeoAnalyzeIn,
     GeoAnalyzeOut,
+    ProximityIn,
+    ProximityOut,
+    ProximityZone,
 )
 from app.services.geo import to_geojson
 
 router = APIRouter(tags=["geo"])
+
+# Escalating alert levels, worst-last for max().
+_LEVEL_RANK = {"clear": 0, "warning": 1, "entered": 2, "breach": 3}
+
+
+def _proximity_level(
+    inside: bool, severity: e.ConstraintSeverity, distance_m: float, warning_m: float
+) -> str:
+    if inside:
+        return "breach" if severity == e.ConstraintSeverity.BLOCKING else "entered"
+    if distance_m <= warning_m:
+        return "warning"
+    return "clear"
+
+
+def _proximity_action(level: str, category: str, distance_m: float) -> str:
+    label = category.replace("_", " ")
+    if level == "breach":
+        return f"STOP — inside a no-work {label}. Do not proceed; notify compliance immediately."
+    if level == "entered":
+        return f"Inside {label} — hold work and follow the buffer/habitat-window protocol."
+    if level == "warning":
+        return f"Approaching {label} ({round(distance_m)} m) — slow down and confirm the boundary."
+    return "Clear of protected zones."
 
 
 @router.post("/geo/analyze", response_model=GeoAnalyzeOut)
@@ -54,6 +81,52 @@ def analyze_geometry(payload: GeoAnalyzeIn, db: Session = Depends(get_db)) -> Ge
         area_acres=round(area_m2 / 4046.8564224, 2),
         intersecting_constraints=constraints,
         blocking=blocking,
+    )
+
+
+@router.post("/geo/proximity", response_model=ProximityOut)
+def proximity(payload: ProximityIn, db: Session = Depends(get_db)) -> ProximityOut:
+    """Geofence check for a crew position: for every protected zone, compute the
+    true ground distance (PostGIS ``ST_Distance`` on geography) and whether the
+    point is inside (``ST_Contains``), then escalate CLEAR → APPROACHING →
+    ENTERED → BREACH. Server-enforced — the alert logic never lives only in the
+    UI, so it holds even if a device is compromised or offline-replayed."""
+    warning_m = max(0.0, payload.warning_meters)
+    sql = text(
+        """
+        SELECT id, name, category, severity,
+               ST_Contains(geometry, pt) AS inside,
+               ST_Distance(geometry::geography, pt::geography) AS dist
+        FROM environmental_constraint,
+             (SELECT ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) AS pt) p
+        ORDER BY dist ASC
+        """
+    )
+    rows = db.execute(sql, {"lon": payload.lon, "lat": payload.lat}).mappings().all()
+
+    zones: list[ProximityZone] = []
+    for r in rows:
+        # PostgreSQL enum columns come back as the member NAME (e.g. "WATER_BUFFER");
+        # map to the enum so Pydantic serializes the wire value ("water_buffer").
+        category = e.ConstraintCategory[r["category"]]
+        severity = e.ConstraintSeverity[r["severity"]]
+        inside = bool(r["inside"])
+        dist = 0.0 if inside else round(float(r["dist"]), 1)
+        level = _proximity_level(inside, severity, dist, warning_m)
+        zones.append(ProximityZone(
+            id=r["id"], name=r["name"], category=category, severity=severity,
+            distance_m=dist, inside=inside, level=level,
+            action=_proximity_action(level, category.value, dist),
+        ))
+
+    overall = max((z.level for z in zones), key=lambda lv: _LEVEL_RANK[lv], default="clear")
+    nearest = zones[0] if zones else None
+    return ProximityOut(
+        lon=payload.lon, lat=payload.lat, warning_meters=warning_m,
+        overall_level=overall,
+        nearest_name=nearest.name if nearest else None,
+        nearest_distance_m=nearest.distance_m if nearest else None,
+        zones=zones,
     )
 
 
