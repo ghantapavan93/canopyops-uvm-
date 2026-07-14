@@ -27,6 +27,7 @@ from app.api import (
     overview,
     plans,
     stewardship,
+    terrain,
     treatments,
     verifications,
 )
@@ -133,6 +134,7 @@ app.include_router(overview.router, prefix="/api")
 app.include_router(stewardship.router, prefix="/api")
 app.include_router(integration.router, prefix="/api")
 app.include_router(odata.router, prefix="/api")
+app.include_router(terrain.router, prefix="/api")
 
 
 @app.get("/api")

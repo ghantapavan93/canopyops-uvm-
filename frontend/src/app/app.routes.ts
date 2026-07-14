@@ -84,6 +84,14 @@ export const routes: Routes = [
         title: 'Field Safety · Geofencing — CanopyOps',
       },
       {
+        path: 'terrain',
+        loadComponent: () =>
+          import('./features/terrain/terrain.component').then(
+            (m) => m.TerrainComponent,
+          ),
+        title: '3D Terrain — CanopyOps',
+      },
+      {
         path: 'integration',
         loadComponent: () =>
           import('./features/integration-odata/integration-odata.component').then(

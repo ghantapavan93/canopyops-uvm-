@@ -110,6 +110,33 @@ export interface ZonesSnapshot {
   zones: EnvironmentalConstraint[];
 }
 
+/** Synthetic digital elevation model rendered as an interactive 3D surface. */
+export interface TerrainGrid {
+  bbox: number[];          // [minLon, minLat, maxLon, maxLat]
+  cols: number;
+  rows: number;
+  minElev: number;
+  maxElev: number;
+  elevations: number[][];  // rows x cols, metres
+  note: string;
+}
+
+export interface TerrainProfilePoint {
+  distanceM: number;
+  elevationM: number;
+  slopePct: number;
+}
+
+export interface TerrainProfile {
+  points: TerrainProfilePoint[];
+  lengthM: number;
+  gainM: number;
+  maxSlopePct: number;
+  steepSections: number;
+  steepThresholdPct: number;
+  note: string;
+}
+
 /** Flattened queue/detail row: a plan joined with its work order + corridor,
  *  plus derived assurance signals the Command Center ranks on. */
 export interface TreatmentRecord {

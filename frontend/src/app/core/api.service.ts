@@ -16,6 +16,8 @@ import {
   ProofPack,
   ProximityResult,
   StewardshipPayload,
+  TerrainGrid,
+  TerrainProfile,
   ZonesSnapshot,
   SystemHealth,
   TreatmentRecord,
@@ -130,6 +132,16 @@ export class ApiService {
   /** Versioned protected-zone snapshot cached on-device for offline geofencing. */
   getZones(): Observable<ZonesSnapshot> {
     return this.http.get<ZonesSnapshot>(`${this.base}/geo/zones`);
+  }
+
+  /** Synthetic DEM grid for the 3D terrain surface. */
+  getTerrain(cols = 56, rows = 36): Observable<TerrainGrid> {
+    return this.http.get<TerrainGrid>(`${this.base}/geo/terrain?cols=${cols}&rows=${rows}`);
+  }
+
+  /** Elevation + slope profile along a corridor centerline. */
+  terrainProfile(geometry: Geometry, samples = 48): Observable<TerrainProfile> {
+    return this.http.post<TerrainProfile>(`${this.base}/geo/terrain/profile`, { geometry, samples });
   }
 
   getMetrics(): Observable<SystemHealth> {

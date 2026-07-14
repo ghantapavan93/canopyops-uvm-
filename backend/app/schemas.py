@@ -225,6 +225,40 @@ class ZonesSnapshot(Schema):
     zones: list[ConstraintOut]
 
 
+# --- 3D terrain awareness ---
+class TerrainGrid(Schema):
+    """A synthetic digital elevation model (DEM) over the sandbox, sampled on a
+    regular grid. Rendered as an interactive 3D surface on the front end."""
+    bbox: list[float]              # [minLon, minLat, maxLon, maxLat]
+    cols: int
+    rows: int
+    min_elev: float
+    max_elev: float
+    elevations: list[list[float]]  # rows x cols, metres
+    note: str = "Synthetic elevation model — illustrative only. Not survey data."
+
+
+class TerrainProfileIn(Schema):
+    geometry: dict                 # a GeoJSON LineString (e.g. a corridor centerline)
+    samples: int = 48
+
+
+class TerrainProfilePoint(Schema):
+    distance_m: float
+    elevation_m: float
+    slope_pct: float
+
+
+class TerrainProfileOut(Schema):
+    points: list[TerrainProfilePoint]
+    length_m: float
+    gain_m: float
+    max_slope_pct: float
+    steep_sections: int
+    steep_threshold_pct: float = 30.0
+    note: str = "Synthetic elevation model — illustrative only. Not survey data."
+
+
 class PlanCreate(Schema):
     corridor_id: str
     priority: e.WorkOrderPriority = e.WorkOrderPriority.ROUTINE
