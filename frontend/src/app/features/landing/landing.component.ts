@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 interface Step { n: number; t: string; d: string; glyph: string; }
 interface Persona { role: string; who: string; gets: string; glyph: string; }
 interface Stat { target: number; suffix: string; label: string; }
+interface Cap { glyph: string; tag: string; title: string; pitch: string; route: string; }
 
 /** Cinematic scrollytelling landing. Motion is CSS-driven (compositor-based, so
  *  it runs and finishes even if the tab is backgrounded — unlike RAF/JS tweens).
@@ -22,7 +23,23 @@ export class LandingComponent {
 
   readonly tech = [
     'Angular', 'TypeScript', 'MapLibre GL', 'PostGIS', 'FastAPI', 'IndexedDB',
-    'PWA offline', 'Signals', 'Jest', 'Cypress', 'WCAG AA', 'Docker',
+    'Service Worker · PWA', 'SAP-style OData', 'Geofencing', '3D terrain',
+    'Signals', 'Jest', 'Cypress', 'WCAG AA', 'Docker',
+  ];
+
+  readonly capabilities: Cap[] = [
+    { glyph: '◎', tag: 'GIS', title: 'Command Center', route: '/console/command',
+      pitch: 'A MapLibre map with switchable real basemaps (streets / satellite) and a prioritized exception queue, bidirectional selection, and a server-driven assurance summary.' },
+    { glyph: '🛰', tag: 'Field safety', title: 'Protected-zone geofencing', route: '/console/geofence',
+      pitch: 'Live proximity alerts as a crew nears buffers and no-work zones — PostGIS distance + containment, escalating CLEAR → APPROACHING → BREACH — and it keeps working offline on-device.' },
+    { glyph: '⛰', tag: 'Terrain', title: '3D terrain awareness', route: '/console/terrain',
+      pitch: 'An interactive elevation surface (hillshade, orbit, vertical exaggeration) with corridor slope profiles that flag steep sections for access and fall-protection planning.' },
+    { glyph: '⇅', tag: 'Offline', title: 'Sync & Conflict Center', route: '/console/sync',
+      pitch: 'Idempotent offline sync with revision-conflict resolution, failed-upload recovery, and a request-payload inspector — zero duplicates on retry.' },
+    { glyph: '✓', tag: 'Assurance', title: 'Outcome verification', route: '/console/verification',
+      pitch: 'Evidence-gated verification, targeted re-work geometry, and a Proof Pack that connects plan → execution → evidence → outcome → audit trail.' },
+    { glyph: '🔌', tag: 'Integration', title: 'SAP-style OData', route: '/console/integration',
+      pitch: 'The seam an Angular⇄SAP shop lives in: an OData v4 service mapping plans → WBS and field time → CATS, with $filter / $expand, deferred loading, and ETag caching.' },
   ];
 
   readonly steps: Step[] = [

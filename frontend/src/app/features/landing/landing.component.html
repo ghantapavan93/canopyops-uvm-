@@ -12,6 +12,7 @@
         <nav class="ml-auto hidden items-center gap-6 text-sm md:flex" style="color:var(--ink-dim)">
           <a href="#gap" class="no-underline hover:text-white" style="color:inherit">The gap</a>
           <a href="#loop" class="no-underline hover:text-white" style="color:inherit">The loop</a>
+          <a href="#capabilities" class="no-underline hover:text-white" style="color:inherit">Modules</a>
           <a href="#field" class="no-underline hover:text-white" style="color:inherit">For the field</a>
         </nav>
         <a routerLink="/console/command" class="btn-primary ml-4 rounded-lg px-4 py-2 text-sm no-underline">Open console →</a>
@@ -158,6 +159,35 @@
 
     <div class="divider mx-auto max-w-6xl"></div>
 
+    <!-- CAPABILITIES -->
+    <section id="capabilities" class="mx-auto max-w-6xl px-6 py-24">
+      <p data-reveal class="eyebrow">Inside the console</p>
+      <h2 data-reveal class="mt-3 max-w-3xl text-3xl font-bold tracking-tight md:text-5xl">
+        A real product, not a <span class="grad">slide deck.</span>
+      </h2>
+      <p data-reveal class="lead mt-4 max-w-2xl">
+        Eight connected modules on one Angular · FastAPI · PostGIS stack — GIS, field
+        safety, terrain, integration, and an offline-first PWA. Jump straight in.
+      </p>
+
+      <div class="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        @for (c of capabilities; track c.title) {
+          <a data-reveal [routerLink]="c.route"
+             class="card-hover glass group rounded-2xl p-6 no-underline" style="color:inherit">
+            <div class="flex items-center justify-between">
+              <div class="grid h-11 w-11 place-items-center rounded-xl text-lg" style="background:rgba(55,226,154,.12);border:1px solid var(--edge)">{{ c.glyph }}</div>
+              <span class="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide" style="background:rgba(55,226,154,.1);color:#37e29a">{{ c.tag }}</span>
+            </div>
+            <h3 class="mt-4 text-lg font-semibold">{{ c.title }}</h3>
+            <p class="mt-2 text-sm" style="color:var(--ink-dim)">{{ c.pitch }}</p>
+            <span class="mt-3 inline-block text-sm font-medium" style="color:#37e29a">Open →</span>
+          </a>
+        }
+      </div>
+    </section>
+
+    <div class="divider mx-auto max-w-6xl"></div>
+
     <!-- FOR THE FIELD -->
     <section id="field" class="mx-auto max-w-6xl px-6 py-24">
       <p data-reveal class="eyebrow">Built for the people who do the work</p>
@@ -208,7 +238,8 @@
     <footer class="mx-auto max-w-6xl px-6 py-10 text-xs" style="color:var(--ink-dim)">
       <div class="divider mb-6"></div>
       Independent concept. Synthetic data throughout. Not affiliated with or endorsed by
-      The Davey Tree Expert Company. Built with Angular, MapLibre, PostGIS, FastAPI.
+      The Davey Tree Expert Company. Built with Angular, MapLibre, PostGIS, FastAPI, an
+      SAP-style OData layer, and an offline-first service worker.
     </footer>
   </div>
 </div>
