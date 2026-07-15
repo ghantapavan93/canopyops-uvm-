@@ -142,7 +142,8 @@ cd backend && pytest        # 46 passing — idempotency, conflict + resolve, ev
 cd frontend && npm test     # 25 passing — coverage math, status system, component render, chart utilities,
                             #   and the on-device geofence engine (point-in-polygon, distance, escalation,
                             #   MultiPolygon parity with PostGIS)
-cd frontend && npm run e2e  # Cypress critical journey — 1 passing (headless, against the running stack)
+cd frontend && npm run e2e  # Cypress — 4 passing / 2 specs (critical journey + command palette),
+                            #   headless against the running stack
 ```
 
 Performance: over **1,006 synthetic features**, the server-side bbox spatial filter

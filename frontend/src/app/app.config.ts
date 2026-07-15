@@ -14,8 +14,9 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
     // App shell + read-only API responses are cached by the service worker, so
     // the whole console (not just the geofence zones) survives going offline.
+    // Skipped under Cypress (window.Cypress) — a controlling SW hangs e2e visits.
     provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),
+      enabled: !isDevMode() && !('Cypress' in window),
       registrationStrategy: 'registerWhenStable:30000',
     }),
   ],
