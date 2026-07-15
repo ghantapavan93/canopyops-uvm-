@@ -68,7 +68,7 @@ def _level(score: float) -> str:
 
 
 def _latest_reviews(db: Session) -> dict[str, m.RiskReview]:
-    """Most-recent persisted sign-off per plan (the durable human review)."""
+    """Most-recent persisted review per plan (a sign-off or a revocation)."""
     reviews = db.scalars(
         select(m.RiskReview).order_by(m.RiskReview.created_at.asc())
     ).all()
@@ -128,6 +128,8 @@ def score_spans(db: Session) -> list[SpanRisk]:
         }[top.name]
 
         review = reviews.get(p.id)
+        # A revocation reopens the span — the latest review must be an active sign-off.
+        active = review is not None and review.decision != "revoked"
         out.append(SpanRisk(
             plan_id=p.id,
             work_order_ref=wo.reference if wo else p.id,
@@ -135,9 +137,9 @@ def score_spans(db: Session) -> list[SpanRisk]:
             span=corridor.span_label if corridor else "—",
             score=score, level=_level(score), factors=factors,
             recommendation=f"{rec} — pending forester review.",
-            reviewed=review is not None,
-            reviewed_by=reviewer_names.get(review.reviewer_id) if review else None,
-            reviewed_at=review.created_at if review else None,
+            reviewed=active,
+            reviewed_by=reviewer_names.get(review.reviewer_id) if active else None,
+            reviewed_at=review.created_at if active else None,
         ))
 
     out.sort(key=lambda s: s.score, reverse=True)
@@ -174,8 +176,9 @@ def review_span(
         decision=payload.decision, note=payload.note,
     )
     db.add(review)
+    action = "risk.review_revoked" if payload.decision == "revoked" else "risk.reviewed"
     db.add(m.AuditEvent(
-        actor_id=user.id, action="risk.reviewed", entity_type="treatment_plan",
+        actor_id=user.id, action=action, entity_type="treatment_plan",
         entity_id=plan_id, after={"score": score, "level": level, "decision": payload.decision},
         reason=payload.note,
     ))
@@ -186,3 +189,23 @@ def review_span(
         reviewer_name=user.display_name, score=review.score, level=review.level,
         decision=review.decision, note=review.note, created_at=review.created_at,
     )
+
+
+@router.get("/risk/spans/{plan_id}/reviews", response_model=list[RiskReviewOut])
+def span_review_history(plan_id: str, db: Session = Depends(get_db)) -> list[RiskReviewOut]:
+    """The full, append-only review history for a span (newest first) — the
+    durable evidence trail of every sign-off and revocation."""
+    names = {u.id: u.display_name for u in db.scalars(select(m.User)).all()}
+    revs = db.scalars(
+        select(m.RiskReview)
+        .where(m.RiskReview.plan_id == plan_id)
+        .order_by(m.RiskReview.created_at.desc())
+    ).all()
+    return [
+        RiskReviewOut(
+            id=r.id, plan_id=r.plan_id, reviewer_id=r.reviewer_id,
+            reviewer_name=names.get(r.reviewer_id), score=r.score, level=r.level,
+            decision=r.decision, note=r.note, created_at=r.created_at,
+        )
+        for r in revs
+    ]

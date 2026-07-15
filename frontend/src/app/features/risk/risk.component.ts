@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
-import { RiskBoard, RiskLevel, SpanRisk } from '../../core/models';
+import { RiskBoard, RiskLevel, RiskReview, SpanRisk } from '../../core/models';
 
 const FACTOR_META: Record<string, { label: string; cssVar: string }> = {
   clearance: { label: 'Encroachment', cssVar: '--c-primary' },
@@ -93,14 +93,19 @@ export class RiskComponent implements OnDestroy {
   factorColor(name: string): string { return `var(${FACTOR_META[name]?.cssVar ?? '--c-neutral'})`; }
 
   /** Persist a certified reviewer's sign-off (server records it + audits it). */
-  signOff(s: SpanRisk): void {
+  signOff(s: SpanRisk): void { this.decide(s, 'acknowledged', `Signed off — recorded to the audit trail.`); }
+  /** Revoke a prior sign-off — reopens the span; history is preserved. */
+  revoke(s: SpanRisk): void { this.decide(s, 'revoked', 'Sign-off revoked — the span is reopened for review.'); }
+
+  private decide(s: SpanRisk, decision: 'acknowledged' | 'revoked', ok: string): void {
     if (this.signing().has(s.planId)) return;
     this.signing.update((set) => new Set(set).add(s.planId));
-    this.api.reviewSpan(s.planId).subscribe({
-      next: (r) => {
-        this.toast.success(`Signed off by ${r.reviewerName ?? 'reviewer'} — recorded to the audit trail.`);
+    this.api.reviewSpan(s.planId, decision).subscribe({
+      next: () => {
+        this.toast.success(ok);
         this.clearSigning(s.planId);
-        this.load(true);  // reflect the persisted review
+        this.expandedHistory.update((set) => { const n = new Set(set); n.delete(s.planId); return n; });
+        this.load(true);  // reflect the new persisted state
       },
       error: () => this.clearSigning(s.planId),  // the error interceptor toasts (e.g. 403)
     });
@@ -108,6 +113,19 @@ export class RiskComponent implements OnDestroy {
   isSigning(s: SpanRisk): boolean { return this.signing().has(s.planId); }
   private clearSigning(id: string): void {
     this.signing.update((set) => { const n = new Set(set); n.delete(id); return n; });
+  }
+
+  // --- append-only review history (durable evidence trail) ---
+  readonly expandedHistory = signal<Set<string>>(new Set());
+  readonly history = signal<Record<string, RiskReview[]>>({});
+  isHistoryOpen(s: SpanRisk): boolean { return this.expandedHistory().has(s.planId); }
+  reviewsFor(s: SpanRisk): RiskReview[] { return this.history()[s.planId] ?? []; }
+  toggleHistory(s: SpanRisk): void {
+    const open = new Set(this.expandedHistory());
+    if (open.has(s.planId)) { open.delete(s.planId); this.expandedHistory.set(open); return; }
+    open.add(s.planId); this.expandedHistory.set(open);
+    this.api.getReviews(s.planId).subscribe((revs) =>
+      this.history.update((h) => ({ ...h, [s.planId]: revs })));
   }
 
   openInCommand(s: SpanRisk): void {

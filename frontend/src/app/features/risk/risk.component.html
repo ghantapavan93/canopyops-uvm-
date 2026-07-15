@@ -91,6 +91,10 @@
             <span class="ml-auto rounded-sm bg-ok-soft px-1.5 py-0.5 text-[11px] font-semibold text-ok">
               ✓ Signed off — {{ s.reviewedBy }}<span class="font-normal opacity-80"> · {{ s.reviewedAt | date: 'short' }}</span>
             </span>
+            @if (canReview()) {
+              <button type="button" (click)="revoke(s)" [disabled]="isSigning(s)"
+                      class="rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted hover:bg-surface-2 disabled:opacity-50">Revoke</button>
+            }
           } @else {
             <span class="ml-auto rounded-sm bg-warn-soft px-1.5 py-0.5 text-[11px] text-warn">⧗ Awaiting forester — AI can't authorize work</span>
             @if (canReview()) {
@@ -102,7 +106,36 @@
               <span class="text-[10px] text-muted">switch to a Reviewer role to sign off</span>
             }
           }
+          <button type="button" (click)="toggleHistory(s)" [attr.aria-expanded]="isHistoryOpen(s)"
+                  class="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted hover:bg-surface-2">
+            {{ isHistoryOpen(s) ? 'Hide history' : 'Review history' }}
+          </button>
         </div>
+
+        @if (isHistoryOpen(s)) {
+          <div class="mt-1.5 rounded-md border border-border bg-bg p-2">
+            <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Append-only review trail</div>
+            @if (reviewsFor(s).length) {
+              <ol class="space-y-1">
+                @for (r of reviewsFor(s); track r.id) {
+                  <li class="flex items-center gap-2 text-[11px]">
+                    <span class="rounded-sm px-1 py-0.5 text-[10px] font-semibold"
+                          [class.bg-ok-soft]="r.decision !== 'revoked'" [class.text-ok]="r.decision !== 'revoked'"
+                          [class.bg-danger-soft]="r.decision === 'revoked'" [class.text-danger]="r.decision === 'revoked'">
+                      {{ r.decision === 'revoked' ? 'revoked' : 'signed off' }}
+                    </span>
+                    <span class="text-ink">{{ r.reviewerName }}</span>
+                    <span class="text-muted">· score {{ r.score }}</span>
+                    @if (r.note) { <span class="truncate text-muted">· {{ r.note }}</span> }
+                    <span class="ml-auto text-muted">{{ r.createdAt | date: 'short' }}</span>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <div class="text-[11px] text-muted">No reviews recorded for this span yet.</div>
+            }
+          </div>
+        }
       </li>
     } @empty {
       <li class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">No spans at this level.</li>

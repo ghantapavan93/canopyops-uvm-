@@ -146,11 +146,16 @@ export class ApiService {
     return this.http.get<RiskBoard>(`${this.base}/risk/spans`);
   }
 
-  /** A certified reviewer signs off on a span's risk — persisted + audited. */
-  reviewSpan(planId: string, note?: string): Observable<RiskReview> {
+  /** A certified reviewer signs off on (or revokes) a span's risk — persisted + audited. */
+  reviewSpan(planId: string, decision: 'acknowledged' | 'revoked' = 'acknowledged', note?: string): Observable<RiskReview> {
     return this.http.post<RiskReview>(`${this.base}/risk/spans/${planId}/review`, {
-      decision: 'acknowledged', note: note ?? null,
+      decision, note: note ?? null,
     });
+  }
+
+  /** The full append-only review history for a span (newest first). */
+  getReviews(planId: string): Observable<RiskReview[]> {
+    return this.http.get<RiskReview[]>(`${this.base}/risk/spans/${planId}/reviews`);
   }
 
   /** Elevation + slope profile along a corridor centerline. */

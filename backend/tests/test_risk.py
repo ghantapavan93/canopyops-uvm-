@@ -84,3 +84,28 @@ def test_review_writes_an_immutable_audit_event(client):
     )
     proof = client.get(f"/api/plans/{plan_id}/proof").json()
     assert any(a["action"] == "risk.reviewed" for a in proof["auditTrail"])
+
+
+def test_revoke_reopens_the_span_and_history_is_append_only(client):
+    hdr = auth(client, "reviewer@synthetic.test")
+    plan_id = client.get("/api/risk/spans").json()["spans"][0]["planId"]
+
+    client.post(f"/api/risk/spans/{plan_id}/review", json={"decision": "acknowledged"}, headers=hdr)
+    reviewed = next(s for s in client.get("/api/risk/spans").json()["spans"] if s["planId"] == plan_id)
+    assert reviewed["reviewed"] is True
+
+    # Revoke reopens the span — but nothing is deleted.
+    client.post(f"/api/risk/spans/{plan_id}/review", json={"decision": "revoked", "note": "clearance changed"}, headers=hdr)
+    reopened = next(s for s in client.get("/api/risk/spans").json()["spans"] if s["planId"] == plan_id)
+    assert reopened["reviewed"] is False
+    assert reopened["reviewedBy"] is None
+
+    history = client.get(f"/api/risk/spans/{plan_id}/reviews").json()
+    assert len(history) == 2                                   # both events preserved
+    assert history[0]["decision"] == "revoked"                 # newest first
+    assert history[1]["decision"] == "acknowledged"
+
+
+def test_review_history_empty_for_unreviewed_span(client):
+    plan_id = client.get("/api/risk/spans").json()["spans"][-1]["planId"]
+    assert client.get(f"/api/risk/spans/{plan_id}/reviews").json() == []
