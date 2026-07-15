@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { filter } from 'rxjs/operators';
 
@@ -14,18 +14,34 @@ import { ToastContainerComponent } from './shared/toast-container.component';
 })
 export class AppComponent {
   private updates = inject(SwUpdate);
+  private router = inject(Router);
   private toast = inject(ToastService);
+  private lastCheck = 0;
 
   constructor() {
-    // When the service worker has fetched a new version, tell the user and
-    // reload so they pick it up (safe: the outbox persists across reloads).
-    if (this.updates.isEnabled) {
-      this.updates.versionUpdates
-        .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))
-        .subscribe(() => {
-          this.toast.info('A new version is ready — updating…');
-          setTimeout(() => document.location.reload(), 1500);
-        });
-    }
+    if (!this.updates.isEnabled) return;
+
+    // When a new version has downloaded, tell the user and reload (safe — the
+    // IndexedDB outbox persists across reloads).
+    this.updates.versionUpdates
+      .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))
+      .subscribe(() => {
+        this.toast.info('A new version is ready — updating…');
+        setTimeout(() => document.location.reload(), 1200);
+      });
+
+    // Proactively poll for a newer build on load and on navigation (throttled),
+    // so a fresh deploy is picked up promptly instead of serving a stale shell.
+    this.check();
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(() => this.check());
+  }
+
+  private check(): void {
+    const now = Date.now();
+    if (now - this.lastCheck < 20000) return;
+    this.lastCheck = now;
+    this.updates.checkForUpdate().catch(() => {});
   }
 }

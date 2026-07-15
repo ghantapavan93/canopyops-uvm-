@@ -98,7 +98,7 @@ cd frontend && npm install && npm start        # http://localhost:4200
 | **3D Terrain** | Interactive elevation surface (self-contained canvas renderer — hillshade + hypsometric tint, orbit + vertical exaggeration) with ROW corridors draped and protected zones shaded onto it; a synthetic DEM from the API, plus a corridor **elevation/slope profile** that flags steep sections for access & crew safety |
 | **Integration · OData** | SAP-style OData v4 service — treatment plan → **WBS element**, field execution → **CATS** time confirmation; `$metadata`, `$filter/$select/$expand`, deferred navigation, and ETag/304 caching, consumed by an Angular OData client |
 | **Engineering Evidence** | Test results, architecture, accessibility, perf, and boundaries for a technical reviewer |
-| **Compliance Report** | An exportable, **print-ready** program rollup (`/report`) — attainment, evidence completeness, NERC/HFTD exposure, and risk governance (distribution + % human-reviewed + unreviewed high/critical), with a ranked span table. Save-as-PDF; mirrors a utility compliance dashboard |
+| **Compliance Report** | An exportable program rollup (`/report`) — attainment, evidence completeness, NERC/HFTD exposure, and risk governance (distribution + % human-reviewed + unreviewed high/critical), with a ranked span table. **Circuit-scopable**, and exports a real **server-generated PDF** (fixed letterhead) as well as browser print; mirrors a utility compliance dashboard |
 
 ## Architecture
 
@@ -141,7 +141,7 @@ facade — not a real SAP connection.
 ## Testing
 
 ```bash
-cd backend && pytest        # 58 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
+cd backend && pytest        # 60 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
                             #   full loop, plan creation + validation, overview periods, stewardship, choropleth,
                             #   geo-analyze, OpenAPI contract, GeoJSON import, metrics endpoint, pagination,
                             #   the OData surface ($metadata, $filter w/ grouping, deferred nav, ETag/304),
@@ -150,7 +150,7 @@ cd backend && pytest        # 58 passing — idempotency, conflict + resolve, ev
 cd frontend && npm test     # 25 passing — coverage math, status system, component render, chart utilities,
                             #   and the on-device geofence engine (point-in-polygon, distance, escalation,
                             #   MultiPolygon parity with PostGIS)
-cd frontend && npm run e2e  # Cypress — 5 passing / 3 specs (critical journey + command palette + risk sign-off),
+cd frontend && npm run e2e  # Cypress — 6 passing / 4 specs (critical journey, command palette, risk sign-off, compliance report),
                             #   headless against the running stack
 ```
 

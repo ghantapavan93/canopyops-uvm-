@@ -3,7 +3,15 @@
     <!-- screen-only toolbar -->
     <div class="toolbar no-print">
       <a routerLink="/console/overview" class="tbtn">← Back to console</a>
-      <button type="button" (click)="print()" class="tbtn tbtn--primary">⎙ Print / Save as PDF</button>
+      <label class="scope">
+        Scope
+        <select [value]="circuit()" (change)="setCircuit($any($event.target).value)">
+          <option value="">All circuits</option>
+          @for (c of circuits(); track c) { <option [value]="c">{{ c }}</option> }
+        </select>
+      </label>
+      <a [href]="pdfHref()" class="tbtn ml-auto" download>⤓ Download PDF</a>
+      <button type="button" (click)="print()" class="tbtn tbtn--primary">⎙ Print</button>
     </div>
 
     <header class="rhead">

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
 import { ComplianceReport } from '../../core/models';
+import { environment } from '../../../environments/environment';
 
 /** A print-ready compliance report — the exportable evidence artifact. Rendered
  *  as a standalone light document (no app chrome) so "Print / Save as PDF"
@@ -18,14 +19,28 @@ import { ComplianceReport } from '../../core/models';
 export class ReportComponent {
   private api = inject(ApiService);
   readonly report = signal<ComplianceReport | null>(null);
+  readonly circuit = signal<string>('');           // '' = all circuits
+  readonly circuits = signal<string[]>([]);
 
   readonly levels = ['critical', 'high', 'elevated', 'low'] as const;
   readonly distTotal = computed(() =>
     Object.values(this.report()?.riskDistribution ?? {}).reduce((a, b) => a + b, 0) || 1);
+  /** Direct link to the server-generated PDF (honours the circuit scope). */
+  readonly pdfHref = computed(() =>
+    `${environment.apiBase}/reports/compliance.pdf${this.circuit() ? `?circuit=${this.circuit()}` : ''}`);
 
-  constructor() {
-    this.api.getComplianceReport().subscribe((r) => this.report.set(r));
+  constructor() { this.load(); }
+
+  private load(): void {
+    this.api.getComplianceReport(this.circuit() || undefined).subscribe((r) => {
+      this.report.set(r);
+      // Capture the full circuit list once (from the unscoped report).
+      if (!this.circuit() && !this.circuits().length) {
+        this.circuits.set([...new Set(r.spans.map((s) => s.circuit))].sort());
+      }
+    });
   }
+  setCircuit(c: string): void { this.circuit.set(c); this.load(); }
 
   print(): void { window.print(); }
 

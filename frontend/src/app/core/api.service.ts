@@ -159,9 +159,10 @@ export class ApiService {
     return this.http.get<RiskReview[]>(`${this.base}/risk/spans/${planId}/reviews`);
   }
 
-  /** Exportable program-wide compliance rollup (print-ready). */
-  getComplianceReport(): Observable<ComplianceReport> {
-    return this.http.get<ComplianceReport>(`${this.base}/reports/compliance`);
+  /** Exportable compliance rollup (print-ready), optionally scoped to a circuit. */
+  getComplianceReport(circuit?: string): Observable<ComplianceReport> {
+    const q = circuit ? `?circuit=${encodeURIComponent(circuit)}` : '';
+    return this.http.get<ComplianceReport>(`${this.base}/reports/compliance${q}`);
   }
 
   /** Elevation + slope profile along a corridor centerline. */

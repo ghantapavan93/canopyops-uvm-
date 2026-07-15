@@ -33,3 +33,24 @@ def test_report_reflects_a_persisted_review(client):
 def test_report_flags_hftd_exposure(client):
     r = client.get("/api/reports/compliance").json()
     assert r["hftdIntersecting"] >= 1     # a seeded span intersects the HFTD zone
+
+
+def test_report_scopes_to_a_single_circuit(client):
+    full = client.get("/api/reports/compliance").json()
+    circuit = full["spans"][0]["circuit"]
+    scoped = client.get(f"/api/reports/compliance?circuit={circuit}").json()
+    assert scoped["totalPlans"] < full["totalPlans"]
+    assert all(s["circuit"] == circuit for s in scoped["spans"])
+
+
+def test_report_pdf_is_a_real_pdf(client):
+    res = client.get("/api/reports/compliance.pdf")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert "attachment" in res.headers["content-disposition"]
+    assert res.content[:5] == b"%PDF-"          # a real PDF file signature
+    assert len(res.content) > 1000
+
+    scoped = client.get("/api/reports/compliance.pdf?circuit=CKT-8842")
+    assert scoped.status_code == 200
+    assert "CKT-8842" in scoped.headers["content-disposition"]

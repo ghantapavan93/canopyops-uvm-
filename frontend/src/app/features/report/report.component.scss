@@ -31,6 +31,22 @@
   text-decoration: none;
 }
 .tbtn--primary { background: #1f6f4b; color: #fff; border-color: transparent; }
+.ml-auto { margin-left: auto; }
+.scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #5b6b62;
+}
+.scope select {
+  border: 1px solid #d5ddd7;
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.82rem;
+  color: #16211c;
+  background: #fff;
+}
 
 .rhead {
   background: #fff;
