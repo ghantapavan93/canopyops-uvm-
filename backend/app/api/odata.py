@@ -12,8 +12,10 @@ It implements the OData patterns that role calls for:
   * server-driven paging (`$top` / `$skip` + ``@odata.nextLink``),
   * `$select` / `$filter` / `$orderby` / `$count` / `$expand`,
   * **deferred loading** — navigation properties are returned as links and only
-    materialised when `$expand` is passed (never eagerly), and
-  * **caching** — strong `ETag` + `If-None-Match` conditional requests (`304`).
+    materialised when `$expand` is passed (never eagerly),
+  * **caching** — strong `ETag` + `If-None-Match` conditional requests (`304`), and
+  * **`$batch`** — many reads bundled into one round-trip (the SAP-heavy pattern),
+    with `dependsOn` sequencing (`424` when a predecessor failed).
 
 Not real SAP; a compatible facade demonstrating the integration competency.
 """
@@ -21,10 +23,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Body, Depends, Header, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -247,18 +251,16 @@ def _etag(payload: Any) -> str:
     return 'W/"' + hashlib.sha1(raw).hexdigest()[:16] + '"'
 
 
-def _collection_response(
-    request: Request,
-    if_none_match: str | None,
+def _build_collection(
     entity_set: str,
     rows: list[dict],
     params: dict[str, str],
     nav_name: str | None = None,
     nav_rows_for: Any = None,
-) -> Response:
-    """Assemble an OData v4 collection response with the query options applied,
-    deferred navigation links, server paging, and an ETag (304 on match)."""
-    # $filter -> $orderby -> $count -> paging
+) -> tuple[dict[str, Any], str]:
+    """Apply the OData query options ($filter → $orderby → $count → paging,
+    plus $select and deferred/$expand navigation) and return `(body, etag)`.
+    Shared by the HTTP collection routes and the ``$batch`` dispatcher."""
     if params.get("$filter"):
         rows = _apply_filter(rows, params["$filter"])
     if params.get("$orderby"):
@@ -295,8 +297,21 @@ def _collection_response(
         nxt = skip + window
         body["@odata.nextLink"] = f"{entity_set}?$skip={nxt}" + (
             f"&$top={top}" if top else "")
+    return body, _etag(body)
 
-    etag = _etag(body)
+
+def _collection_response(
+    request: Request,
+    if_none_match: str | None,
+    entity_set: str,
+    rows: list[dict],
+    params: dict[str, str],
+    nav_name: str | None = None,
+    nav_rows_for: Any = None,
+) -> Response:
+    """Assemble an OData v4 collection response with the query options applied,
+    deferred navigation links, server paging, and an ETag (304 on match)."""
+    body, etag = _build_collection(entity_set, rows, params, nav_name, nav_rows_for)
     if if_none_match and if_none_match.strip() == etag:
         return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "no-store"})
     return JSONResponse(body, headers={"ETag": etag, "Cache-Control": "no-store"})
@@ -424,3 +439,94 @@ def cats_collection(
     return _collection_response(
         request, if_none_match, "CatsEntries", rows, _query_params(request),
     )
+
+
+# --------------------------------------------------------------------------- #
+# $batch — bundle many reads into one round-trip (OData v4 JSON batch format)  #
+#                                                                              #
+# SAP integrations lean on $batch heavily: a single POST carries an ordered   #
+# list of sub-requests (and, for writes, atomic changesets). This facade is   #
+# read-only, so we support GET sub-requests plus `dependsOn` sequencing — if a #
+# dependency failed, its dependents are short-circuited with 424, mirroring   #
+# how a real client avoids acting on a request whose predecessor didn't land.  #
+# --------------------------------------------------------------------------- #
+_WBS_ENTITY = re.compile(r"^WbsElements\('([^']+)'\)$")
+_WBS_NAV = re.compile(r"^WbsElements\('([^']+)'\)/CatsEntries$")
+
+
+def _parse_relative_url(url: str) -> tuple[str, dict[str, str]]:
+    """`WbsElements?$top=2&$filter=Status eq 'closed'` -> (path, {options})."""
+    split = urlsplit(url.lstrip("/"))
+    params = {k: v for k, v in parse_qsl(split.query, keep_blank_values=True)}
+    return split.path, params
+
+
+def _resolve_batch_request(db: Session, method: str, url: str) -> tuple[int, dict[str, Any]]:
+    """Route one batch sub-request to the same projection + query engine the
+    HTTP routes use. Returns `(status, body)`. Read-only: non-GET -> 501."""
+    if method != "GET":
+        return 501, {"error": {"code": "501",
+                               "message": "This OData facade is read-only; $batch supports GET only."}}
+
+    path, params = _parse_relative_url(url)
+
+    if path == "WbsElements":
+        rows = wbs_elements(db)
+        cats = cats_entries(db)
+        nav_for = lambda row: [c for c in cats if c["Wbs"] == row["Wbs"]]  # noqa: E731
+        body, _ = _build_collection("WbsElements", rows, params, "CatsEntries", nav_for)
+        return 200, body
+
+    if path == "CatsEntries":
+        body, _ = _build_collection("CatsEntries", cats_entries(db), params)
+        return 200, body
+
+    if (mm := _WBS_NAV.match(path)):
+        rows = [c for c in cats_entries(db) if c["Wbs"] == mm.group(1)]
+        body, _ = _build_collection("CatsEntries", rows, params)
+        return 200, body
+
+    if (mm := _WBS_ENTITY.match(path)):
+        row = next((r for r in wbs_elements(db) if r["Wbs"] == mm.group(1)), None)
+        if row is None:
+            return 404, {"error": {"code": "404", "message": f"WbsElement '{mm.group(1)}' not found"}}
+        return 200, {"@odata.context": "$metadata#WbsElements/$entity",
+                     **{k: v for k, v in row.items() if not k.startswith("_")}}
+
+    return 404, {"error": {"code": "404", "message": f"No route for '{path}'"}}
+
+
+@router.post("/odata/$batch")
+def batch(
+    payload: dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Execute an OData v4 JSON `$batch`. Body: `{"requests": [{id, method, url,
+    dependsOn?}]}`. Responses preserve request order and echo each `id`; a
+    sub-request that `dependsOn` a failed one is returned as `424`."""
+    requests = payload.get("requests")
+    if not isinstance(requests, list):
+        return JSONResponse(
+            {"error": {"code": "400", "message": "Batch body must contain a 'requests' array."}},
+            status_code=400,
+        )
+
+    responses: list[dict[str, Any]] = []
+    status_by_id: dict[str, int] = {}
+    for req in requests:
+        rid = str(req.get("id", len(responses)))
+        method = str(req.get("method", "GET")).upper()
+        url = str(req.get("url", ""))
+        depends = req.get("dependsOn") or []
+
+        failed_dep = next((d for d in depends if status_by_id.get(str(d), 200) >= 400), None)
+        if failed_dep is not None:
+            status, body = 424, {"error": {"code": "424",
+                                            "message": f"Skipped: dependency '{failed_dep}' failed."}}
+        else:
+            status, body = _resolve_batch_request(db, method, url)
+
+        status_by_id[rid] = status
+        responses.append({"id": rid, "status": status, "body": body})
+
+    return JSONResponse({"responses": responses})

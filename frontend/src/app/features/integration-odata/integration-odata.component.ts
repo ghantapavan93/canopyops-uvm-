@@ -1,7 +1,13 @@
 import { JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 
-import { OdataQuery, OdataResult, OdataService } from '../../core/odata.service';
+import {
+  OdataBatchRequest,
+  OdataBatchResult,
+  OdataQuery,
+  OdataResult,
+  OdataService,
+} from '../../core/odata.service';
 
 interface WbsRow {
   Wbs: string;
@@ -125,5 +131,36 @@ export class IntegrationOdataComponent {
 
   pct(v: number | null | undefined): string {
     return v == null ? '—' : `${Math.round(v * 100)}%`;
+  }
+
+  // --- $batch: many reads, one round-trip ---------------------------------
+  readonly batchLoading = signal(false);
+  readonly batchResult = signal<OdataBatchResult | null>(null);
+  readonly batchRequests = computed<OdataBatchRequest[]>(() => {
+    const first = this.rows()[0]?.Wbs;
+    return [
+      { id: 'wbs-page', method: 'GET', url: 'WbsElements?$top=3&$count=true' },
+      { id: 'confirmed-cats', method: 'GET', url: 'CatsEntries?$filter=Confirmed eq true' },
+      ...(first ? [{ id: 'detail-cats', method: 'GET', url: `WbsElements('${first}')/CatsEntries` } as OdataBatchRequest] : []),
+    ];
+  });
+
+  runBatch(): void {
+    this.batchLoading.set(true);
+    this.batchResult.set(null);
+    this.odata.batch(this.batchRequests()).subscribe({
+      next: (r) => { this.batchResult.set(r); this.batchLoading.set(false); },
+      error: () => this.batchLoading.set(false),
+    });
+  }
+
+  /** A one-line human summary of a sub-response for the results strip. */
+  batchSummary(r: { status: number; body: any }): string {
+    const b = r.body ?? {};
+    if (b.error) return b.error.message ?? `error ${r.status}`;
+    if (typeof b['@odata.count'] === 'number') return `${b.value?.length ?? 0} of ${b['@odata.count']} rows`;
+    if (Array.isArray(b.value)) return `${b.value.length} rows`;
+    if (b.Wbs) return b.Wbs;
+    return 'ok';
   }
 }

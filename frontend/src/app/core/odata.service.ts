@@ -26,6 +26,22 @@ export interface OdataQuery {
   expand?: string;
 }
 
+export interface OdataBatchRequest {
+  id: string;
+  method?: 'GET';
+  url: string;          // relative to the OData root, e.g. WbsElements?$top=3
+  dependsOn?: string[];
+}
+export interface OdataBatchResponse {
+  id: string;
+  status: number;
+  body: any;
+}
+export interface OdataBatchResult {
+  responses: OdataBatchResponse[];
+  ms: number;
+}
+
 /** A minimal OData v4 client for the SAP-style integration seam.
  *
  *  Mirrors how an Angular front end consumes SAP OData: it holds an
@@ -86,6 +102,19 @@ export class OdataService {
       source,
       ms: Math.round((performance.now() - t0) * 10) / 10,
     };
+  }
+
+  /** Bundle several reads into a single `$batch` round-trip. The server runs
+   *  them in order, echoes each `id`, and returns 424 for any sub-request whose
+   *  `dependsOn` predecessor failed — one request/response for the whole set. */
+  batch(requests: OdataBatchRequest[]): Observable<OdataBatchResult> {
+    const t0 = performance.now();
+    return this.http
+      .post<{ responses: OdataBatchResponse[] }>(`${this.base}$batch`, { requests })
+      .pipe(map((r) => ({
+        responses: r.responses ?? [],
+        ms: Math.round((performance.now() - t0) * 10) / 10,
+      })));
   }
 
   /** Absolute URL for the raw response / $metadata (for inspector links). */

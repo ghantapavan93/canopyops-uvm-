@@ -71,3 +71,46 @@ def test_etag_conditional_request_returns_304(client):
     again = client.get("/api/odata/CatsEntries", headers={"If-None-Match": etag})
     assert again.status_code == 304
     assert again.headers.get("ETag") == etag
+
+
+def test_batch_bundles_reads_in_one_round_trip(client):
+    res = client.post("/api/odata/$batch", json={"requests": [
+        {"id": "wbs", "method": "GET", "url": "WbsElements?$top=2&$count=true"},
+        {"id": "cats", "method": "GET", "url": "CatsEntries?$filter=Confirmed eq true"},
+    ]})
+    assert res.status_code == 200
+    responses = {r["id"]: r for r in res.json()["responses"]}
+    assert responses["wbs"]["status"] == 200
+    assert responses["wbs"]["body"]["@odata.count"] == 6
+    assert len(responses["wbs"]["body"]["value"]) == 2
+    assert responses["cats"]["status"] == 200
+    assert all(c["Confirmed"] for c in responses["cats"]["body"]["value"])
+
+
+def test_batch_honours_query_options_and_entity_and_nav_routes(client):
+    # discover a real key + its expected CATS count from the plain routes first
+    key = client.get("/api/odata/WbsElements?$expand=CatsEntries").json()["value"][0]["Wbs"]
+    res = client.post("/api/odata/$batch", json={"requests": [
+        {"id": "1", "method": "GET", "url": f"WbsElements('{key}')"},
+        {"id": "2", "method": "GET", "url": f"WbsElements('{key}')/CatsEntries"},
+    ]})
+    by_id = {r["id"]: r for r in res.json()["responses"]}
+    assert by_id["1"]["body"]["Wbs"] == key
+    assert all(c["Wbs"] == key for c in by_id["2"]["body"]["value"])
+
+
+def test_batch_dependency_short_circuits_on_failure(client):
+    res = client.post("/api/odata/$batch", json={"requests": [
+        {"id": "bad", "method": "GET", "url": "WbsElements('NOPE.0000')"},
+        {"id": "child", "method": "GET", "url": "CatsEntries", "dependsOn": ["bad"]},
+    ]})
+    by_id = {r["id"]: r for r in res.json()["responses"]}
+    assert by_id["bad"]["status"] == 404
+    assert by_id["child"]["status"] == 424        # skipped because its dependency failed
+
+
+def test_batch_rejects_writes_read_only_facade(client):
+    res = client.post("/api/odata/$batch", json={"requests": [
+        {"id": "w", "method": "POST", "url": "WbsElements"},
+    ]})
+    assert res.json()["responses"][0]["status"] == 501
