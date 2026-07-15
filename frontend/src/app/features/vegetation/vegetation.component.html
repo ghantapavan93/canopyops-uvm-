@@ -1,0 +1,162 @@
+<div class="view-enter h-full overflow-y-auto p-4">
+  <header class="mb-3">
+    <h1 class="text-lg font-semibold text-ink">Vegetation Intelligence</h1>
+    <p class="text-xs text-muted">
+      Eliminate <strong>hot-spotting</strong> (reactive, repeat work) and get ahead of
+      <strong>cycle busters</strong> (fast-regrowth spans that break the trim cycle) — the
+      proactive, reliability-focused planning UVM programs are judged on.
+    </p>
+  </header>
+
+  <!-- HOT-SPOTTING -->
+  <section class="mb-5">
+    <div class="mb-2 flex items-baseline justify-between">
+      <h2 class="text-sm font-semibold text-ink">Hot-spotting heat</h2>
+      @if (hotspots(); as h) {
+        <div class="flex items-center gap-2 text-[11px]">
+          <span class="rounded bg-danger-soft px-1.5 py-0.5 font-semibold text-danger">{{ h.summary.hot }} hot</span>
+          <span class="rounded bg-warn-soft px-1.5 py-0.5 font-semibold text-warn">{{ h.summary.elevated }} elevated</span>
+          <span class="rounded bg-ok-soft px-1.5 py-0.5 font-semibold text-ok">{{ h.summary.stable }} stable</span>
+          @if (h.summary.worstCircuit) { <span class="text-muted">worst <strong class="text-ink">{{ h.summary.worstCircuit }}</strong> ({{ h.summary.maxScore }})</span> }
+        </div>
+      }
+    </div>
+
+    <div class="grid gap-3 lg:grid-cols-5">
+      <!-- heat map -->
+      <div class="lg:col-span-3">
+        <div class="h-[340px] overflow-hidden rounded-lg border border-border bg-surface">
+          @if (hotspots(); as h) {
+            <app-hotspot-map [hotspots]="hotCells()" [center]="h.center" (spanClick)="pick($event)" />
+          } @else {
+            <div class="grid h-full place-items-center text-sm text-muted">Loading hot-spot layer…</div>
+          }
+        </div>
+      </div>
+
+      <!-- ranked list (map's accessible equivalent) -->
+      <div class="lg:col-span-2">
+        <div class="overflow-hidden rounded-lg border border-border bg-surface">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-border text-left text-muted">
+                <th class="p-2 font-medium">Span</th>
+                <th class="p-2 text-right font-medium">Reactive</th>
+                <th class="p-2 font-medium">Hot-spot</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of hotCells(); track c.corridorId) {
+                <tr class="cursor-pointer border-t border-border hover:bg-surface-2"
+                    [class.bg-surface-2]="selected()?.corridorId === c.corridorId" (click)="pick(c)">
+                  <td class="p-2">
+                    <div class="font-mono font-semibold text-ink">{{ c.circuit }}</div>
+                    <div class="text-[10px] text-muted">{{ c.spanLabel }}</div>
+                  </td>
+                  <td class="p-2 text-right">{{ c.reactiveRepeats }}<span class="text-[10px] text-muted"> ×</span></td>
+                  <td class="p-2">
+                    <div class="flex items-center gap-1.5">
+                      <div class="h-1.5 w-14 overflow-hidden rounded-full bg-surface-2">
+                        <div class="h-full rounded-full" [style.width.%]="c.hotspotScore" [style.background]="tierColor(c.tier)"></div>
+                      </div>
+                      <span class="w-6 text-right text-[10px] font-semibold" [style.color]="tierColor(c.tier)">{{ c.hotspotScore }}</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- selected span driver breakdown -->
+        @if (selected(); as s) {
+          <div class="mt-2 rounded-lg border border-border bg-surface p-3 text-[11px]">
+            <div class="mb-1 font-semibold text-ink">{{ s.circuit }} · {{ s.spanLabel }} — why it's hot</div>
+            <div class="space-y-1">
+              @for (d of [
+                { label: 'Reactive / repeat work', v: s.drivers.reactivePct },
+                { label: 'Effectiveness gap', v: s.drivers.effectivenessGapPct },
+                { label: 'Encroachment pressure', v: s.drivers.encroachmentPressure },
+                { label: 'Regrowth pressure', v: s.drivers.growthPressure }
+              ]; track d.label) {
+                <div class="flex items-center gap-2">
+                  <span class="w-36 text-muted">{{ d.label }}</span>
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <div class="h-full rounded-full bg-primary" [style.width.%]="d.v"></div>
+                  </div>
+                  <span class="w-7 text-right text-ink">{{ d.v }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- CYCLE BUSTERS -->
+  <section>
+    <div class="mb-2 flex items-baseline justify-between">
+      <h2 class="text-sm font-semibold text-ink">Cycle-buster watchlist</h2>
+      @if (cycles(); as cb) {
+        <div class="flex items-center gap-2 text-[11px]">
+          <span class="text-muted"><strong class="text-ink">{{ cb.summary.cycleBusters }}</strong> cycle busters</span>
+          <span class="text-muted">· <strong class="text-ink">{{ cb.summary.imminent }}</strong> breaching this season</span>
+          @if (cb.summary.fastestSpecies) { <span class="text-muted">· fastest {{ cb.summary.fastestSpecies }} ({{ cb.summary.fastestGrowthFt }} ft/yr)</span> }
+          <button type="button" (click)="toggleBusters()" [attr.aria-pressed]="onlyBusters()"
+                  class="rounded-md border px-2 py-0.5 font-medium transition-colors"
+                  [class.border-primary]="onlyBusters()" [class.bg-primary-soft]="onlyBusters()" [class.text-primary]="onlyBusters()"
+                  [class.border-border]="!onlyBusters()" [class.text-muted]="!onlyBusters()">
+            {{ onlyBusters() ? 'Cycle busters only' : 'Show all species' }}
+          </button>
+        </div>
+      }
+    </div>
+
+    <div class="overflow-hidden rounded-lg border border-border bg-surface">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-border text-left text-muted">
+            <th class="p-2 font-medium">Span</th>
+            <th class="p-2 font-medium">Species</th>
+            <th class="p-2 text-right font-medium">Growth</th>
+            <th class="p-2 text-right font-medium">MVCD headroom</th>
+            <th class="p-2 font-medium">Days to conflict</th>
+            <th class="p-2 font-medium">Last treated</th>
+            <th class="p-2 font-medium">Priority</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of spans(); track s.corridorId) {
+            <tr class="border-t border-border">
+              <td class="p-2"><span class="font-mono font-semibold text-ink">{{ s.circuit }}</span> <span class="text-[10px] text-muted">{{ s.spanLabel }}</span></td>
+              <td class="p-2">
+                <span [class.font-semibold]="s.isCycleBuster" [class.text-ink]="s.isCycleBuster" [class.text-muted]="!s.isCycleBuster">{{ s.speciesCommon }}</span>
+                @if (s.isCycleBuster) { <span class="ml-1 rounded bg-warn-soft px-1 py-0.5 text-[9px] font-semibold text-warn">cycle buster</span> }
+                <div class="text-[10px] italic text-muted">{{ s.speciesLatin }}</div>
+              </td>
+              <td class="p-2 text-right">{{ s.growthFtPerYear }} <span class="text-[10px] text-muted">ft/yr</span></td>
+              <td class="p-2 text-right">{{ s.mvcdHeadroomFt }} <span class="text-[10px] text-muted">ft</span></td>
+              <td class="p-2">
+                <div class="flex items-center gap-1.5">
+                  <div class="h-1.5 w-16 overflow-hidden rounded-full bg-surface-2">
+                    <!-- fuller bar = sooner conflict (worse); scaled against a ~2yr horizon -->
+                    <div class="h-full rounded-full" [style.width.%]="conflictBar(s.daysToConflict)"
+                         [style.background]="s.priority === 'hazard' ? '#c0392b' : s.priority === 'elevated' ? '#e07b1a' : '#8a97a0'"></div>
+                  </div>
+                  <span class="text-ink">{{ s.daysToConflict }}d</span>
+                  <span class="text-[10px] text-muted">({{ months(s.daysToConflict) }})</span>
+                </div>
+              </td>
+              <td class="p-2 text-muted">{{ s.lastTreated ? (s.lastTreated | date: 'MMM d, y') : '—' }}</td>
+              <td class="p-2"><span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="priorityClass(s.priority)">{{ s.priority }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (cycles(); as cb) {
+      <p class="mt-2 text-[10px] text-muted">{{ cb.note }}</p>
+    }
+  </section>
+</div>

@@ -36,6 +36,7 @@ from app.api import (
     stewardship,
     terrain,
     treatments,
+    vegetation,
     verifications,
 )
 from app.core.config import get_settings
@@ -199,6 +200,7 @@ app.include_router(odata.router, prefix="/api")
 app.include_router(terrain.router, prefix="/api")
 app.include_router(risk.router, prefix="/api")
 app.include_router(reliability.router, prefix="/api")
+app.include_router(vegetation.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 
 

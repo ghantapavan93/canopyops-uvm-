@@ -138,6 +138,7 @@ export class ConsoleShellComponent {
     { label: 'Program Overview', route: '/console/overview', glyph: '▦', ready: true },
     { label: 'Command Center', route: '/console/command', glyph: '◎', ready: true },
     { label: 'Risk Intelligence', route: '/console/risk', glyph: '⚠', ready: true },
+    { label: 'Vegetation Intelligence', route: '/console/vegetation', glyph: '🌿', ready: true },
     { label: 'Treatment Plan', route: '/console/plan', glyph: '✎', ready: true },
     { label: 'Field Execution', route: '/console/execution', glyph: '⛏', ready: true },
     { label: 'Sync & Conflict', route: '/console/sync', glyph: '⇅', ready: true },

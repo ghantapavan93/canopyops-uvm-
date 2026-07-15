@@ -94,6 +94,14 @@ export const routes: Routes = [
         title: 'Risk Intelligence — CanopyOps',
       },
       {
+        path: 'vegetation',
+        loadComponent: () =>
+          import('./features/vegetation/vegetation.component').then(
+            (m) => m.VegetationComponent,
+          ),
+        title: 'Vegetation Intelligence — CanopyOps',
+      },
+      {
         path: 'geofence',
         loadComponent: () =>
           import('./features/geofence/geofence.component').then(

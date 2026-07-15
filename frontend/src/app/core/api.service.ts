@@ -6,6 +6,8 @@ import { environment } from '../../environments/environment';
 import {
   ComplianceReport,
   Corridor,
+  CycleBusterBoard,
+  HotspotBoard,
   EnvironmentalConstraint,
   EncroachmentMap,
   GeoAnalyze,
@@ -113,6 +115,16 @@ export class ApiService {
   /** Reliability outcome per circuit — closed work vs SAIDI/SAIFI movement. */
   getReliability(): Observable<ReliabilityBoard> {
     return this.http.get<ReliabilityBoard>(`${this.base}/reliability`);
+  }
+
+  /** Hot-spotting heat — per-span reactive-repeat intensity over corridor lines. */
+  getHotspots(): Observable<HotspotBoard> {
+    return this.http.get<HotspotBoard>(`${this.base}/vegetation/hotspots`);
+  }
+
+  /** Cycle-buster watchlist — fast-regrowth spans ranked by days-to-conflict. */
+  getCycleBusters(): Observable<CycleBusterBoard> {
+    return this.http.get<CycleBusterBoard>(`${this.base}/vegetation/cycle-busters`);
   }
 
   getEncroachments(): Observable<EncroachmentMap> {

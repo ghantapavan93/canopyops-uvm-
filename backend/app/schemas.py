@@ -520,3 +520,72 @@ class ReliabilityBoard(Schema):
     note: str
     rollup: ReliabilityRollup
     circuits: list[ReliabilityCircuit]
+
+
+# --- vegetation intelligence: hot-spotting + cycle busters ---
+class HotspotDrivers(Schema):
+    reactive_pct: int
+    effectiveness_gap_pct: int
+    encroachment_pressure: int
+    growth_pressure: int
+
+
+class VegetationHotspot(Schema):
+    corridor_id: str
+    circuit: str
+    span_label: str
+    voltage_kv: int
+    geometry: dict | None
+    reactive_repeats: int
+    planned_visits: int
+    repeat_rate_pct: int
+    hotspot_score: int
+    tier: str  # hot | elevated | stable
+    drivers: HotspotDrivers
+
+
+class HotspotSummary(Schema):
+    total: int
+    hot: int
+    elevated: int
+    stable: int
+    worst_circuit: str | None
+    max_score: int
+
+
+class HotspotBoard(Schema):
+    generated_at: datetime
+    note: str
+    center: list[float]
+    summary: HotspotSummary
+    hotspots: list[VegetationHotspot]
+
+
+class CycleBusterSpan(Schema):
+    corridor_id: str
+    circuit: str
+    span_label: str
+    voltage_kv: int
+    species_common: str
+    species_latin: str
+    growth_ft_per_year: float
+    is_cycle_buster: bool
+    mvcd_headroom_ft: float
+    days_to_conflict: int
+    last_treated: datetime | None
+    priority: str  # hazard | elevated | watch
+
+
+class CycleBusterSummary(Schema):
+    watchlist_total: int
+    cycle_busters: int
+    imminent: int
+    fastest_species: str | None
+    fastest_growth_ft: float
+
+
+class CycleBusterBoard(Schema):
+    generated_at: datetime
+    note: str
+    summary: CycleBusterSummary
+    spans: list[CycleBusterSpan]

@@ -474,6 +474,54 @@ export interface ReliabilityBoard {
   circuits: ReliabilityCircuit[];
 }
 
+export type HotspotTier = 'hot' | 'elevated' | 'stable';
+
+export interface VegetationHotspot {
+  corridorId: string;
+  circuit: string;
+  spanLabel: string;
+  voltageKv: number;
+  geometry: { type: string; coordinates: number[][] } | null;
+  reactiveRepeats: number;
+  plannedVisits: number;
+  repeatRatePct: number;
+  hotspotScore: number;
+  tier: HotspotTier;
+  drivers: { reactivePct: number; effectivenessGapPct: number; encroachmentPressure: number; growthPressure: number };
+}
+
+export interface HotspotBoard {
+  generatedAt: string;
+  note: string;
+  center: [number, number];
+  summary: { total: number; hot: number; elevated: number; stable: number; worstCircuit: string | null; maxScore: number };
+  hotspots: VegetationHotspot[];
+}
+
+export type CyclePriority = 'hazard' | 'elevated' | 'watch';
+
+export interface CycleBusterSpan {
+  corridorId: string;
+  circuit: string;
+  spanLabel: string;
+  voltageKv: number;
+  speciesCommon: string;
+  speciesLatin: string;
+  growthFtPerYear: number;
+  isCycleBuster: boolean;
+  mvcdHeadroomFt: number;
+  daysToConflict: number;
+  lastTreated: string | null;
+  priority: CyclePriority;
+}
+
+export interface CycleBusterBoard {
+  generatedAt: string;
+  note: string;
+  summary: { watchlistTotal: number; cycleBusters: number; imminent: number; fastestSpecies: string | null; fastestGrowthFt: number };
+  spans: CycleBusterSpan[];
+}
+
 export interface ConstraintBrief {
   id: string;
   name: string;
