@@ -16,6 +16,7 @@ import {
   PlanInput,
   ProofPack,
   ProximityResult,
+  ReliabilityBoard,
   RiskBoard,
   RiskReview,
   StewardshipPayload,
@@ -107,6 +108,11 @@ export class ApiService {
     return this.http.get<OverviewPayload>(`${this.base}/overview`, {
       params: { period },
     });
+  }
+
+  /** Reliability outcome per circuit — closed work vs SAIDI/SAIFI movement. */
+  getReliability(): Observable<ReliabilityBoard> {
+    return this.http.get<ReliabilityBoard>(`${this.base}/reliability`);
   }
 
   getEncroachments(): Observable<EncroachmentMap> {

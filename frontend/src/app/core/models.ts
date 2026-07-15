@@ -427,6 +427,53 @@ export interface SystemHealth {
   db_circuit?: { state: 'closed' | 'open' | 'half_open'; consecutive_failures: number; trips_total: number; failure_threshold: number; reset_timeout_s: number; enabled: boolean };
 }
 
+export type ReliabilityClass = 'effective' | 'mixed' | 'closed_not_effective' | 'pending';
+
+export interface ReliabilityCircuit {
+  circuit: string;
+  customersServed: number;
+  spans: number;
+  closed: number;
+  effectiveClosures: number;
+  ineffectiveClosures: number;
+  effectivenessPct: number;
+  vegSharePct: number;
+  saidiBefore: number;
+  saidiAfter: number;
+  saidiDelta: number;
+  saifiBefore: number;
+  saifiAfter: number;
+  caidiBefore: number;
+  caidiAfter: number;
+  cmiBefore: number;
+  cmiAfter: number;
+  classification: ReliabilityClass;
+}
+
+export interface ReliabilityRollup {
+  customers: number;
+  circuits: number;
+  closedTotal: number;
+  effectiveTotal: number;
+  ineffectiveTotal: number;
+  saidiBefore: number;
+  saidiAfter: number;
+  saidiDelta: number;
+  saifiBefore: number;
+  saifiAfter: number;
+  cmiBefore: number;
+  cmiAfter: number;
+  closedNotEffectiveCircuits: number;
+  effectiveCircuits: number;
+}
+
+export interface ReliabilityBoard {
+  generatedAt: string;
+  note: string;
+  rollup: ReliabilityRollup;
+  circuits: ReliabilityCircuit[];
+}
+
 export interface ConstraintBrief {
   id: string;
   name: string;

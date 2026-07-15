@@ -474,3 +474,49 @@ class StewardshipPayload(Schema):
     constraints: list[ConstraintStatus]
     real_plan_count: int
     insights: list[InsightItem]
+
+
+# --- reliability outcome (closed vs effective, in SAIDI/SAIFI/CAIDI/CMI) ---
+class ReliabilityCircuit(Schema):
+    circuit: str
+    customers_served: int
+    spans: int
+    closed: int
+    effective_closures: int
+    ineffective_closures: int
+    effectiveness_pct: int
+    veg_share_pct: int
+    saidi_before: float
+    saidi_after: float
+    saidi_delta: float
+    saifi_before: float
+    saifi_after: float
+    caidi_before: float
+    caidi_after: float
+    cmi_before: int
+    cmi_after: int
+    classification: str  # effective | mixed | closed_not_effective | pending
+
+
+class ReliabilityRollup(Schema):
+    customers: int
+    circuits: int
+    closed_total: int
+    effective_total: int
+    ineffective_total: int
+    saidi_before: float
+    saidi_after: float
+    saidi_delta: float
+    saifi_before: float
+    saifi_after: float
+    cmi_before: int
+    cmi_after: int
+    closed_not_effective_circuits: int
+    effective_circuits: int
+
+
+class ReliabilityBoard(Schema):
+    generated_at: datetime
+    note: str
+    rollup: ReliabilityRollup
+    circuits: list[ReliabilityCircuit]

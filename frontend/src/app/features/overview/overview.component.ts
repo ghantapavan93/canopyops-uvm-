@@ -13,6 +13,7 @@ import { DonutComponent, DonutSegment } from '../../shared/charts/donut.componen
 import { GaugeComponent } from '../../shared/charts/gauge.component';
 import { ChartSeries, LineChartComponent } from '../../shared/charts/line-chart.component';
 import { SparklineComponent } from '../../shared/charts/sparkline.component';
+import { ReliabilityOutcomeComponent } from './reliability-outcome.component';
 
 /** One segment of the live lifecycle bar. */
 export interface LifecycleSeg {
@@ -73,7 +74,7 @@ const DRILL: Record<string, DrillMeta> = {
   standalone: true,
   imports: [
     RouterLink, SparklineComponent, LineChartComponent, BarChartComponent, GaugeComponent,
-    DonutComponent, ChoroplethMapComponent,
+    DonutComponent, ChoroplethMapComponent, ReliabilityOutcomeComponent,
   ],
   templateUrl: './overview.component.html',
 })

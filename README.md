@@ -89,6 +89,7 @@ cd frontend && npm install && npm start        # http://localhost:4200
 
 | Module | What it proves |
 |---|---|
+| **Program Overview** | Executive dashboard blending live record signals with deterministic synthetic trends — plus the **Reliability Outcome** panel: the quantitative form of *closed ≠ effective*. Each circuit's closed work is paired with the indices UVM is judged by (**SAIDI / SAIFI / CAIDI / CMI**); the movement is synthetic but **driven by real record state** (coverage, evidence, verified status), so a circuit that closed work with weak evidence shows little or no SAIDI improvement — surfacing "closed, not effective" |
 | **Command Center** | MapLibre GIS map with **switchable basemaps** (real OSM streets / Esri satellite, or an offline synthetic style) + prioritized exception queue + detail, bidirectional selection, URL-persisted filters, backend-driven assurance summary |
 | **Field Execution** | Mobile-first capture, coverage control, evidence checklist, **offline save** to IndexedDB |
 | **Sync & Conflict Center** | Idempotent sync, **revision-conflict resolution**, failed-upload recovery, connectivity simulation |
