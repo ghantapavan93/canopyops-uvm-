@@ -15,6 +15,12 @@ shell and caches read-only API responses (network-first), so the console loads
 and shows last-known data with no signal — on top of the IndexedDB outbox
 (queued field mutations) and an on-device geofence engine.
 
+**Future Vision.** A cinematic, interactive roadmap at `/vision` (and
+[`docs/FUTURE-VISION.md`](docs/FUTURE-VISION.md)) — sensing → AI-ranked risk →
+human-signed outcome, over a 0–1 / 1–3 / 3–5-year horizon, with an interactive
+"AI copilot explains, a human signs" demo and a species-specific regrowth
+predictor. Grounded in public industry sources; AI augments, humans decide.
+
 > **Independent concept. All data is synthetic.** Not affiliated with, or endorsed
 > by, The Davey Tree Expert Company. No real utility, worker, location, chemical,
 > or client data appears anywhere in this project.

@@ -1,0 +1,233 @@
+<div class="vstage">
+  <canvas #net class="vnet" aria-hidden="true"></canvas>
+  <div class="vaurora" aria-hidden="true"></div>
+
+  <div class="vwrap">
+    <!-- NAV -->
+    <header class="vnav">
+      <a routerLink="/" class="vbrand no-underline">
+        <span class="vmark" aria-hidden="true">❦</span> CanopyOps
+        <span class="vsub">Future Vision</span>
+      </a>
+      <a routerLink="/console/overview" class="vbtn vbtn--primary ml-auto no-underline">Open the console →</a>
+    </header>
+
+    <!-- HERO -->
+    <section class="vhero">
+      <p data-reveal class="veyebrow">2026 → 2031 · a design vision</p>
+      <h1 data-reveal class="vtitle">
+        The next five years of<br /><span class="vgrad">vegetation assurance.</span>
+      </h1>
+      <p data-reveal class="vlead">
+        Today a crew finds risk by driving the line. Next, sensing finds it
+        continuously, AI ranks it — and human experts spend their judgment on the
+        decision, not the discovery. <strong>AI finds the risk. Humans make the call.</strong>
+      </p>
+      <div data-reveal class="vctas">
+        <a href="#roadmap" class="vbtn vbtn--primary no-underline">See the roadmap ↓</a>
+        <a href="#copilot" class="vbtn vbtn--ghost no-underline">Meet the AI copilot</a>
+      </div>
+      <p data-reveal class="vfine">Independent concept · synthetic data · forward-looking design, not a claim of delivery.</p>
+    </section>
+
+    <!-- SENSING STACK -->
+    <section class="vsection">
+      <p data-reveal class="veyebrow">From sensing to a signed outcome</p>
+      <h2 data-reveal class="vh2">Detection becomes <span class="vgrad">continuous.</span></h2>
+      <div class="vstack">
+        @for (l of sensing; track l.name; let i = $index) {
+          <div data-reveal class="vlayer" [style.--d]="i">
+            <div class="vlayer__icon" aria-hidden="true">{{ l.icon }}</div>
+            <div>
+              <h3 class="vlayer__name">{{ l.name }}</h3>
+              <p class="vlayer__detail">{{ l.detail }}</p>
+            </div>
+            @if (i < sensing.length - 1) { <div class="vlayer__arrow" aria-hidden="true">↓</div> }
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- ROADMAP (interactive phases) -->
+    <section id="roadmap" class="vsection">
+      <p data-reveal class="veyebrow">The horizon</p>
+      <h2 data-reveal class="vh2">Three phases, one <span class="vgrad">closing loop.</span></h2>
+
+      <div data-reveal class="vphase-tabs" role="tablist" aria-label="Roadmap phase">
+        @for (p of phases; track p.key) {
+          <button type="button" role="tab" [attr.aria-selected]="phase() === p.key"
+                  (click)="phase.set(p.key)" class="vphase-tab" [class.is-active]="phase() === p.key">
+            <span class="vphase-tab__h">{{ p.horizon }}</span>
+            <span class="vphase-tab__t">{{ p.title }}</span>
+          </button>
+        }
+      </div>
+
+      <div data-reveal class="vphase-body" [attr.data-phase]="phase()">
+        <ul class="vphase-list">
+          @for (item of activePhase().items; track item; let i = $index) {
+            <li class="vphase-item" [style.--d]="i"><span class="vdot" aria-hidden="true"></span>{{ item }}</li>
+          }
+        </ul>
+      </div>
+    </section>
+
+    <!-- AI COPILOT (interactive) -->
+    <section id="copilot" class="vsection">
+      <p data-reveal class="veyebrow">The AI engineer, done responsibly</p>
+      <h2 data-reveal class="vh2">It explains the risk. A human <span class="vgrad">signs the call.</span></h2>
+      <p data-reveal class="vlead vlead--tight">
+        AI ranks a span and shows <em>why</em> — with the evidence. It never authorizes a cut,
+        a herbicide, or a closure. Try it:
+      </p>
+
+      <div data-reveal class="vcopilot">
+        <div class="vcopilot__head">
+          <div>
+            <div class="vcopilot__id">{{ span.id }}</div>
+            <div class="vcopilot__meta">{{ span.circuit }}</div>
+          </div>
+          <span class="vchip vchip--risk">AI rank: HIGH</span>
+        </div>
+
+        <div class="vcopilot__facts">
+          <span>🌳 {{ span.species }}</span>
+          <span>📏 {{ span.clearanceFt }} ft clearance</span>
+          <span>💨 {{ span.wind }}</span>
+          <span>⚡ {{ span.outages }} prior outages</span>
+        </div>
+
+        <div class="vcopilot__stream" [class.is-typing]="aiState() === 'typing'">
+          @if (aiState() === 'idle') {
+            <span class="vcopilot__hint">Press “Explain the ranking” to see the model's reasoning…</span>
+          } @else {
+            <p class="vcopilot__text">{{ aiText() }}<span class="vcaret" [class.hidden]="aiState() !== 'typing'">▍</span></p>
+          }
+        </div>
+
+        <!-- the guardrail, always visible -->
+        <div class="vcopilot__gate">
+          @switch (aiState()) {
+            @case ('signed') {
+              <span class="vchip vchip--ok">✓ Signed off — A. Stone, ISA Certified Arborist</span>
+            }
+            @case ('done') {
+              <span class="vchip vchip--wait">⧗ Awaiting human review — AI cannot authorize work</span>
+              <button type="button" class="vbtn vbtn--sm" (click)="signOff()">Reviewer signs off →</button>
+            }
+            @default {
+              <span class="vchip vchip--wait">⧗ Decision reserved for a certified reviewer</span>
+            }
+          }
+        </div>
+
+        <div class="vcopilot__actions">
+          @if (aiState() === 'idle') {
+            <button type="button" class="vbtn vbtn--primary vbtn--sm" (click)="explain()">Explain the ranking</button>
+          } @else {
+            <button type="button" class="vbtn vbtn--ghost vbtn--sm" (click)="resetAi()">Reset</button>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- GROW-IN PREDICTOR (interactive) -->
+    <section class="vsection">
+      <p data-reveal class="veyebrow">Predictive, species-specific regrowth</p>
+      <h2 data-reveal class="vh2">See the clearance <span class="vgrad">close.</span></h2>
+      <p data-reveal class="vlead vlead--tight">Drag through time — the twin projects growth toward the conductor and flags the breach before it happens.</p>
+
+      <div data-reveal class="vgrow">
+        <svg class="vgrow__svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <!-- conductor -->
+          <line x1="4" y1="8" x2="96" y2="8" class="vgrow__wire" />
+          <text x="6" y="6" class="vgrow__label">conductor</text>
+          <!-- ground -->
+          <line x1="0" y1="94" x2="100" y2="94" class="vgrow__ground" />
+          <!-- trunk -->
+          <rect x="47.5" y="70" width="5" height="24" rx="1.5" class="vgrow__trunk" />
+          <!-- canopy (top rises with time) -->
+          <ellipse cx="50" [attr.cy]="canopyY() + 10" rx="26"
+                   [attr.ry]="92 - canopyY()" class="vgrow__canopy" [attr.data-level]="growLevel()" />
+          <!-- clearance bracket -->
+          <line x1="82" y1="8" x2="82" [attr.y2]="canopyY()" class="vgrow__gap" [attr.data-level]="growLevel()" />
+        </svg>
+
+        <div class="vgrow__panel">
+          <div class="vgrow__readout" [attr.data-level]="growLevel()">
+            <div class="vgrow__ft">{{ clearanceFt() }} ft</div>
+            <div class="vgrow__cap">projected clearance</div>
+          </div>
+          <div class="vgrow__status" [attr.data-level]="growLevel()">
+            @switch (growLevel()) {
+              @case ('breach') { ⛔ Breaches the wire-zone target — schedule now }
+              @case ('warn') { ▲ Approaching the target — queue for this cycle }
+              @default { ✓ Within target }
+            }
+          </div>
+          <label class="vgrow__slider">
+            <span>+{{ months() }} months</span>
+            <input type="range" min="0" max="36" step="1" [value]="months()"
+                   (input)="months.set(+$any($event.target).value)" aria-label="Months into the future" />
+          </label>
+          <p class="vgrow__note">Silver maple · ~{{ (treeFt()).toFixed(1) }} ft · projection is decision-support; a forester confirms.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- GUARDRAIL MANIFESTO -->
+    <section class="vsection vguard">
+      <p data-reveal class="veyebrow">The boundary is the product</p>
+      <h2 data-reveal class="vh2">Augmentation, <span class="vgrad">never autonomy.</span></h2>
+      <div class="vguard__grid">
+        <div data-reveal class="vguard__col vguard__col--may">
+          <h3>AI <span>may</span></h3>
+          <ul>
+            <li>Rank spans by risk</li>
+            <li>Classify &amp; cluster imagery</li>
+            <li>Predict species-specific regrowth</li>
+            <li>Explain a ranking in plain language</li>
+            <li>Summarize an audit trail · pre-fill a form</li>
+          </ul>
+        </div>
+        <div data-reveal class="vguard__col vguard__col--never">
+          <h3>AI may <span>never</span></h3>
+          <ul>
+            <li>Authorize a cut</li>
+            <li>Prescribe a herbicide or rate</li>
+            <li>Declare a site effective, safe, or compliant</li>
+            <li>Approve a closure</li>
+            <li>Trigger a de-energization</li>
+          </ul>
+        </div>
+      </div>
+      <p data-reveal class="vguard__line">Every output shows its evidence, carries a confidence, and is reversible — signed by a certified human.</p>
+    </section>
+
+    <!-- METRICS -->
+    <section class="vsection">
+      <div data-reveal class="vmetrics">
+        <div class="vmetric"><span class="vgrad" data-count [attr.data-count]="50">0</span><span class="vgrad">%</span><p>reported cut in veg-related outage minutes, risk-based programs*</p></div>
+        <div class="vmetric"><span class="vgrad" data-count [attr.data-count]="100">0</span><span class="vgrad">%</span><p>decisions signed by a certified human</p></div>
+        <div class="vmetric"><span class="vgrad" data-count [attr.data-count]="5">0</span><span class="vgrad">-yr</span><p>path from cyclic trimming to condition-based cycles</p></div>
+      </div>
+      <p class="vfine center">*Vendor/analytics-institute reported (CenterPoint resiliency program) — cited, not claimed by this project.</p>
+    </section>
+
+    <!-- CTA -->
+    <section class="vsection vcta">
+      <h2 data-reveal class="vh2">The record we built today is the <span class="vgrad">spine of tomorrow.</span></h2>
+      <p data-reveal class="vlead center">Plan → offline execution → evidence → verified outcome. Now extend it forward into sensing and prediction — without ever handing a machine the call.</p>
+      <div data-reveal class="vctas center">
+        <a routerLink="/console/overview" class="vbtn vbtn--primary no-underline">Enter the console →</a>
+        <a routerLink="/" class="vbtn vbtn--ghost no-underline">Back to the story</a>
+      </div>
+    </section>
+
+    <footer class="vfooter">
+      Independent concept. Synthetic data throughout. Forward-looking design document — not a claim of delivery, and not
+      affiliated with or endorsed by The Davey Tree Expert Company. Grounded in public industry sources; see
+      <code>docs/FUTURE-VISION.md</code>.
+    </footer>
+  </div>
+</div>

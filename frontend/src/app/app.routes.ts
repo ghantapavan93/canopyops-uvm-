@@ -14,6 +14,12 @@ export const routes: Routes = [
     title: 'Sign in — CanopyOps',
   },
   {
+    path: 'vision',
+    loadComponent: () =>
+      import('./features/vision/vision.component').then((m) => m.VisionComponent),
+    title: 'Future Vision — CanopyOps',
+  },
+  {
     path: 'console',
     loadComponent: () =>
       import('./features/console/console-shell.component').then(
