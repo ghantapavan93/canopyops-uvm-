@@ -9,7 +9,7 @@
   <!-- test scoreboard -->
   <div class="mb-4 grid grid-cols-3 gap-2">
     <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
-      <div class="text-2xl font-bold text-ok">105</div>
+      <div class="text-2xl font-bold text-ok">109</div>
       <div class="text-[11px] text-muted">backend pytest</div>
     </div>
     <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
@@ -95,7 +95,7 @@
           </table>
         </div>
       }
-      <p class="mt-2 text-[10px] text-muted">Structured JSON access logs (correlation-id + latency) stream to stdout; this feed is the API's in-process metrics registry at <code>GET /api/metrics</code> — also exposed in <strong>Prometheus</strong> text format at <code>/api/metrics/prometheus</code> (scrapeable by Grafana). Readiness probe at <code>/api/ready</code> checks the DB + PostGIS.</p>
+      <p class="mt-2 text-[10px] text-muted">Structured JSON access logs (correlation-id + <strong>trace-id</strong> + latency) stream to stdout; this feed is the API's in-process metrics registry at <code>GET /api/metrics</code> — also exposed in <strong>Prometheus</strong> text format at <code>/api/metrics/prometheus</code> (scrapeable by Grafana). <strong>OpenTelemetry</strong> traces every request → DB call chain with W3C context propagation (the <code>X-Trace-Id</code> rides on every response + error envelope; OTLP-exportable to a collector). Readiness probe at <code>/api/ready</code> checks the DB + PostGIS.</p>
     </section>
   }
 

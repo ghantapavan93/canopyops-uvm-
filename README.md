@@ -173,6 +173,11 @@ a real SAP connection.
 - **Safe retries by construction** — idempotent mutations + explicit `409`
   conflicts mean a client or load balancer can retry a shed `503` or a transient
   drop with no risk of a duplicate or a silent overwrite.
+- **Distributed tracing (OpenTelemetry)** — every request emits a server span
+  with automatic child spans for each SQLAlchemy statement (the request → DB
+  chain on one trace), W3C `traceparent` context propagation, and the `trace_id`
+  on every structured log line, error envelope, and the `X-Trace-Id` response
+  header. Exports to an OTLP collector when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 All observable at the **Engineering Evidence** route (live *System Health* panel)
 and covered by `tests/test_reliability.py`.

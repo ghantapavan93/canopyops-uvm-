@@ -16,9 +16,11 @@ from fastapi.responses import JSONResponse
 import math
 
 from app.core.concurrency import limiter
+from app.core.database import engine
 from app.core.logging import setup_logging
 from app.core.metrics import metrics
 from app.core.ratelimit import rate_limiter
+from app.core.telemetry import current_trace_id, setup_telemetry
 
 from app.api import (
     audit,
@@ -93,6 +95,13 @@ async def observability_middleware(request: Request, call_next):
     to the metrics registry."""
     correlation_id = request.headers.get("X-Correlation-Id") or str(uuid.uuid4())
     request.state.correlation_id = correlation_id
+    # The active OTel span id (the OTel middleware is outermost, so a server span
+    # already exists here). Threads through logs, envelopes, and the header.
+    trace_id = current_trace_id()
+    request.state.trace_id = trace_id
+    trace_headers = {"X-Correlation-Id": correlation_id}
+    if trace_id:
+        trace_headers["X-Trace-Id"] = trace_id
 
     exempt = request.url.path in _SHED_EXEMPT
 
@@ -107,11 +116,9 @@ async def observability_middleware(request: Request, call_next):
                     "code": "rate_limited",
                     "message": "Too many requests. Slow down and retry.",
                     "correlation_id": correlation_id,
+                    "trace_id": trace_id,
                 },
-                headers={
-                    "Retry-After": str(max(1, math.ceil(retry_after))),
-                    "X-Correlation-Id": correlation_id,
-                },
+                headers={**trace_headers, "Retry-After": str(max(1, math.ceil(retry_after)))},
             )
 
     # 2) Global in-flight cap (503 load-shed).
@@ -126,8 +133,9 @@ async def observability_middleware(request: Request, call_next):
                 "code": "overloaded",
                 "message": "The service is shedding load to stay responsive. Retry shortly.",
                 "correlation_id": correlation_id,
+                "trace_id": trace_id,
             },
-            headers={"Retry-After": "1", "X-Correlation-Id": correlation_id},
+            headers={**trace_headers, "Retry-After": "1"},
         )
 
     start = time.perf_counter()
@@ -145,6 +153,7 @@ async def observability_middleware(request: Request, call_next):
                 "code": "internal_error",
                 "message": "Unexpected server error",
                 "correlation_id": correlation_id,
+                "trace_id": trace_id,
             },
         )
     finally:
@@ -159,6 +168,7 @@ async def observability_middleware(request: Request, call_next):
         "request",
         extra={
             "correlation_id": correlation_id,
+            "trace_id": trace_id,
             "method": request.method,
             "path": request.url.path,
             "status": status,
@@ -166,6 +176,8 @@ async def observability_middleware(request: Request, call_next):
         },
     )
     response.headers["X-Correlation-Id"] = correlation_id
+    if trace_id:
+        response.headers["X-Trace-Id"] = trace_id
     return response
 
 
@@ -182,6 +194,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "code": "validation_error",
             "message": "Request validation failed",
             "correlation_id": getattr(request.state, "correlation_id", None),
+            "trace_id": getattr(request.state, "trace_id", None),
             "errors": safe_errors,
         },
     )
@@ -216,3 +229,8 @@ def root() -> dict:
         "docs": "/docs",
         "notice": "Synthetic prototype. Not affiliated with The Davey Tree Expert Company.",
     }
+
+
+# Install tracing last, so the OTel ASGI middleware wraps the observability
+# middleware above (the server span is then active when we read the trace id).
+setup_telemetry(app, engine)

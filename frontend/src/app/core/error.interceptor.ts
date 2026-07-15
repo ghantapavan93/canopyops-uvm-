@@ -18,9 +18,13 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       const handled = err.status === 401 || err.status === 409;
       const isServerOrNetwork = err.status === 0 || err.status >= 500;
       if (!handled && isServerOrNetwork) {
-        const msg = err.status === 0
+        // The trace id (OpenTelemetry) rides on the response header + envelope —
+        // surface it so a user-reported failure maps straight to the server trace.
+        const traceId = err.headers?.get?.('X-Trace-Id') ?? err.error?.trace_id ?? null;
+        const base = err.status === 0
           ? 'Network unavailable — the API could not be reached.'
           : (err.error?.message ?? `Server error (${err.status}) on ${req.method} ${req.url}`);
+        const msg = traceId ? `${base} (trace ${traceId.slice(0, 8)})` : base;
         const now = Date.now();
         if (msg !== lastToast || now - lastAt > 4000) {
           toast.error(msg);

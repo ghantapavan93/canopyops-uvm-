@@ -40,6 +40,10 @@ services:
       RATE_LIMIT_BURST: "60"
       DB_BREAKER_FAILURE_THRESHOLD: "5"
       DB_BREAKER_RESET_TIMEOUT_S: "10"
+      # OpenTelemetry: traces are always produced (X-Trace-Id + log correlation).
+      # To export to a collector, set OTEL_EXPORTER_OTLP_ENDPOINT here, e.g.
+      #   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318/v1/traces"
+      OTEL_SERVICE_NAME: "canopyops-api"
     ports:
       # Host 8001 so the containerized API doesn't collide with a local dev
       # uvicorn on 8000. The web container reaches it internally as api:8000.

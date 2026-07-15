@@ -65,6 +65,16 @@ class Settings(BaseSettings):
     # CORS origin for the Angular dev/prod container.
     frontend_origin: str = "http://localhost:4200"
 
+    # --- OpenTelemetry (distributed tracing) ----------------------------------
+    # Real spans across request → DB with W3C trace-context propagation. The
+    # trace_id rides on every structured log line, error envelope, and the
+    # X-Trace-Id response header. Export to an OTLP collector when an endpoint is
+    # set; console export is opt-in (noisy) for local inspection.
+    otel_enabled: bool = True
+    otel_service_name: str = "canopyops-api"
+    otel_console_export: bool = False
+    otel_exporter_otlp_endpoint: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

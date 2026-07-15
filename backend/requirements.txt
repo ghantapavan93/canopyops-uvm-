@@ -12,6 +12,12 @@ python-multipart==0.0.19
 shapely==2.0.6
 fpdf2==2.8.2
 
+# observability (OpenTelemetry: traces + context propagation)
+opentelemetry-sdk==1.29.0
+opentelemetry-instrumentation-fastapi==0.50b0
+opentelemetry-instrumentation-sqlalchemy==0.50b0
+opentelemetry-exporter-otlp-proto-http==1.29.0
+
 # dev / test
 pytest==8.3.4
 pytest-cov==6.0.0
