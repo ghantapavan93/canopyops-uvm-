@@ -77,10 +77,10 @@ export class AuditComponent {
       : o === 'conditional' ? 'bg-warn-soft text-warn' : 'bg-surface-2 text-muted';
   }
   scoreColor(score: number): string {
-    return score >= 0.8 ? '#1f8a54' : score >= 0.5 ? '#a8720a' : '#b4231f';
+    return score >= 0.8 ? 'var(--c-ok)' : score >= 0.5 ? 'var(--c-warn)' : 'var(--c-danger)';
   }
   completeColor(pct: number): string {
-    return pct >= 80 ? '#1f8a54' : pct >= 50 ? '#a8720a' : '#b4231f';
+    return pct >= 80 ? 'var(--c-ok)' : pct >= 50 ? 'var(--c-warn)' : 'var(--c-danger)';
   }
   dossier(planId: string): PlanDossier | undefined {
     return this.vault()?.plans.find((p) => p.planId === planId);

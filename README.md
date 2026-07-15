@@ -115,6 +115,12 @@ canopyops/
   docs/       architecture, ADRs, failure map, traceability matrix, demo script
 ```
 
+**Operational docs** — [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system/container/
+sequence views, data model, state machine, ADRs) · [`FAILURE-MAP.md`](docs/FAILURE-MAP.md)
+(20 edge cases → safe behavior) · [`RUNBOOK.md`](docs/RUNBOOK.md) (RPO/RTO, backups,
+recovery) · [`SLO.md`](docs/SLO.md) · [`LOAD-TEST.md`](docs/LOAD-TEST.md) (measured)
+· [`ACCESSIBILITY.md`](docs/ACCESSIBILITY.md) (axe gate) · [`BROWSER-MATRIX.md`](docs/BROWSER-MATRIX.md).
+
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the system/container/sequence
 views, the data model, the state machine, architecture decision records, and the
 failure map. See [`docs/INTEGRATION.md`](docs/INTEGRATION.md) for how a utility

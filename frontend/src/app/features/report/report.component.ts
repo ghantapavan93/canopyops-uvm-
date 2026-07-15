@@ -72,6 +72,6 @@ export class ReportComponent {
   }
   levelColor(level: string): string {
     return level === 'critical' || level === 'high' ? '#b4231f'
-      : level === 'elevated' ? '#a8720a' : '#1f8a54';
+      : level === 'elevated' ? '#855c00' : '#0e6a39';
   }
 }

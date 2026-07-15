@@ -62,7 +62,7 @@
 }
 .rhead h1 { font-size: 1.9rem; font-weight: 800; margin: 0.5rem 0 0; letter-spacing: -0.02em; }
 .rhead .sub { color: #5b6b62; font-size: 0.9rem; margin-top: 0.25rem; }
-.rhead .disc { color: #8a978f; font-size: 0.72rem; margin-top: 0.7rem; max-width: 40rem; }
+.rhead .disc { color: #55635b; font-size: 0.72rem; margin-top: 0.7rem; max-width: 40rem; }
 
 section {
   background: #fff;
@@ -100,7 +100,7 @@ h2 {
 .gov__stats { display: grid; gap: 0.5rem; font-size: 0.9rem; align-content: center; }
 .gov__stats b { font-size: 1.05rem; }
 .gov__stats .flag { color: #b4231f; }
-.fine { margin-top: 0.9rem; color: #8a978f; font-size: 0.72rem; }
+.fine { margin-top: 0.9rem; color: #55635b; font-size: 0.72rem; }
 
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .tbl th { text-align: left; color: #5b6b62; font-weight: 600; border-bottom: 2px solid #e2e8e4; padding: 0.5rem 0.5rem; }
@@ -108,10 +108,10 @@ h2 {
 .tbl .num { text-align: right; }
 .tbl .mono { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; }
 .tbl .cap { text-transform: capitalize; }
-.tbl .ok { color: #1f8a54; }
-.tbl .warn { color: #a8720a; }
+.tbl .ok { color: #0e6a39; }
+.tbl .warn { color: #855c00; }
 
-.rfoot { color: #8a978f; font-size: 0.72rem; text-align: center; margin-top: 1.5rem; }
+.rfoot { color: #55635b; font-size: 0.72rem; text-align: center; margin-top: 1.5rem; }
 
 @media print {
   :host { background: #fff; }

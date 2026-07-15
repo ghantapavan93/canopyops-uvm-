@@ -38,16 +38,18 @@
   --c-primary-soft: #e2f0e8;
   --c-focus: #0a84ff;
 
-  /* Semantic status (each also gets an icon + shape in components) */
-  --c-ok: #1f8a54;
+  /* Semantic status (each also gets an icon + shape in components).
+     Foreground tones are tuned to clear WCAG AA 4.5:1 on their -soft
+     backgrounds even at small (10-11px) text — see docs/ACCESSIBILITY.md. */
+  --c-ok: #0e6a39;
   --c-ok-soft: #dff2e6;
-  --c-warn: #a8720a;
+  --c-warn: #855c00;
   --c-warn-soft: #fbefd4;
   --c-danger: #b4231f;
   --c-danger-soft: #fbe0de;
-  --c-info: #1f5fa8;
+  --c-info: #1a5493;
   --c-info-soft: #dde9f8;
-  --c-neutral: #5b6b62;
+  --c-neutral: #4a5952;
   --c-neutral-soft: #e7ece8;
 
   --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
@@ -67,10 +69,16 @@
     --c-primary: #37b57e;
     --c-primary-ink: #06110b;
     --c-primary-soft: #16362a;
+    /* Brighter status foregrounds for AA contrast on dark -soft backgrounds. */
+    --c-ok: #4fd08e;
     --c-ok-soft: #123324;
+    --c-warn: #e3ab3e;
     --c-warn-soft: #33270c;
+    --c-danger: #f0776f;
     --c-danger-soft: #35130f;
+    --c-info: #5fa0dd;
     --c-info-soft: #10233a;
+    --c-neutral: #9db0a5;
     --c-neutral-soft: #1e2a24;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);

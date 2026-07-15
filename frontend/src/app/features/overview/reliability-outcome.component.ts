@@ -124,7 +124,7 @@ export class ReliabilityOutcomeComponent {
     return Math.abs(d) < 0.05 ? '' : Math.abs(d).toFixed(1);
   }
   effColor(c: ReliabilityCircuit): string {
-    return c.effectivenessPct >= 60 ? '#1f8a54' : c.effectivenessPct >= 30 ? '#a8720a' : '#b4231f';
+    return c.effectivenessPct >= 60 ? 'var(--c-ok)' : c.effectivenessPct >= 30 ? 'var(--c-warn)' : 'var(--c-danger)';
   }
   badgeClass(k: ReliabilityClass): string {
     switch (k) {

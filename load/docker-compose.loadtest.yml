@@ -1,0 +1,14 @@
+# Load-test overlay: lift the per-client rate limit (so we measure server
+# latency, not the limiter) and run more API workers. The limiter + shedder are
+# proven separately by tests; here we want raw latency under concurrency.
+#
+#   docker compose -f docker-compose.yml -f load/docker-compose.loadtest.yml up -d api
+#   python load/run_load.py            # or: k6 run -e BASE=http://localhost:8001/api load/k6-smoke.js
+#   docker compose up -d api           # restore the normal config
+services:
+  api:
+    environment:
+      WEB_CONCURRENCY: "4"
+      RATE_LIMIT_PER_MIN: "10000000"
+      RATE_LIMIT_BURST: "10000000"
+      MAX_CONCURRENT_REQUESTS: "256"

@@ -41,7 +41,7 @@ export class VegetationComponent {
   toggleBusters(): void { this.onlyBusters.update((v) => !v); }
 
   tierColor(tier: string): string {
-    return tier === 'hot' ? '#c0392b' : tier === 'elevated' ? '#e07b1a' : '#1f8a54';
+    return tier === 'hot' ? 'var(--c-danger)' : tier === 'elevated' ? 'var(--c-warn)' : 'var(--c-ok)';
   }
   priorityClass(p: CyclePriority): string {
     return p === 'hazard' ? 'bg-danger-soft text-danger'
