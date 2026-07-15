@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.core.concurrency import limiter
 from app.core.logging import setup_logging
 from app.core.metrics import metrics
 
@@ -64,12 +65,35 @@ app.add_middleware(
 )
 
 
+# Probes must answer even while the app is shedding load, so orchestrators can
+# still tell "overloaded" (shed 503s) apart from "unhealthy" (process/DB down).
+_SHED_EXEMPT = {"/api/health", "/api/ready"}
+
+
 @app.middleware("http")
 async def observability_middleware(request: Request, call_next):
-    """Attach a correlation id, time the request, emit a structured access log,
-    and record it to the in-process metrics registry."""
+    """Attach a correlation id, shed load past the in-flight cap, time the
+    request, emit a structured access log, and record it to the metrics
+    registry."""
     correlation_id = request.headers.get("X-Correlation-Id") or str(uuid.uuid4())
     request.state.correlation_id = correlation_id
+
+    exempt = request.url.path in _SHED_EXEMPT
+    admitted = exempt or limiter.try_acquire()
+    if not admitted:
+        # Deliberate, self-protective 503 — not a server fault, so it's counted
+        # separately from 5xx errors and carries a Retry-After for well-behaved
+        # clients (the Angular sync outbox already backs off and retries).
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "overloaded",
+                "message": "The service is shedding load to stay responsive. Retry shortly.",
+                "correlation_id": correlation_id,
+            },
+            headers={"Retry-After": "1", "X-Correlation-Id": correlation_id},
+        )
+
     start = time.perf_counter()
     try:
         response = await call_next(request)
@@ -87,6 +111,9 @@ async def observability_middleware(request: Request, call_next):
                 "correlation_id": correlation_id,
             },
         )
+    finally:
+        if not exempt:
+            limiter.release()
 
     duration_ms = round((time.perf_counter() - start) * 1000, 2)
     route = request.scope.get("route")

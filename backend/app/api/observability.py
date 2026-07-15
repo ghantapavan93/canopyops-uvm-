@@ -4,6 +4,8 @@ for the front-end System Health panel)."""
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
+from app.core.concurrency import limiter
+from app.core.database import pool_status
 from app.core.metrics import metrics
 
 router = APIRouter(tags=["observability"])
@@ -11,7 +13,14 @@ router = APIRouter(tags=["observability"])
 
 @router.get("/metrics")
 def get_metrics() -> dict:
-    return metrics.snapshot()
+    """Request metrics plus the live reliability surface: the in-flight
+    concurrency limiter (with how many requests it has shed) and the database
+    connection pool."""
+    return {
+        **metrics.snapshot(),
+        "concurrency": limiter.stats(),
+        "database": pool_status(),
+    }
 
 
 @router.get("/metrics/prometheus")

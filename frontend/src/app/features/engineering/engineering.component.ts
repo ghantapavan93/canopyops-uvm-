@@ -36,7 +36,7 @@ export class EngineeringComponent implements OnDestroy {
     title: 'Automated tests',
     glyph: '✓',
     items: [
-      { label: 'Backend API (pytest) — 65 passing', ok: true, detail: 'idempotent replay, revision conflict (409) + resolve-under-same-key, evidence-completeness gate, RBAC (403), PostGIS coverage math, full plan→verify→close loop; plus plan creation + validation (422 structured envelope), overview periods, stewardship real signals, choropleth, geometry analysis, OpenAPI, GeoJSON import, metrics endpoint, pagination, the OData integration surface ($metadata, $filter/$select/$expand, deferred nav, ETag/304, and $batch — many reads in one round-trip with dependsOn 424 short-circuiting and a read-only 501 guard), the activity-date-scoped compliance rollup, geofence proximity alerts (PostGIS ST_Distance/ST_Contains → clear/warning/breach), the versioned offline zones snapshot (ETag/304), and the 3D terrain DEM grid + corridor elevation/slope profile' },
+      { label: 'Backend API (pytest) — 70 passing', ok: true, detail: 'idempotent replay, revision conflict (409) + resolve-under-same-key, evidence-completeness gate, RBAC (403), PostGIS coverage math, full plan→verify→close loop; plus plan creation + validation (422 structured envelope), overview periods, stewardship real signals, choropleth, geometry analysis, OpenAPI, GeoJSON import, metrics endpoint, pagination, the OData integration surface ($metadata, $filter/$select/$expand, deferred nav, ETag/304, and $batch — many reads in one round-trip with dependsOn 424 short-circuiting and a read-only 501 guard), the activity-date-scoped compliance rollup, reliability (statement_timeout cancels a runaway query, the in-flight limiter sheds load with 503 while probes stay answerable, /metrics exposes the concurrency + pool surface), geofence proximity alerts (PostGIS ST_Distance/ST_Contains → clear/warning/breach), the versioned offline zones snapshot (ETag/304), and the 3D terrain DEM grid + corridor elevation/slope profile' },
       { label: 'Frontend units (Jest) — 25 passing', ok: true, detail: 'coverage geometry math (slider % = area %), status presentation system (text+shape+tone, never color-only), StatusBadge component render, chart color/id utilities, and the on-device geofence engine — point-in-polygon, distance-to-boundary in metres, clear/warning/entered/breach escalation matching the server, and MultiPolygon parity with PostGIS' },
       { label: 'Cypress e2e — 8 passing (6 specs)', ok: true, detail: 'critical journey (plan → offline execution → partial upload → conflict recovery → evidence retry → verification → targeted follow-up → close → Proof Pack); the command palette (Ctrl/Cmd-K open, type-to-filter, keyboard + header-button navigation, Escape); the risk sign-off lifecycle (RBAC gate → certified reviewer signs off → append-only history → revoke reopens the span); the compliance report (rollup render, circuit + activity-date scoping, real PDF export); the OData $batch panel (several reads in a single POST, per-id statuses); and the not-found route (real 404 with a path back into the console). Runs headless (Electron) against the running stack via `npm run e2e`; verified green (~10s). The service worker is skipped under Cypress so it can never intercept e2e navigations.' },
     ],
@@ -107,7 +107,7 @@ export class EngineeringComponent implements OnDestroy {
     title: 'Integration surfaces (real & testable)',
     glyph: '🔌',
     items: [
-      { label: 'OData v4 service (SAP-style)', ok: true, detail: 'Live at /api/odata/ with $metadata (EDMX). Maps the domain to SAP concepts — treatment plan → WBS element, field execution → CATS time confirmation — and implements the patterns the role calls for: server paging ($top/$skip + nextLink), $filter (with parenthesised grouping + and/or precedence) / $select / $orderby / $expand, deferred navigation, and ETag/If-None-Match caching (304). The Integration console page consumes it with an app-level ETag cache. Synthetic facade, not a real SAP link.' },
+      { label: 'OData v4 service (SAP-style)', ok: true, detail: 'Live at /api/odata/ with $metadata (EDMX). Maps the domain to SAP concepts — treatment plan → WBS element, field execution → CATS time confirmation — and implements the patterns the role calls for: server paging ($top/$skip + nextLink), $filter (with parenthesised grouping + and/or precedence) / $select / $orderby / $expand, deferred navigation, ETag/If-None-Match caching (304), and $batch — many reads in one round-trip with dependsOn 424 short-circuiting (read-only, so writes return 501). The Integration console page consumes it with an app-level ETag cache and a live $batch panel. Synthetic facade, not a real SAP link.' },
       { label: 'Live OpenAPI 3 contract', ok: true, detail: 'Typed contract at /api/docs (Swagger), /api/redoc, /api/openapi.json — any external system can generate a client. This is the seam a utility integrates against.' },
       { label: 'Bring-your-own-data import', ok: true, detail: 'POST /api/import/corridors ingests a standard GeoJSON FeatureCollection of ROW centerlines — load real geometry and watch it render on the map.' },
       { label: 'Repository / adapter seam', ok: true, detail: 'The API depends on typed models, not data sources; synthetic swaps to real GIS / EAM / field-sync behind the same contracts (see docs/INTEGRATION.md).' },
@@ -116,8 +116,20 @@ export class EngineeringComponent implements OnDestroy {
     ],
   };
 
+  readonly reliability: Section = {
+    title: 'Scalability & reliability',
+    glyph: '📈',
+    items: [
+      { label: 'Graceful load-shedding', ok: true, detail: 'A bounded in-flight limiter (MAX_CONCURRENT_REQUESTS, default 64/worker) sheds excess requests with 503 + Retry-After instead of letting an unbounded queue turn one overload into a timeout for everyone. Health/readiness probes are exempt, so an orchestrator can still tell "overloaded" from "down". Shed count + live in-flight are exposed at /api/metrics.' },
+      { label: 'Bounded query time', ok: true, detail: 'Every pooled connection carries a Postgres statement_timeout (default 15s), so a runaway query is cancelled server-side rather than pinning a connection forever. Verified by a test that a 2s query under a 250ms budget is cancelled.' },
+      { label: 'Connection-pool tuning', ok: true, detail: 'Sized pool (DB_POOL_SIZE + DB_MAX_OVERFLOW) with pre-ping (survives Postgres restarts / idle drops) and periodic recycling (dodges stale sockets behind proxies). Pool checkout/overflow is live at /api/metrics.' },
+      { label: 'Horizontal scale (stateless)', ok: true, detail: 'The API is stateless — a session per request, all shared state in Postgres — so WEB_CONCURRENCY spreads it across worker processes (and replicas) with no sticky sessions. Uvicorn drains in-flight requests on shutdown for zero-drop deploys. Trade-off noted honestly: the in-process metrics registry is per-worker, so a multi-worker deployment scrapes each worker (Prometheus endpoint provided).' },
+      { label: 'Safe retries by construction', ok: true, detail: 'Because mutations are idempotent (Idempotency-Key) and conflicts are explicit (409 on stale revision), a client — or a load balancer — can retry safely; load-shed 503s and transient drops never risk a duplicate or a silent overwrite.' },
+    ],
+  };
+
   readonly sections: Section[] = [
-    this.tests, this.integration, this.assurance, this.architecture,
+    this.tests, this.integration, this.reliability, this.assurance, this.architecture,
     this.accessibility, this.matrix, this.boundaries,
   ];
 }

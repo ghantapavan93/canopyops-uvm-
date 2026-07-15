@@ -421,6 +421,8 @@ export interface SystemHealth {
   error_rate: number;
   latency_ms: { p50: number; p95: number; p99: number };
   endpoints: { endpoint: string; count: number; errors: number; p50_ms: number; p95_ms: number }[];
+  concurrency?: { in_flight: number; peak: number; shed_total: number; limit: number };
+  database?: { size?: number; checkedin?: number; checkedout?: number; overflow?: number; statement_timeout_ms: number };
 }
 
 export interface ConstraintBrief {

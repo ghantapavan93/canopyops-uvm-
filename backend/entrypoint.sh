@@ -28,5 +28,12 @@ if [ "${SEED_ON_START:-false}" = "true" ]; then
   python -m app.seed
 fi
 
-echo "[entrypoint] starting API..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+WORKERS="${WEB_CONCURRENCY:-1}"
+echo "[entrypoint] starting API with ${WORKERS} worker(s)..."
+# The API is stateless (session-per-request; shared state lives in Postgres),
+# so it scales horizontally across workers/replicas with no sticky sessions.
+# --timeout-graceful-shutdown lets in-flight requests drain on deploy/rollout.
+exec uvicorn app.main:app \
+  --host 0.0.0.0 --port 8000 \
+  --workers "${WORKERS}" \
+  --timeout-graceful-shutdown 20

@@ -122,10 +122,13 @@ bring-your-own-data GeoJSON import, and the synthetic→real adapter seam).
 `/api/odata/` (with EDMX `$metadata`) projects the domain into SAP terms — a
 treatment plan is a **WBS element**, a field execution is a **CATS** time
 confirmation — and implements server-driven paging, `$filter/$select/$orderby/$expand`,
-**deferred navigation**, and **ETag/`If-None-Match` (304) caching**. The
-*Integration · OData* console page consumes it with an app-level ETag cache and
-shows the 200-vs-304 revalidation live. It is a synthetic, OData-compatible
-facade — not a real SAP connection.
+**deferred navigation**, **ETag/`If-None-Match` (304) caching**, and **`$batch`** —
+many reads bundled into one round-trip with `dependsOn` sequencing (`424` when a
+predecessor failed; writes return `501` on this read-only facade). The
+*Integration · OData* console page consumes it with an app-level ETag cache,
+shows the 200-vs-304 revalidation live, and has a `$batch` panel that fires
+several reads as a single POST. It is a synthetic, OData-compatible facade — not
+a real SAP connection.
 
 ### Assurance guarantees (server-enforced, not UI-only)
 
@@ -137,6 +140,30 @@ facade — not a real SAP connection.
   verification until recovered.
 - **Human-authored outcome** — the API never declares a site effective, safe, or
   compliant. RBAC is enforced on every mutation.
+
+### Scalability & reliability
+
+- **Stateless, horizontally scalable** — a session per request with all shared
+  state in Postgres, so `WEB_CONCURRENCY` spreads the API across worker processes
+  (and replicas) with no sticky sessions. Uvicorn drains in-flight requests on
+  shutdown for zero-drop deploys.
+- **Graceful load-shedding** — a bounded in-flight limiter
+  (`MAX_CONCURRENT_REQUESTS`) sheds excess load with `503` + `Retry-After` rather
+  than letting an unbounded queue turn one overload into a timeout for everyone.
+  Liveness/readiness probes stay exempt, so an orchestrator can tell *overloaded*
+  from *down*. Live shed count + in-flight are at `GET /api/metrics`.
+- **Bounded query time** — every pooled connection carries a Postgres
+  `statement_timeout` (default 15s), so a runaway query is cancelled server-side
+  instead of pinning a connection.
+- **Tuned connection pool** — sized pool + `pool_pre_ping` (survives Postgres
+  restarts / idle drops) + periodic recycling; checkout/overflow is live at
+  `/api/metrics`.
+- **Safe retries by construction** — idempotent mutations + explicit `409`
+  conflicts mean a client or load balancer can retry a shed `503` or a transient
+  drop with no risk of a duplicate or a silent overwrite.
+
+All observable at the **Engineering Evidence** route (live *System Health* panel)
+and covered by `tests/test_reliability.py`.
 
 ## Testing
 
