@@ -20,6 +20,18 @@ services:
       timeout: 3s
       retries: 12
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: canopyops
+      MINIO_ROOT_PASSWORD: canopyops-secret
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - minio_data:/data
+
   api:
     build: ./backend
     restart: unless-stopped
@@ -44,6 +56,12 @@ services:
       # To export to a collector, set OTEL_EXPORTER_OTLP_ENDPOINT here, e.g.
       #   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318/v1/traces"
       OTEL_SERVICE_NAME: "canopyops-api"
+      # Evidence object storage (MinIO, S3-compatible).
+      STORAGE_BACKEND: "s3"
+      STORAGE_ENDPOINT: "http://minio:9000"
+      STORAGE_ACCESS_KEY: "canopyops"
+      STORAGE_SECRET_KEY: "canopyops-secret"
+      STORAGE_BUCKET: "evidence"
     ports:
       # Host 8001 so the containerized API doesn't collide with a local dev
       # uvicorn on 8000. The web container reaches it internally as api:8000.
@@ -51,6 +69,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
       interval: 10s
@@ -66,9 +86,16 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
       OTEL_SERVICE_NAME: "canopyops-api"
+      STORAGE_BACKEND: "s3"
+      STORAGE_ENDPOINT: "http://minio:9000"
+      STORAGE_ACCESS_KEY: "canopyops"
+      STORAGE_SECRET_KEY: "canopyops-secret"
+      STORAGE_BUCKET: "evidence"
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
       api:
         condition: service_healthy
 
@@ -83,3 +110,4 @@ services:
 
 volumes:
   db_data:
+  minio_data:

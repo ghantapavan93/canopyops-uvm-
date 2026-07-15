@@ -173,6 +173,15 @@ a real SAP connection.
 - **Safe retries by construction** — idempotent mutations + explicit `409`
   conflicts mean a client or load balancer can retry a shed `503` or a transient
   drop with no risk of a duplicate or a silent overwrite.
+- **Evidence in object storage (presigned URLs)** — files live in S3-compatible
+  object storage (MinIO), never in Postgres, behind a swappable adapter
+  (`memory` | `s3`). The client requests a **presigned PUT URL**, uploads bytes
+  straight to storage (the API never proxies the file), then the server
+  **HEADs** the object on finalize: present → `STORED` with the checksum;
+  missing or size-mismatched → `FAILED`, a recoverable partial upload. Uploads
+  carry a stricter per-client rate limit. (Split-horizon caveat: the compose
+  presigned URL targets `minio:9000` — reachable from the API/worker; a
+  host-browser demo needs a browser-reachable storage endpoint.)
 - **Durable background worker** — a separate `worker` container drains a
   DB-backed job queue (`SELECT … FOR UPDATE SKIP LOCKED`), so Proof Pack
   generation and large GeoJSON imports run **off the request path** (the API

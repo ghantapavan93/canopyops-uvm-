@@ -9,9 +9,11 @@ import {
   ComplianceReport,
   Corridor,
   CycleBusterBoard,
+  EvidenceStatus,
   HotspotBoard,
   JobRecord,
   PlanDossier,
+  UploadUrl,
   QualityAuditRecord,
   VaultIndex,
   EnvironmentalConstraint,
@@ -86,6 +88,20 @@ export class ApiService {
       `${this.base}/executions/${executionId}/evidence/${evidenceId}/retry`,
       {},
     );
+  }
+
+  /** Request a presigned PUT URL for an evidence file (object storage). */
+  requestUploadUrl(evidenceId: string, contentType: string, sizeBytes: number): Observable<UploadUrl> {
+    return this.http.post<UploadUrl>(`${this.base}/evidence/${evidenceId}/upload-url`, {
+      contentType, sizeBytes,
+    });
+  }
+
+  /** Confirm an upload — the server verifies the object exists and records it. */
+  finalizeUpload(evidenceId: string, checksum: string, sizeBytes?: number): Observable<EvidenceStatus> {
+    return this.http.post<EvidenceStatus>(`${this.base}/evidence/${evidenceId}/finalize`, {
+      checksum, sizeBytes: sizeBytes ?? null,
+    });
   }
 
   /** Synthetic: simulate a manager editing the plan while a crew is offline. */

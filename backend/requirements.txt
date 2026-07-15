@@ -11,6 +11,7 @@ bcrypt==4.2.1
 python-multipart==0.0.19
 shapely==2.0.6
 fpdf2==2.8.2
+boto3==1.35.99
 
 # observability (OpenTelemetry: traces + context propagation)
 opentelemetry-sdk==1.29.0

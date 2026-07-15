@@ -25,6 +25,7 @@ from app.core.telemetry import current_trace_id, setup_telemetry
 from app.api import (
     audit,
     auth,
+    evidence,
     executions,
     geo_reference,
     health,
@@ -207,6 +208,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(geo_reference.router, prefix="/api")
 app.include_router(treatments.router, prefix="/api")
 app.include_router(executions.router, prefix="/api")
+app.include_router(evidence.router, prefix="/api")
 app.include_router(plans.router, prefix="/api")
 app.include_router(verifications.router, prefix="/api")
 app.include_router(overview.router, prefix="/api")

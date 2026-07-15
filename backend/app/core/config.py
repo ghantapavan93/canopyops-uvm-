@@ -75,6 +75,24 @@ class Settings(BaseSettings):
     otel_console_export: bool = False
     otel_exporter_otlp_endpoint: str | None = None
 
+    # --- Evidence object storage (S3 / MinIO) ---------------------------------
+    # Evidence files live in object storage, not the DB. "memory" is an in-process
+    # fake for tests; "s3" talks to MinIO/S3 with presigned upload URLs so bytes
+    # go client → storage directly (the API never proxies the file).
+    storage_backend: str = "memory"            # memory | s3
+    storage_endpoint: str = "http://minio:9000"
+    storage_access_key: str = "canopyops"
+    storage_secret_key: str = "canopyops-secret"
+    storage_bucket: str = "evidence"
+    storage_region: str = "us-east-1"
+    storage_url_expiry_s: int = 900            # presigned-URL lifetime
+
+    # Evidence validation + upload throttling.
+    evidence_max_bytes: int = 15_000_000       # 15 MB per file
+    evidence_allowed_types: str = "image/jpeg,image/png,image/webp,application/pdf"
+    upload_rate_per_min: int = 60              # stricter than the general API limit
+    upload_rate_burst: int = 20
+
 
 @lru_cache
 def get_settings() -> Settings:

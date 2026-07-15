@@ -474,6 +474,24 @@ export interface ReliabilityBoard {
   circuits: ReliabilityCircuit[];
 }
 
+export interface UploadUrl {
+  evidenceId: string;
+  uploadUrl: string;
+  storageKey: string;
+  method: string;
+  expiresSeconds: number;
+  maxBytes: number;
+}
+export interface EvidenceStatus {
+  id: string;
+  type: string;
+  uploadStatus: string;
+  storageKey: string | null;
+  checksum: string | null;
+  downloadUrl?: string | null;
+  message?: string | null;
+}
+
 export interface JobRecord {
   id: string;
   type: string;

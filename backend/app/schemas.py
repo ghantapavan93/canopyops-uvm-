@@ -733,3 +733,33 @@ class JobOut(Schema):
 
 class GeoJSONImportJobIn(Schema):
     features: list[dict]
+
+
+# --- evidence object-storage pipeline (presigned uploads) ---
+class UploadUrlIn(Schema):
+    content_type: str
+    size_bytes: int
+
+
+class UploadUrlOut(Schema):
+    evidence_id: str
+    upload_url: str
+    storage_key: str
+    method: str = "PUT"
+    expires_seconds: int
+    max_bytes: int
+
+
+class FinalizeIn(Schema):
+    checksum: str
+    size_bytes: int | None = None
+
+
+class EvidenceStatusOut(Schema):
+    id: str
+    type: e.EvidenceType
+    upload_status: e.UploadStatus
+    storage_key: str | None
+    checksum: str | None
+    download_url: str | None = None
+    message: str | None = None
