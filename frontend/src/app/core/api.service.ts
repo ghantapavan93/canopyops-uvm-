@@ -16,6 +16,7 @@ import {
   ProofPack,
   ProximityResult,
   RiskBoard,
+  RiskReview,
   StewardshipPayload,
   TerrainGrid,
   TerrainProfile,
@@ -143,6 +144,13 @@ export class ApiService {
   /** Deterministic, explainable span risk scores (decision-support). */
   getRisk(): Observable<RiskBoard> {
     return this.http.get<RiskBoard>(`${this.base}/risk/spans`);
+  }
+
+  /** A certified reviewer signs off on a span's risk — persisted + audited. */
+  reviewSpan(planId: string, note?: string): Observable<RiskReview> {
+    return this.http.post<RiskReview>(`${this.base}/risk/spans/${planId}/review`, {
+      decision: 'acknowledged', note: note ?? null,
+    });
   }
 
   /** Elevation + slope profile along a corridor centerline. */

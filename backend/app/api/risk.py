@@ -19,18 +19,28 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.terrain import elevation, _haversine_m
 from app.core.database import get_db
+from app.core.security import require_roles
 from app.models import domain as m
-from app.schemas import RiskBoard, RiskFactor, SpanRisk
+from app.models import enums as e
+from app.schemas import (
+    RiskBoard,
+    RiskFactor,
+    RiskReviewIn,
+    RiskReviewOut,
+    SpanRisk,
+)
 from app.services import assurance
 from app.services.geo import to_geojson
 
 router = APIRouter(tags=["risk"])
+
+_REVIEWER = require_roles(e.Role.QUALITY_REVIEWER, e.Role.COMPLIANCE_REVIEWER)
 
 WEIGHTS = {"clearance": 28, "growth": 18, "wildfire": 22, "slope": 14, "outage": 18}
 
@@ -57,6 +67,14 @@ def _level(score: float) -> str:
     return "critical" if score >= 75 else "high" if score >= 55 else "elevated" if score >= 30 else "low"
 
 
+def _latest_reviews(db: Session) -> dict[str, m.RiskReview]:
+    """Most-recent persisted sign-off per plan (the durable human review)."""
+    reviews = db.scalars(
+        select(m.RiskReview).order_by(m.RiskReview.created_at.asc())
+    ).all()
+    return {r.plan_id: r for r in reviews}  # last write per plan wins
+
+
 def score_spans(db: Session) -> list[SpanRisk]:
     plans = db.scalars(select(m.TreatmentPlan)).all()
     hftd_plan_ids = set(
@@ -65,6 +83,8 @@ def score_spans(db: Session) -> list[SpanRisk]:
             "WHERE c.category = 'HFTD' AND ST_Intersects(p.planned_geometry, c.geometry)"
         )).scalars().all()
     )
+    reviews = _latest_reviews(db)
+    reviewer_names = {u.id: u.display_name for u in db.scalars(select(m.User)).all()}
 
     out: list[SpanRisk] = []
     for p in plans:
@@ -107,6 +127,7 @@ def score_spans(db: Session) -> list[SpanRisk]:
             "outage": "Reliability hot-spot — target to break the outage-repeat pattern",
         }[top.name]
 
+        review = reviews.get(p.id)
         out.append(SpanRisk(
             plan_id=p.id,
             work_order_ref=wo.reference if wo else p.id,
@@ -114,6 +135,9 @@ def score_spans(db: Session) -> list[SpanRisk]:
             span=corridor.span_label if corridor else "—",
             score=score, level=_level(score), factors=factors,
             recommendation=f"{rec} — pending forester review.",
+            reviewed=review is not None,
+            reviewed_by=reviewer_names.get(review.reviewer_id) if review else None,
+            reviewed_at=review.created_at if review else None,
         ))
 
     out.sort(key=lambda s: s.score, reverse=True)
@@ -123,3 +147,42 @@ def score_spans(db: Session) -> list[SpanRisk]:
 @router.get("/risk/spans", response_model=RiskBoard)
 def risk_spans(db: Session = Depends(get_db)) -> RiskBoard:
     return RiskBoard(generated_at=datetime.now(timezone.utc), spans=score_spans(db))
+
+
+@router.post("/risk/spans/{plan_id}/review", response_model=RiskReviewOut)
+def review_span(
+    plan_id: str,
+    payload: RiskReviewIn,
+    db: Session = Depends(get_db),
+    user: m.User = Depends(_REVIEWER),
+) -> RiskReviewOut:
+    """A certified reviewer signs off on a span's risk. Persists an append-only
+    review record (snapshotting the score they saw) + an immutable audit event —
+    turning the human-in-the-loop guardrail into durable evidence. Server-enforced
+    RBAC: only a quality/compliance reviewer may sign off; a machine never can."""
+    plan = db.get(m.TreatmentPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Span not found"})
+
+    # Snapshot the current score the reviewer is signing against.
+    current = next((s for s in score_spans(db) if s.plan_id == plan_id), None)
+    score = current.score if current else 0.0
+    level = current.level if current else "low"
+
+    review = m.RiskReview(
+        plan_id=plan_id, reviewer_id=user.id, score=score, level=level,
+        decision=payload.decision, note=payload.note,
+    )
+    db.add(review)
+    db.add(m.AuditEvent(
+        actor_id=user.id, action="risk.reviewed", entity_type="treatment_plan",
+        entity_id=plan_id, after={"score": score, "level": level, "decision": payload.decision},
+        reason=payload.note,
+    ))
+    db.commit()
+    db.refresh(review)
+    return RiskReviewOut(
+        id=review.id, plan_id=review.plan_id, reviewer_id=review.reviewer_id,
+        reviewer_name=user.display_name, score=review.score, level=review.level,
+        decision=review.decision, note=review.note, created_at=review.created_at,
+    )

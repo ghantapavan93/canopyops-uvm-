@@ -1,7 +1,10 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
+import { ToastService } from '../../core/toast.service';
 import { RiskBoard, RiskLevel, SpanRisk } from '../../core/models';
 
 const FACTOR_META: Record<string, { label: string; cssVar: string }> = {
@@ -17,17 +20,21 @@ const LEVELS: (RiskLevel | 'all')[] = ['all', 'critical', 'high', 'elevated', 'l
 @Component({
   selector: 'app-risk',
   standalone: true,
+  imports: [DatePipe],
   templateUrl: './risk.component.html',
 })
 export class RiskComponent implements OnDestroy {
   private api = inject(ApiService);
+  private auth = inject(AuthService);
+  private toast = inject(ToastService);
   private router = inject(Router);
 
   readonly board = signal<RiskBoard | null>(null);
   readonly refreshing = signal(false);
   readonly levels = LEVELS;
   readonly levelFilter = signal<RiskLevel | 'all'>('all');
-  readonly reviewed = signal<Set<string>>(new Set());
+  private readonly signing = signal<Set<string>>(new Set());
+  readonly canReview = computed(() => this.auth.can('quality_reviewer', 'compliance_reviewer'));
 
   readonly spans = computed(() => this.board()?.spans ?? []);
   readonly visible = computed(() => {
@@ -39,7 +46,7 @@ export class RiskComponent implements OnDestroy {
     for (const s of this.spans()) c[s.level]++;
     return c;
   });
-  readonly reviewedCount = computed(() => this.reviewed().size);
+  readonly reviewedCount = computed(() => this.spans().filter((s) => s.reviewed).length);
 
   // --- live refresh (consistent with the other consoles) ---
   readonly live = signal(true);
@@ -85,10 +92,23 @@ export class RiskComponent implements OnDestroy {
   factorLabel(name: string): string { return FACTOR_META[name]?.label ?? name; }
   factorColor(name: string): string { return `var(${FACTOR_META[name]?.cssVar ?? '--c-neutral'})`; }
 
+  /** Persist a certified reviewer's sign-off (server records it + audits it). */
   signOff(s: SpanRisk): void {
-    this.reviewed.update((set) => new Set(set).add(s.planId));
+    if (this.signing().has(s.planId)) return;
+    this.signing.update((set) => new Set(set).add(s.planId));
+    this.api.reviewSpan(s.planId).subscribe({
+      next: (r) => {
+        this.toast.success(`Signed off by ${r.reviewerName ?? 'reviewer'} — recorded to the audit trail.`);
+        this.clearSigning(s.planId);
+        this.load(true);  // reflect the persisted review
+      },
+      error: () => this.clearSigning(s.planId),  // the error interceptor toasts (e.g. 403)
+    });
   }
-  isReviewed(s: SpanRisk): boolean { return this.reviewed().has(s.planId); }
+  isSigning(s: SpanRisk): boolean { return this.signing().has(s.planId); }
+  private clearSigning(id: string): void {
+    this.signing.update((set) => { const n = new Set(set); n.delete(id); return n; });
+  }
 
   openInCommand(s: SpanRisk): void {
     this.router.navigate(['/console/command'], { queryParams: { q: s.circuit } });

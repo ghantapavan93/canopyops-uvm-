@@ -131,6 +131,21 @@ export interface SpanRisk {
   factors: RiskFactor[];
   recommendation: string;
   requiresReview: boolean;
+  reviewed: boolean;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+export interface RiskReview {
+  id: string;
+  planId: string;
+  reviewerId: string | null;
+  reviewerName: string | null;
+  score: number;
+  level: RiskLevel;
+  decision: string;
+  note: string | null;
+  createdAt: string;
 }
 
 export interface RiskBoard {

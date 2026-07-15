@@ -244,6 +244,27 @@ class SpanRisk(Schema):
     factors: list[RiskFactor]
     recommendation: str
     requires_review: bool = True  # a machine never authorizes work
+    # Populated once a certified human has signed off (durable evidence).
+    reviewed: bool = False
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+
+
+class RiskReviewIn(Schema):
+    decision: str = "acknowledged"
+    note: str | None = None
+
+
+class RiskReviewOut(Schema):
+    id: str
+    plan_id: str
+    reviewer_id: str | None
+    reviewer_name: str | None
+    score: float
+    level: str
+    decision: str
+    note: str | None
+    created_at: datetime
 
 
 class RiskBoard(Schema):

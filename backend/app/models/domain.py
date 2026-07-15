@@ -244,6 +244,24 @@ class SyncAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class RiskReview(Base):
+    """A certified human's sign-off on a span's computed risk. Append-only: this
+    is the durable evidence that a machine's ranking was reviewed by a person —
+    the human-in-the-loop guardrail made into a record, with a snapshot of the
+    score the reviewer actually saw."""
+
+    __tablename__ = "risk_review"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("treatment_plan.id"), index=True)
+    reviewer_id: Mapped[str | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
+    score: Mapped[float] = mapped_column(Float)          # snapshot the reviewer saw
+    level: Mapped[str] = mapped_column(String)
+    decision: Mapped[str] = mapped_column(String, default="acknowledged")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class AuditEvent(Base):
     """Immutable business history. Never updated or deleted."""
 

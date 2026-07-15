@@ -37,8 +37,8 @@ def geom(shape):
 
 def clear(db) -> None:
     for table in (
-        m.AuditEvent, m.SyncAttempt, m.VerificationObservation, m.EvidenceItem,
-        m.TreatmentExecution, m.TreatmentPlan, m.WorkOrder,
+        m.RiskReview, m.AuditEvent, m.SyncAttempt, m.VerificationObservation,
+        m.EvidenceItem, m.TreatmentExecution, m.TreatmentPlan, m.WorkOrder,
         m.EnvironmentalConstraint, m.Corridor, m.User,
     ):
         db.execute(delete(table))
