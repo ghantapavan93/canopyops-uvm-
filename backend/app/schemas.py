@@ -589,3 +589,129 @@ class CycleBusterBoard(Schema):
     note: str
     summary: CycleBusterSummary
     spans: list[CycleBusterSpan]
+
+
+# --- work-plan QA audit (independent checks & balances) ---
+class AuditCheck(Schema):
+    key: str
+    label: str
+    passed: bool
+    critical: bool
+    detail: str
+
+
+class AuditQueueItem(Schema):
+    plan_id: str
+    work_order_ref: str
+    circuit: str
+    span: str
+    status: str
+    checks: list[AuditCheck]
+    score: float
+    suggested_outcome: str
+    sampled: bool
+    audited: bool
+    last_outcome: str | None
+    last_auditor: str | None
+    last_audited_at: datetime | None
+
+
+class AuditSummary(Schema):
+    total: int
+    sampled: int
+    audited: int
+    passed: int
+    failed: int
+    conditional: int
+    audit_coverage_pct: int
+
+
+class AuditQueue(Schema):
+    generated_at: datetime
+    note: str
+    summary: AuditSummary
+    items: list[AuditQueueItem]
+
+
+class AuditIn(Schema):
+    outcome: str          # pass | conditional | fail
+    note: str | None = None
+
+
+class QualityAuditOut(Schema):
+    id: str
+    plan_id: str
+    auditor_id: str | None
+    auditor_name: str | None
+    outcome: str
+    score: float
+    checks: list[AuditCheck]
+    note: str | None
+    created_at: datetime
+
+
+# --- compliance evidence vault ---
+class FrameworkStatus(Schema):
+    code: str
+    requirement: str
+    satisfied: bool
+    detail: str
+
+
+class EvidenceRef(Schema):
+    type: str
+    stored: bool
+    upload_status: str
+    checksum: str | None
+    storage_key: str | None
+    captured_at: datetime | None
+
+
+class VaultComponents(Schema):
+    coverage: float | None
+    coverage_ok: bool
+    evidence_score: float
+    evidence_complete: bool
+    evidence: list[EvidenceRef]
+    verified: bool
+    constraint_intersects: bool
+    constraint_ack: bool
+    risk_reviewed: bool
+    risk_reviewer: str | None
+    qa_audited: bool
+    qa_outcome: str | None
+    qa_auditor: str | None
+
+
+class Prescription(Schema):
+    method: str
+    target_condition: str
+    required_evidence: list[str]
+    revision: int
+
+
+class PlanDossier(Schema):
+    plan_id: str
+    work_order_ref: str
+    circuit: str
+    span: str
+    status: str
+    prescription: Prescription
+    components: VaultComponents
+    frameworks: list[FrameworkStatus]
+    completeness_pct: int
+    satisfied: int
+    requirements: int
+
+
+class VaultSummary(Schema):
+    plans: int
+    fully_compliant: int
+    avg_completeness_pct: int
+
+
+class VaultIndex(Schema):
+    generated_at: datetime
+    note: str
+    summary: VaultSummary
+    plans: list[PlanDossier]

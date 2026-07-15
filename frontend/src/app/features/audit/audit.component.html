@@ -1,0 +1,239 @@
+<div class="view-enter h-full overflow-y-auto p-4">
+  <header class="mb-3">
+    <h1 class="text-lg font-semibold text-ink">Quality &amp; Compliance</h1>
+    <p class="text-xs text-muted">
+      An independent <strong>checks-and-balances</strong> audit of closed work, and an
+      auto-assembled <strong>evidence vault</strong> mapped to the frameworks a utility
+      answers to — NERC FAC-003 / TVMP / NESC / environmental.
+    </p>
+  </header>
+
+  <!-- WORK-PLAN AUDIT -->
+  <section class="mb-6">
+    <div class="mb-2 flex items-baseline justify-between">
+      <h2 class="text-sm font-semibold text-ink">Work-plan audit (QA)</h2>
+      @if (!canAudit()) {
+        <span class="rounded bg-surface-2 px-2 py-0.5 text-[11px] text-muted">Sign in as a Reviewer or Compliance role to record a verdict</span>
+      }
+    </div>
+
+    @if (queue(); as q) {
+      <div class="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div class="rounded-md bg-surface-2 p-2.5 text-center">
+          <div class="text-lg font-bold text-ink">{{ q.summary.auditCoveragePct }}%</div>
+          <div class="text-[10px] text-muted">audit coverage</div>
+        </div>
+        <div class="rounded-md bg-surface-2 p-2.5 text-center">
+          <div class="text-lg font-bold text-ink">{{ q.summary.sampled }}</div>
+          <div class="text-[10px] text-muted">in QA sample</div>
+        </div>
+        <div class="rounded-md bg-surface-2 p-2.5 text-center">
+          <div class="text-lg font-bold text-ok">{{ q.summary.passed }}</div>
+          <div class="text-[10px] text-muted">passed</div>
+        </div>
+        <div class="rounded-md p-2.5 text-center" [class.bg-danger-soft]="q.summary.failed > 0" [class.bg-surface-2]="q.summary.failed === 0">
+          <div class="text-lg font-bold" [class.text-danger]="q.summary.failed > 0" [class.text-ink]="q.summary.failed === 0">{{ q.summary.failed }}</div>
+          <div class="text-[10px] text-muted">failed</div>
+        </div>
+      </div>
+
+      <div class="overflow-hidden rounded-lg border border-border bg-surface">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="border-b border-border text-left text-muted">
+              <th class="p-2 font-medium">Work order</th>
+              <th class="p-2 font-medium">Objective checks</th>
+              <th class="p-2 font-medium">Score</th>
+              <th class="p-2 font-medium">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (it of q.items; track it.planId) {
+              <tr class="cursor-pointer border-t border-border hover:bg-surface-2"
+                  [class.bg-surface-2]="expandedAudit() === it.planId" (click)="toggleAudit(it.planId)">
+                <td class="p-2">
+                  <div class="font-mono font-semibold text-ink">{{ it.workOrderRef }}</div>
+                  <div class="text-[10px] text-muted">{{ it.circuit }} · {{ it.span }}
+                    @if (it.sampled) { <span class="ml-1 rounded bg-primary-soft px-1 py-0.5 text-[9px] font-semibold text-primary">sampled</span> }
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex gap-1">
+                    @for (c of it.checks; track c.key) {
+                      <span class="grid h-4 w-4 place-items-center rounded text-[9px] font-bold"
+                            [class.bg-ok-soft]="c.passed" [class.text-ok]="c.passed"
+                            [class.bg-danger-soft]="!c.passed" [class.text-danger]="!c.passed"
+                            [title]="c.label + ' — ' + c.detail">{{ c.passed ? '✓' : '✕' }}</span>
+                    }
+                  </div>
+                </td>
+                <td class="p-2">
+                  <span class="font-semibold" [style.color]="scoreColor(it.score)">{{ (it.score * 100).toFixed(0) }}%</span>
+                </td>
+                <td class="p-2">
+                  @if (it.audited) {
+                    <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="outcomeClass(it.lastOutcome)">{{ it.lastOutcome }}</span>
+                  } @else {
+                    <span class="text-[10px] text-muted">unaudited · suggests
+                      <span class="font-semibold" [class]="outcomeClass(it.suggestedOutcome)">{{ it.suggestedOutcome }}</span>
+                    </span>
+                  }
+                </td>
+              </tr>
+
+              @if (expandedAudit() === it.planId) {
+                <tr class="border-t border-border bg-bg">
+                  <td colspan="4" class="p-3">
+                    <!-- the objective checklist in full -->
+                    <div class="mb-2 grid gap-1 md:grid-cols-2">
+                      @for (c of it.checks; track c.key) {
+                        <div class="flex items-start gap-2">
+                          <span class="mt-0.5 flex-shrink-0" [class.text-ok]="c.passed" [class.text-danger]="!c.passed">{{ c.passed ? '✓' : '✕' }}</span>
+                          <span><span class="font-medium text-ink">{{ c.label }}</span>
+                            @if (c.critical) { <span class="ml-1 rounded bg-surface-2 px-1 text-[9px] text-muted">critical</span> }
+                            <span class="text-muted"> — {{ c.detail }}</span></span>
+                        </div>
+                      }
+                    </div>
+
+                    <!-- verdict action (RBAC-gated) -->
+                    @if (canAudit()) {
+                      <div class="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface p-2">
+                        <input [value]="note()" (input)="note.set($any($event.target).value)" placeholder="Audit note (optional)"
+                               class="min-w-[12rem] flex-1 rounded border border-border bg-bg px-2 py-1 text-xs text-ink" />
+                        @for (o of outcomes; track o) {
+                          <button type="button" (click)="decide(it.planId, o)" [disabled]="submitting()"
+                                  class="rounded-md px-2.5 py-1 text-xs font-semibold disabled:opacity-50" [class]="outcomeClass(o)">
+                            {{ o }}
+                          </button>
+                        }
+                      </div>
+                    }
+
+                    <!-- append-only history -->
+                    @if (history().length) {
+                      <div class="mt-2">
+                        <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Audit history (append-only)</div>
+                        @for (h of history(); track h.id) {
+                          <div class="flex items-center gap-2 border-t border-border py-1 text-[11px]">
+                            <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="outcomeClass(h.outcome)">{{ h.outcome }}</span>
+                            <span class="text-muted">{{ (h.score * 100).toFixed(0) }}% checks</span>
+                            <span class="text-ink">{{ h.auditorName || 'reviewer' }}</span>
+                            @if (h.note) { <span class="text-muted">· “{{ h.note }}”</span> }
+                            <span class="ml-auto text-muted">{{ h.createdAt | date: 'MMM d, HH:mm' }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </td>
+                </tr>
+              }
+            } @empty {
+              <tr><td colspan="4" class="p-4 text-center text-muted">No closed work to audit yet.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-[10px] text-muted">{{ q.note }}</p>
+    } @else {
+      <div class="text-sm text-muted">Loading audit queue…</div>
+    }
+  </section>
+
+  <!-- COMPLIANCE EVIDENCE VAULT -->
+  <section>
+    <div class="mb-2 flex items-baseline justify-between">
+      <h2 class="text-sm font-semibold text-ink">Compliance evidence vault</h2>
+      @if (vault(); as v) {
+        <div class="flex items-center gap-2 text-[11px] text-muted">
+          <span><strong class="text-ink">{{ v.summary.avgCompletenessPct }}%</strong> avg completeness</span>
+          <span>· <strong class="text-ink">{{ v.summary.fullyCompliant }}</strong> / {{ v.summary.plans }} fully documented</span>
+        </div>
+      }
+    </div>
+
+    @if (vault(); as v) {
+      <div class="space-y-2">
+        @for (d of v.plans; track d.planId) {
+          <div class="overflow-hidden rounded-lg border border-border bg-surface">
+            <button type="button" (click)="toggleVault(d.planId)" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface-2">
+              <div class="min-w-[9rem]">
+                <div class="font-mono text-xs font-semibold text-ink">{{ d.workOrderRef }}</div>
+                <div class="text-[10px] text-muted">{{ d.circuit }} · {{ d.span }}</div>
+              </div>
+              <!-- framework chips -->
+              <div class="flex flex-1 flex-wrap gap-1">
+                @for (f of d.frameworks; track f.code) {
+                  <span class="rounded px-1.5 py-0.5 text-[9px] font-semibold"
+                        [class.bg-ok-soft]="f.satisfied" [class.text-ok]="f.satisfied"
+                        [class.bg-danger-soft]="!f.satisfied" [class.text-danger]="!f.satisfied"
+                        [title]="f.requirement + ' — ' + f.detail">{{ f.satisfied ? '✓' : '✕' }} {{ f.code }}</span>
+                }
+              </div>
+              <div class="w-28 flex-shrink-0">
+                <div class="flex items-center gap-1.5">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <div class="h-full rounded-full" [style.width.%]="d.completenessPct" [style.background]="completeColor(d.completenessPct)"></div>
+                  </div>
+                  <span class="w-8 text-right text-[11px] font-semibold" [style.color]="completeColor(d.completenessPct)">{{ d.completenessPct }}%</span>
+                </div>
+              </div>
+              <span class="text-muted">{{ expandedVault() === d.planId ? '▾' : '▸' }}</span>
+            </button>
+
+            @if (expandedVault() === d.planId) {
+              <div class="border-t border-border p-3 text-[11px]">
+                <div class="grid gap-3 md:grid-cols-2">
+                  <!-- the assembled chain -->
+                  <div>
+                    <div class="mb-1 font-semibold text-ink">Evidence chain</div>
+                    <div class="space-y-1 text-muted">
+                      <div><span class="text-ink">Prescription</span> · {{ d.prescription.method }} → {{ d.prescription.targetCondition }} (rev {{ d.prescription.revision }})</div>
+                      <div><span class="text-ink">Coverage</span> · {{ d.components.coverage !== null ? ((d.components.coverage * 100).toFixed(0) + '%') : '—' }}
+                        <span [class.text-ok]="d.components.coverageOk" [class.text-danger]="!d.components.coverageOk">{{ d.components.coverageOk ? '(adequate)' : '(below MVCD bar)' }}</span></div>
+                      <div><span class="text-ink">Evidence</span> · {{ (d.components.evidenceScore * 100).toFixed(0) }}% {{ d.components.evidenceComplete ? 'complete' : 'incomplete' }}</div>
+                      <div><span class="text-ink">Verification</span> · <span [class.text-ok]="d.components.verified" [class.text-danger]="!d.components.verified">{{ d.components.verified ? 'verified' : 'not verified' }}</span></div>
+                      <div><span class="text-ink">Risk sign-off</span> · {{ d.components.riskReviewed ? ('signed by ' + d.components.riskReviewer) : 'pending' }}</div>
+                      <div><span class="text-ink">QA audit</span> · {{ d.components.qaAudited ? (d.components.qaOutcome + ' (' + d.components.qaAuditor + ')') : 'not audited' }}</div>
+                      <div><span class="text-ink">Constraints</span> · {{ d.components.constraintIntersects ? (d.components.constraintAck ? 'acknowledged' : 'NOT acknowledged') : 'none intersect' }}</div>
+                    </div>
+                    <!-- evidence integrity list -->
+                    @if (d.components.evidence.length) {
+                      <div class="mt-2">
+                        @for (e of d.components.evidence; track e.type) {
+                          <div class="flex items-center gap-2 text-[10px]">
+                            <span [class.text-ok]="e.stored" [class.text-danger]="!e.stored">{{ e.stored ? '✓' : '✕' }}</span>
+                            <span class="text-ink">{{ e.type }}</span>
+                            <span class="text-muted">{{ e.uploadStatus }}</span>
+                            @if (e.checksum) { <span class="font-mono text-muted">sha:{{ e.checksum }}</span> }
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <!-- framework-by-framework -->
+                  <div>
+                    <div class="mb-1 font-semibold text-ink">Framework requirements</div>
+                    <div class="space-y-1">
+                      @for (f of d.frameworks; track f.code) {
+                        <div class="flex items-start gap-2">
+                          <span class="mt-0.5" [class.text-ok]="f.satisfied" [class.text-danger]="!f.satisfied">{{ f.satisfied ? '✓' : '✕' }}</span>
+                          <span><span class="font-medium text-ink">{{ f.code }}</span> — {{ f.requirement }}
+                            <span class="block text-[10px] text-muted">{{ f.detail }}</span></span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <p class="mt-2 text-[10px] text-muted">{{ v.note }}</p>
+    } @else {
+      <div class="text-sm text-muted">Assembling evidence vault…</div>
+    }
+  </section>
+</div>

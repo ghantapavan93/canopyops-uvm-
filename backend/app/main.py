@@ -21,6 +21,7 @@ from app.core.metrics import metrics
 from app.core.ratelimit import rate_limiter
 
 from app.api import (
+    audit,
     auth,
     executions,
     geo_reference,
@@ -36,6 +37,7 @@ from app.api import (
     stewardship,
     terrain,
     treatments,
+    vault,
     vegetation,
     verifications,
 )
@@ -201,6 +203,8 @@ app.include_router(terrain.router, prefix="/api")
 app.include_router(risk.router, prefix="/api")
 app.include_router(reliability.router, prefix="/api")
 app.include_router(vegetation.router, prefix="/api")
+app.include_router(audit.router, prefix="/api")
+app.include_router(vault.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 
 

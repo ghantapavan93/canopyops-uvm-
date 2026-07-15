@@ -4,10 +4,15 @@ import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import {
+  AuditOutcome,
+  AuditQueue,
   ComplianceReport,
   Corridor,
   CycleBusterBoard,
   HotspotBoard,
+  PlanDossier,
+  QualityAuditRecord,
+  VaultIndex,
   EnvironmentalConstraint,
   EncroachmentMap,
   GeoAnalyze,
@@ -115,6 +120,33 @@ export class ApiService {
   /** Reliability outcome per circuit — closed work vs SAIDI/SAIFI movement. */
   getReliability(): Observable<ReliabilityBoard> {
     return this.http.get<ReliabilityBoard>(`${this.base}/reliability`);
+  }
+
+  /** Work-plan QA audit queue — objective checks + verdict per closed plan. */
+  getAuditQueue(): Observable<AuditQueue> {
+    return this.http.get<AuditQueue>(`${this.base}/audit/queue`);
+  }
+
+  /** A certified reviewer records a QA verdict on a plan (append-only, audited). */
+  recordAudit(planId: string, outcome: AuditOutcome, note?: string): Observable<QualityAuditRecord> {
+    return this.http.post<QualityAuditRecord>(`${this.base}/audit/plans/${planId}`, {
+      outcome, note: note ?? null,
+    });
+  }
+
+  /** The append-only QA audit history for a plan (newest first). */
+  getAuditHistory(planId: string): Observable<QualityAuditRecord[]> {
+    return this.http.get<QualityAuditRecord[]>(`${this.base}/audit/plans/${planId}`);
+  }
+
+  /** Compliance evidence vault index — per-plan dossiers + framework completeness. */
+  getVault(): Observable<VaultIndex> {
+    return this.http.get<VaultIndex>(`${this.base}/vault`);
+  }
+
+  /** The full assembled evidence dossier for one plan. */
+  getDossier(planId: string): Observable<PlanDossier> {
+    return this.http.get<PlanDossier>(`${this.base}/vault/plans/${planId}`);
   }
 
   /** Hot-spotting heat — per-span reactive-repeat intensity over corridor lines. */

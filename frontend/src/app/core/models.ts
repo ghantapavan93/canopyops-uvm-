@@ -474,6 +474,84 @@ export interface ReliabilityBoard {
   circuits: ReliabilityCircuit[];
 }
 
+export interface AuditCheck {
+  key: string;
+  label: string;
+  passed: boolean;
+  critical: boolean;
+  detail: string;
+}
+export type AuditOutcome = 'pass' | 'conditional' | 'fail';
+export interface AuditQueueItem {
+  planId: string;
+  workOrderRef: string;
+  circuit: string;
+  span: string;
+  status: string;
+  checks: AuditCheck[];
+  score: number;
+  suggestedOutcome: AuditOutcome;
+  sampled: boolean;
+  audited: boolean;
+  lastOutcome: AuditOutcome | null;
+  lastAuditor: string | null;
+  lastAuditedAt: string | null;
+}
+export interface AuditQueue {
+  generatedAt: string;
+  note: string;
+  summary: { total: number; sampled: number; audited: number; passed: number; failed: number; conditional: number; auditCoveragePct: number };
+  items: AuditQueueItem[];
+}
+export interface QualityAuditRecord {
+  id: string;
+  planId: string;
+  auditorId: string | null;
+  auditorName: string | null;
+  outcome: AuditOutcome;
+  score: number;
+  checks: AuditCheck[];
+  note: string | null;
+  createdAt: string;
+}
+
+export interface FrameworkStatus { code: string; requirement: string; satisfied: boolean; detail: string }
+export interface EvidenceRef { type: string; stored: boolean; uploadStatus: string; checksum: string | null; storageKey: string | null; capturedAt: string | null }
+export interface VaultComponents {
+  coverage: number | null;
+  coverageOk: boolean;
+  evidenceScore: number;
+  evidenceComplete: boolean;
+  evidence: EvidenceRef[];
+  verified: boolean;
+  constraintIntersects: boolean;
+  constraintAck: boolean;
+  riskReviewed: boolean;
+  riskReviewer: string | null;
+  qaAudited: boolean;
+  qaOutcome: AuditOutcome | null;
+  qaAuditor: string | null;
+}
+export interface PlanDossier {
+  planId: string;
+  workOrderRef: string;
+  circuit: string;
+  span: string;
+  status: string;
+  prescription: { method: string; targetCondition: string; requiredEvidence: string[]; revision: number };
+  components: VaultComponents;
+  frameworks: FrameworkStatus[];
+  completenessPct: number;
+  satisfied: number;
+  requirements: number;
+}
+export interface VaultIndex {
+  generatedAt: string;
+  note: string;
+  summary: { plans: number; fullyCompliant: number; avgCompletenessPct: number };
+  plans: PlanDossier[];
+}
+
 export type HotspotTier = 'hot' | 'elevated' | 'stable';
 
 export interface VegetationHotspot {

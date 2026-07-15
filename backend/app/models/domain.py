@@ -262,6 +262,26 @@ class RiskReview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class QualityAudit(Base):
+    """An independent QA audit of a completed work plan — the "checks and
+    balances" second pass. The crew did the work and a verifier confirmed the
+    outcome; a *different* certified reviewer audits a sample of closed work
+    against objective criteria (coverage, evidence, integrity, verification,
+    constraints) and records a verdict. Append-only: the durable proof that
+    closed work was independently checked, with a snapshot of the checks seen."""
+
+    __tablename__ = "quality_audit"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("treatment_plan.id"), index=True)
+    auditor_id: Mapped[str | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
+    outcome: Mapped[str] = mapped_column(String)         # pass | conditional | fail
+    score: Mapped[float] = mapped_column(Float)          # objective pass ratio 0..1 seen
+    checks: Mapped[list] = mapped_column(JSON, default=list)  # snapshot of the criteria
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class AuditEvent(Base):
     """Immutable business history. Never updated or deleted."""
 

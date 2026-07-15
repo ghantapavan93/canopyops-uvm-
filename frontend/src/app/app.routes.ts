@@ -102,6 +102,12 @@ export const routes: Routes = [
         title: 'Vegetation Intelligence — CanopyOps',
       },
       {
+        path: 'audit',
+        loadComponent: () =>
+          import('./features/audit/audit.component').then((m) => m.AuditComponent),
+        title: 'Quality & Compliance — CanopyOps',
+      },
+      {
         path: 'geofence',
         loadComponent: () =>
           import('./features/geofence/geofence.component').then(
