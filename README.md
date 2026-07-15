@@ -93,6 +93,7 @@ cd frontend && npm install && npm start        # http://localhost:4200
 | **Field Execution** | Mobile-first capture, coverage control, evidence checklist, **offline save** to IndexedDB |
 | **Sync & Conflict Center** | Idempotent sync, **revision-conflict resolution**, failed-upload recovery, connectivity simulation |
 | **Outcome Verification** | Evidence-gated verification, targeted follow-up geometry, close → **Proof Pack** with audit trail |
+| **Risk Intelligence** | Deterministic, **explainable** span-risk scoring — encroachment · species growth · wildfire/HFTD · terrain slope · outage history — ranked and factor-by-factor transparent, with a mandatory human sign-off. Responsible-AI framing: it prioritizes, a certified reviewer decides |
 | **Field Safety · Geofence** | Live protected-zone proximity alerts — PostGIS `ST_Distance`/`ST_Contains` escalate CLEAR → APPROACHING → BREACH as a crew moves; draggable position, patrol simulation, alert log. Server-enforced, and **offline-capable**: a versioned zones snapshot is cached in IndexedDB and a client-side point-in-polygon engine keeps alerts firing with no signal (with an on-device-vs-server parity check) |
 | **3D Terrain** | Interactive elevation surface (self-contained canvas renderer — hillshade + hypsometric tint, orbit + vertical exaggeration) with ROW corridors draped and protected zones shaded onto it; a synthetic DEM from the API, plus a corridor **elevation/slope profile** that flags steep sections for access & crew safety |
 | **Integration · OData** | SAP-style OData v4 service — treatment plan → **WBS element**, field execution → **CATS** time confirmation; `$metadata`, `$filter/$select/$expand`, deferred navigation, and ETag/304 caching, consumed by an Angular OData client |
@@ -139,7 +140,7 @@ facade — not a real SAP connection.
 ## Testing
 
 ```bash
-cd backend && pytest        # 46 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
+cd backend && pytest        # 50 passing — idempotency, conflict + resolve, evidence gate, RBAC, coverage,
                             #   full loop, plan creation + validation, overview periods, stewardship, choropleth,
                             #   geo-analyze, OpenAPI contract, GeoJSON import, metrics endpoint, pagination,
                             #   the OData surface ($metadata, $filter w/ grouping, deferred nav, ETag/304),

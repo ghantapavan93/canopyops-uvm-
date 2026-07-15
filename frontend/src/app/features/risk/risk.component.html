@@ -1,0 +1,107 @@
+<div class="view-enter mx-auto h-full max-w-4xl overflow-y-auto p-4">
+  <header class="mb-3 flex flex-wrap items-start gap-2">
+    <div>
+      <h1 class="text-lg font-semibold text-ink">Risk Intelligence</h1>
+      <p class="text-xs text-muted">
+        Transparent, deterministic span-risk scoring to prioritize work — no black box.
+        Every score shows its factors; every recommendation waits for a certified human.
+      </p>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
+              class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+              [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
+              [class.border-border]="!live()" [class.text-muted]="!live()">
+        <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="live()" [class.live-dot]="live()" [class.bg-muted]="!live()"></span>
+        {{ live() ? 'Live' : 'Paused' }}
+      </button>
+      <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
+              class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50">
+        <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
+        <span class="tabular-nums text-muted">{{ agoSeconds() }}s</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- filter chips -->
+  <div class="mb-3 flex flex-wrap items-center gap-1.5">
+    @for (l of levels; track l) {
+      <button type="button" (click)="setFilter(l)" [attr.aria-pressed]="levelFilter() === l"
+              class="rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize transition-colors"
+              [class.border-primary]="levelFilter() === l" [class.bg-primary-soft]="levelFilter() === l" [class.text-primary]="levelFilter() === l"
+              [class.border-border]="levelFilter() !== l" [class.text-muted]="levelFilter() !== l">
+        {{ l }}@if (l !== 'all') { · {{ counts()[l] }} }
+      </button>
+    }
+    <span class="ml-auto text-[11px] text-muted">{{ reviewedCount() }} of {{ spans().length }} human-reviewed</span>
+  </div>
+
+  <ul class="space-y-3">
+    @for (s of visible(); track s.planId) {
+      <li class="rounded-lg border bg-surface p-3"
+          [class.border-danger]="s.level === 'critical' || s.level === 'high'"
+          [class.border-warn]="s.level === 'elevated'" [class.border-border]="s.level === 'low'">
+        <div class="flex items-center gap-3">
+          <div class="flex h-12 w-12 flex-shrink-0 flex-col items-center justify-center rounded-lg text-center"
+               [class.bg-danger-soft]="levelTone(s.level) === 'danger'" [class.text-danger]="levelTone(s.level) === 'danger'"
+               [class.bg-warn-soft]="levelTone(s.level) === 'warn'" [class.text-warn]="levelTone(s.level) === 'warn'"
+               [class.bg-ok-soft]="levelTone(s.level) === 'ok'" [class.text-ok]="levelTone(s.level) === 'ok'">
+            <span class="text-lg font-bold leading-none">{{ s.score }}</span>
+            <span class="text-[9px] uppercase tracking-wide">risk</span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-sm font-semibold text-ink">{{ s.workOrderRef }}</span>
+              <span class="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                    [class.bg-danger-soft]="levelTone(s.level) === 'danger'" [class.text-danger]="levelTone(s.level) === 'danger'"
+                    [class.bg-warn-soft]="levelTone(s.level) === 'warn'" [class.text-warn]="levelTone(s.level) === 'warn'"
+                    [class.bg-ok-soft]="levelTone(s.level) === 'ok'" [class.text-ok]="levelTone(s.level) === 'ok'">{{ s.level }}</span>
+            </div>
+            <div class="text-xs text-muted">{{ s.circuit }} · {{ s.span }}</div>
+          </div>
+          <button type="button" (click)="openInCommand(s)"
+                  class="ml-auto flex-shrink-0 rounded-md border border-border px-2 py-1 text-[11px] text-primary hover:bg-surface-2">Open in Command →</button>
+        </div>
+
+        <!-- explainable factor breakdown -->
+        <div class="mt-3">
+          <div class="flex h-3 w-full overflow-hidden rounded-full bg-surface-2" role="img"
+               [attr.aria-label]="'Risk factor breakdown for ' + s.workOrderRef">
+            @for (f of s.factors; track f.name) {
+              <div class="h-full" [style.width.%]="f.contribution" [style.background-color]="factorColor(f.name)"
+                   [title]="factorLabel(f.name) + ': ' + f.contribution + ' pts'"></div>
+            }
+          </div>
+          <ul class="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+            @for (f of s.factors; track f.name) {
+              <li class="flex items-center gap-2 text-[11px]">
+                <span class="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-sm" [style.background-color]="factorColor(f.name)"></span>
+                <span class="text-ink">{{ factorLabel(f.name) }}</span>
+                <span class="tabular-nums font-semibold text-muted">+{{ f.contribution }}</span>
+                <span class="truncate text-muted">· {{ f.note }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+
+        <!-- recommendation + human-review guardrail -->
+        <div class="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-bg p-2 text-xs">
+          <span class="text-ink">💡 {{ s.recommendation }}</span>
+          @if (isReviewed(s)) {
+            <span class="ml-auto rounded-sm bg-ok-soft px-1.5 py-0.5 text-[11px] font-semibold text-ok">✓ Reviewed &amp; signed</span>
+          } @else {
+            <span class="ml-auto rounded-sm bg-warn-soft px-1.5 py-0.5 text-[11px] text-warn">⧗ Awaiting forester — AI can't authorize work</span>
+            <button type="button" (click)="signOff(s)"
+                    class="rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-ink">Reviewer signs off →</button>
+          }
+        </div>
+      </li>
+    } @empty {
+      <li class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">No spans at this level.</li>
+    }
+  </ul>
+
+  @if (board(); as b) {
+    <p class="mt-4 text-[11px] text-muted">{{ b.note }}</p>
+  }
+</div>

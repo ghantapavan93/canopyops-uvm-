@@ -1,0 +1,125 @@
+"""Span Risk Intelligence — a deterministic, explainable prioritization engine.
+
+The industry framing for AI in UVM is consistent: it *prioritizes and predicts;
+it does not decide*. This endpoint embodies that responsibly — a transparent,
+reproducible composite risk score per span from real + synthetic signals, with a
+full factor breakdown so a forester can see exactly *why* something ranked high.
+No black box, no autonomy: every span carries ``requires_review = true`` and the
+recommendation is decision-support only.
+
+Signals combined (weights sum to 100):
+  * Encroachment / clearance (28) — from real coverage where a span was worked.
+  * Species growth rate (18)      — deterministic per circuit (synthetic).
+  * Wildfire exposure / HFTD (22) — real PostGIS intersection with HFTD zones.
+  * Terrain / access slope (14)   — from the synthetic DEM along the centerline.
+  * Outage history (18)           — deterministic per circuit (synthetic).
+"""
+from __future__ import annotations
+
+import hashlib
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
+
+from app.api.terrain import elevation, _haversine_m
+from app.core.database import get_db
+from app.models import domain as m
+from app.schemas import RiskBoard, RiskFactor, SpanRisk
+from app.services import assurance
+from app.services.geo import to_geojson
+
+router = APIRouter(tags=["risk"])
+
+WEIGHTS = {"clearance": 28, "growth": 18, "wildfire": 22, "slope": 14, "outage": 18}
+
+
+def _unit(seed: str) -> float:
+    """Deterministic 0..1 from a stable seed (no randomness across reloads)."""
+    return (int(hashlib.sha1(seed.encode()).hexdigest(), 16) % 1000) / 1000.0
+
+
+def _slope_signal(centerline: dict | None) -> tuple[float, float]:
+    """Return (0..1 slope signal, slope_pct) along a corridor centerline."""
+    if not centerline:
+        return 0.0, 0.0
+    coords = centerline.get("coordinates") or []
+    if len(coords) < 2:
+        return 0.0, 0.0
+    (lon0, lat0), (lon1, lat1) = coords[0], coords[-1]
+    dist = _haversine_m(lon0, lat0, lon1, lat1) or 1.0
+    grade = abs(elevation(lon1, lat1) - elevation(lon0, lat0)) / dist * 100.0
+    return min(grade / 40.0, 1.0), round(grade, 1)
+
+
+def _level(score: float) -> str:
+    return "critical" if score >= 75 else "high" if score >= 55 else "elevated" if score >= 30 else "low"
+
+
+def score_spans(db: Session) -> list[SpanRisk]:
+    plans = db.scalars(select(m.TreatmentPlan)).all()
+    hftd_plan_ids = set(
+        db.execute(text(
+            "SELECT DISTINCT p.id FROM treatment_plan p, environmental_constraint c "
+            "WHERE c.category = 'HFTD' AND ST_Intersects(p.planned_geometry, c.geometry)"
+        )).scalars().all()
+    )
+
+    out: list[SpanRisk] = []
+    for p in plans:
+        wo = p.work_order
+        corridor = wo.corridor if wo else None
+        circuit = corridor.circuit_id if corridor else "—"
+
+        # --- normalized 0..1 signals ---
+        cov = p.execution.coverage_ratio if (p.execution and p.execution.coverage_ratio is not None) else None
+        clearance = round(1.0 - cov, 3) if cov is not None else 0.6   # unworked span = latent encroachment
+        growth = round(_unit(circuit + ":growth"), 3)
+        wildfire = 0.9 if p.id in hftd_plan_ids else round(_unit(circuit + ":fire") * 0.4, 3)
+        slope_sig, slope_pct = _slope_signal(to_geojson(corridor.centerline) if corridor else None)
+        outages_n = int(_unit(circuit + ":out") * 4)                  # 0..3 prior outages
+        outage = round(outages_n / 3.0, 3)
+
+        signals = {"clearance": clearance, "growth": growth, "wildfire": wildfire,
+                   "slope": slope_sig, "outage": outage}
+        notes = {
+            "clearance": (f"{round(cov * 100)}% coverage on last pass" if cov is not None
+                          else "no field execution yet — latent encroachment"),
+            "growth": f"{'fast' if growth > 0.6 else 'moderate' if growth > 0.3 else 'slow'}-growing species mix",
+            "wildfire": ("intersects an HFTD zone" if p.id in hftd_plan_ids else "outside mapped HFTD zones"),
+            "slope": f"{slope_pct}% grade along the span",
+            "outage": f"{outages_n} prior vegetation-caused outage(s)",
+        }
+
+        factors = [
+            RiskFactor(name=k, value=signals[k], weight=WEIGHTS[k],
+                       contribution=round(WEIGHTS[k] * signals[k], 1), note=notes[k])
+            for k in WEIGHTS
+        ]
+        score = round(sum(f.contribution for f in factors), 1)
+        top = max(factors, key=lambda f: f.contribution)
+        rec = {
+            "clearance": "Schedule a directional prune to restore wire-zone clearance",
+            "growth": "Consider a growth-regulator or tighter cycle for this species mix",
+            "wildfire": "Prioritize ahead of fire season — HFTD risk-weighted",
+            "slope": "Plan access & fall protection for the steep grade before dispatch",
+            "outage": "Reliability hot-spot — target to break the outage-repeat pattern",
+        }[top.name]
+
+        out.append(SpanRisk(
+            plan_id=p.id,
+            work_order_ref=wo.reference if wo else p.id,
+            circuit=circuit,
+            span=corridor.span_label if corridor else "—",
+            score=score, level=_level(score), factors=factors,
+            recommendation=f"{rec} — pending forester review.",
+        ))
+
+    out.sort(key=lambda s: s.score, reverse=True)
+    return out
+
+
+@router.get("/risk/spans", response_model=RiskBoard)
+def risk_spans(db: Session = Depends(get_db)) -> RiskBoard:
+    return RiskBoard(generated_at=datetime.now(timezone.utc), spans=score_spans(db))

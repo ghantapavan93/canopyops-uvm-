@@ -110,6 +110,35 @@ export interface ZonesSnapshot {
   zones: EnvironmentalConstraint[];
 }
 
+/** Span Risk Intelligence — deterministic, explainable, human-reviewed. */
+export type RiskLevel = 'low' | 'elevated' | 'high' | 'critical';
+
+export interface RiskFactor {
+  name: string;
+  value: number;        // 0..1
+  weight: number;       // points available
+  contribution: number; // weight * value
+  note: string;
+}
+
+export interface SpanRisk {
+  planId: string;
+  workOrderRef: string;
+  circuit: string;
+  span: string;
+  score: number;        // 0..100
+  level: RiskLevel;
+  factors: RiskFactor[];
+  recommendation: string;
+  requiresReview: boolean;
+}
+
+export interface RiskBoard {
+  generatedAt: string;
+  spans: SpanRisk[];
+  note: string;
+}
+
 /** Synthetic digital elevation model rendered as an interactive 3D surface. */
 export interface TerrainGrid {
   bbox: number[];          // [minLon, minLat, maxLon, maxLat]

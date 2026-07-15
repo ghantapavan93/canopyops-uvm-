@@ -15,6 +15,7 @@ import {
   PlanInput,
   ProofPack,
   ProximityResult,
+  RiskBoard,
   StewardshipPayload,
   TerrainGrid,
   TerrainProfile,
@@ -137,6 +138,11 @@ export class ApiService {
   /** Synthetic DEM grid for the 3D terrain surface. */
   getTerrain(cols = 56, rows = 36): Observable<TerrainGrid> {
     return this.http.get<TerrainGrid>(`${this.base}/geo/terrain?cols=${cols}&rows=${rows}`);
+  }
+
+  /** Deterministic, explainable span risk scores (decision-support). */
+  getRisk(): Observable<RiskBoard> {
+    return this.http.get<RiskBoard>(`${this.base}/risk/spans`);
   }
 
   /** Elevation + slope profile along a corridor centerline. */

@@ -82,6 +82,12 @@ export const routes: Routes = [
         title: 'Stewardship & Compliance — CanopyOps',
       },
       {
+        path: 'risk',
+        loadComponent: () =>
+          import('./features/risk/risk.component').then((m) => m.RiskComponent),
+        title: 'Risk Intelligence — CanopyOps',
+      },
+      {
         path: 'geofence',
         loadComponent: () =>
           import('./features/geofence/geofence.component').then(

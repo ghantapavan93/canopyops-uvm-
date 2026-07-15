@@ -12,6 +12,7 @@ interface Cmd {
 const COMMANDS: Cmd[] = [
   { label: 'Program Overview', hint: 'live KPIs, lifecycle, activity', icon: '▦', route: '/console/overview' },
   { label: 'Command Center', hint: 'map + prioritized queue', icon: '◎', route: '/console/command' },
+  { label: 'Risk Intelligence', hint: 'explainable span risk scoring', icon: '⚠', route: '/console/risk' },
   { label: 'Treatment Plan Builder', hint: 'draw + prescribe', icon: '✎', route: '/console/plan' },
   { label: 'Field Execution', hint: 'offline capture', icon: '⛏', route: '/console/execution' },
   { label: 'Sync & Conflict Center', hint: 'idempotent sync, conflicts', icon: '⇅', route: '/console/sync' },

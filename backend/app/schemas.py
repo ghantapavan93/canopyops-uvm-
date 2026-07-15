@@ -225,6 +225,36 @@ class ZonesSnapshot(Schema):
     zones: list[ConstraintOut]
 
 
+# --- span risk intelligence (deterministic, explainable, human-reviewed) ---
+class RiskFactor(Schema):
+    name: str
+    value: float        # 0..1 normalized signal
+    weight: int         # points this factor can contribute
+    contribution: float  # weight * value (points added to the composite)
+    note: str
+
+
+class SpanRisk(Schema):
+    plan_id: str
+    work_order_ref: str
+    circuit: str
+    span: str
+    score: float        # 0..100 composite
+    level: str          # low | elevated | high | critical
+    factors: list[RiskFactor]
+    recommendation: str
+    requires_review: bool = True  # a machine never authorizes work
+
+
+class RiskBoard(Schema):
+    generated_at: datetime
+    spans: list[SpanRisk]  # ranked, highest risk first
+    note: str = (
+        "Deterministic, transparent risk scores — decision-support only. "
+        "Every recommendation requires a certified human reviewer. Synthetic data."
+    )
+
+
 # --- 3D terrain awareness ---
 class TerrainGrid(Schema):
     """A synthetic digital elevation model (DEM) over the sandbox, sampled on a
