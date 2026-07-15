@@ -57,6 +57,21 @@ services:
       timeout: 5s
       retries: 6
 
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    # Override the API entrypoint (migrations + uvicorn) — just run the worker
+    # loop. depends_on api-healthy guarantees migrations have already run.
+    entrypoint: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
+      OTEL_SERVICE_NAME: "canopyops-api"
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
   web:
     build: ./frontend
     restart: unless-stopped

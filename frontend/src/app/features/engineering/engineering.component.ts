@@ -1,7 +1,8 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 
 import { ApiService } from '../../core/api.service';
-import { SystemHealth } from '../../core/models';
+import { JobRecord, SystemHealth } from '../../core/models';
 
 interface Section {
   title: string;
@@ -14,19 +15,30 @@ interface Section {
 @Component({
   selector: 'app-engineering',
   standalone: true,
+  imports: [DatePipe],
   templateUrl: './engineering.component.html',
 })
 export class EngineeringComponent implements OnDestroy {
   private api = inject(ApiService);
   /** Live observability feed from the API's in-process metrics registry. */
   readonly health = signal<SystemHealth | null>(null);
+  /** Recent durable-queue jobs (processed by the worker container). */
+  readonly jobs = signal<JobRecord[]>([]);
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    const poll = () =>
+    const poll = () => {
       this.api.getMetrics().subscribe({ next: (h) => this.health.set(h), error: () => {} });
+      this.api.listJobs().subscribe({ next: (j) => this.jobs.set(j.slice(0, 6)), error: () => {} });
+    };
     poll();
     this.timer = setInterval(poll, 5000);
+  }
+
+  jobClass(status: string): string {
+    return status === 'succeeded' ? 'bg-ok-soft text-ok'
+      : status === 'failed' ? 'bg-danger-soft text-danger'
+      : status === 'running' ? 'bg-info-soft text-info' : 'bg-surface-2 text-muted';
   }
   ngOnDestroy(): void {
     if (this.timer) clearInterval(this.timer);
@@ -36,7 +48,7 @@ export class EngineeringComponent implements OnDestroy {
     title: 'Automated tests',
     glyph: '✓',
     items: [
-      { label: 'Backend API (pytest) — 109 passing', ok: true, detail: 'idempotent replay, revision conflict (409) + resolve-under-same-key, evidence-completeness gate, RBAC (403), PostGIS coverage math, full plan→verify→close loop; plus plan creation + validation (422 structured envelope), overview periods, stewardship real signals, choropleth, geometry analysis, OpenAPI, GeoJSON import, metrics endpoint, pagination, the OData integration surface ($metadata, $filter/$select/$expand, deferred nav, ETag/304, and $batch — many reads in one round-trip with dependsOn 424 short-circuiting and a read-only 501 guard), the activity-date-scoped compliance rollup, the reliability-outcome model (per-circuit closed-vs-effective with synthetic SAIDI/SAIFI/CAIDI/CMI driven by real coverage/evidence/status — CAIDI=SAIDI/SAIFI, CMI=SAIDI×customers, deterministic, rollup totals reconcile), the vegetation-intelligence model (hot-spotting score bounds + tiering + summary counts; cycle-buster days-to-conflict = headroom÷growth with cycle-relative priority; deterministic), the work-plan QA audit (objective checks score = passed÷total, critical-miss caps the suggestion at fail, RBAC 403 for non-reviewers, append-only history + immutable audit event, 422 on bad outcome) and the compliance vault (framework mapping, completeness = satisfied÷requirements, QA requirement flips after a passing audit, evidence-integrity chain), reliability (statement_timeout cancels a runaway query, the in-flight limiter sheds load with 503 while probes stay answerable, a per-client token bucket returns 429 over its burst, the DB circuit breaker opens→half-opens→closes and fast-fails DB routes while it\'s open, /metrics exposes the whole surface), OpenTelemetry (every response carries an X-Trace-Id, an inbound W3C traceparent propagates into the server span, the error envelope carries the trace id, and a request emits a real server span + child DB spans on one trace), geofence proximity alerts (PostGIS ST_Distance/ST_Contains → clear/warning/breach), the versioned offline zones snapshot (ETag/304), and the 3D terrain DEM grid + corridor elevation/slope profile' },
+      { label: 'Backend API (pytest) — 115 passing', ok: true, detail: 'idempotent replay, revision conflict (409) + resolve-under-same-key, evidence-completeness gate, RBAC (403), PostGIS coverage math, full plan→verify→close loop; plus plan creation + validation (422 structured envelope), overview periods, stewardship real signals, choropleth, geometry analysis, OpenAPI, GeoJSON import, metrics endpoint, pagination, the OData integration surface ($metadata, $filter/$select/$expand, deferred nav, ETag/304, and $batch — many reads in one round-trip with dependsOn 424 short-circuiting and a read-only 501 guard), the activity-date-scoped compliance rollup, the reliability-outcome model (per-circuit closed-vs-effective with synthetic SAIDI/SAIFI/CAIDI/CMI driven by real coverage/evidence/status — CAIDI=SAIDI/SAIFI, CMI=SAIDI×customers, deterministic, rollup totals reconcile), the vegetation-intelligence model (hot-spotting score bounds + tiering + summary counts; cycle-buster days-to-conflict = headroom÷growth with cycle-relative priority; deterministic), the work-plan QA audit (objective checks score = passed÷total, critical-miss caps the suggestion at fail, RBAC 403 for non-reviewers, append-only history + immutable audit event, 422 on bad outcome) and the compliance vault (framework mapping, completeness = satisfied÷requirements, QA requirement flips after a passing audit, evidence-integrity chain), reliability (statement_timeout cancels a runaway query, the in-flight limiter sheds load with 503 while probes stay answerable, a per-client token bucket returns 429 over its burst, the DB circuit breaker opens→half-opens→closes and fast-fails DB routes while it\'s open, /metrics exposes the whole surface), OpenTelemetry (every response carries an X-Trace-Id, an inbound W3C traceparent propagates into the server span, the error envelope carries the trace id, and a request emits a real server span + child DB spans on one trace), the durable background-job queue (enqueue Proof Pack / GeoJSON import → the worker claims it FOR UPDATE SKIP LOCKED → succeeded with the result; exclusive claim + drain; retry-then-fail with backoff), geofence proximity alerts (PostGIS ST_Distance/ST_Contains → clear/warning/breach), the versioned offline zones snapshot (ETag/304), and the 3D terrain DEM grid + corridor elevation/slope profile' },
       { label: 'Frontend units (Jest) — 25 passing', ok: true, detail: 'coverage geometry math (slider % = area %), status presentation system (text+shape+tone, never color-only), StatusBadge component render, chart color/id utilities, and the on-device geofence engine — point-in-polygon, distance-to-boundary in metres, clear/warning/entered/breach escalation matching the server, and MultiPolygon parity with PostGIS' },
       { label: 'Cypress e2e — 11 passing (9 specs)', ok: true, detail: 'critical journey (plan → offline execution → partial upload → conflict recovery → evidence retry → verification → targeted follow-up → close → Proof Pack); the command palette (Ctrl/Cmd-K open, type-to-filter, keyboard + header-button navigation, Escape); the risk sign-off lifecycle (RBAC gate → certified reviewer signs off → append-only history → revoke reopens the span); the compliance report (rollup render, circuit + activity-date scoping, real PDF export); the OData $batch panel (several reads in a single POST, per-id statuses); the reliability-outcome panel (closed-vs-effective with per-circuit SAIDI movement); vegetation intelligence (the hot-spotting heat list → driver breakdown, and the cycle-buster watchlist filter); quality & compliance (the QA audit checklist → RBAC-gated verdict → append-only history, and the framework-mapped evidence vault); and the not-found route (real 404 with a path back into the console). Runs headless (Electron) against the running stack via `npm run e2e`; verified green (~10s). The service worker is skipped under Cypress so it can never intercept e2e navigations.' },
     ],
@@ -61,7 +73,7 @@ export class EngineeringComponent implements OnDestroy {
       { label: 'Backend', detail: 'FastAPI modular monolith, SQLAlchemy 2 + GeoAlchemy2, Alembic migrations, JWT auth + role-based access, structured error envelopes + correlation IDs, and OpenTelemetry distributed tracing (request → DB spans, W3C context propagation, OTLP-exportable).' },
       { label: 'Data', detail: 'PostgreSQL 16 + PostGIS: server-side spatial filtering (ST_Intersects, ST_MakeEnvelope), GIST indexes on all geometry columns.' },
       { label: 'Offline-first PWA', detail: 'Installable web app: an Angular service worker precaches the app shell (HTML/JS/CSS + manifest) and caches read-only API GETs with a network-first (freshness) strategy, so the whole console loads and shows last-known data with no connectivity — layered on the IndexedDB outbox (queued mutations) and the on-device geofence engine. A version-ready handler prompts and reloads on new deploys.' },
-      { label: 'Delivery', detail: 'Docker Compose (web + api + db), one-command local environment, GitHub Actions lint/test/build.' },
+      { label: 'Delivery', detail: 'Docker Compose (web + api + db + background worker), one-command local environment, GitHub Actions lint/test/build. The worker drains a durable DB-backed job queue off the request path.' },
     ],
   };
 

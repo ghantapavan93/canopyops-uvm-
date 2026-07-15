@@ -715,3 +715,21 @@ class VaultIndex(Schema):
     note: str
     summary: VaultSummary
     plans: list[PlanDossier]
+
+
+# --- background jobs (durable task queue) ---
+class JobOut(Schema):
+    id: str
+    type: str
+    status: str          # queued | running | succeeded | failed
+    attempts: int
+    max_attempts: int
+    result: dict | None = None
+    error: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class GeoJSONImportJobIn(Schema):
+    features: list[dict]

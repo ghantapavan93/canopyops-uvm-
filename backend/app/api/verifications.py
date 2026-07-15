@@ -26,7 +26,7 @@ from app.schemas import (
     VerificationIn,
     VerificationResult,
 )
-from app.services import assurance
+from app.services import assurance, proofpack
 from app.services.geo import to_geojson
 from app.services.records import build_record, constraint_flags_for
 
@@ -199,29 +199,9 @@ def close(
 
 @router.get("/{plan_id}/proof", response_model=ProofPack)
 def proof_pack(plan_id: str, db: Session = Depends(get_db)) -> ProofPack:
-    """Assemble the full auditable package for a record."""
-    plan = _load(db, plan_id)
-    flags = constraint_flags_for(db, [plan.id])
-    execution = plan.execution
-    audit = db.scalars(
-        select(m.AuditEvent)
-        .where(m.AuditEvent.entity_id == plan.id)
-        .order_by(m.AuditEvent.created_at)
-    ).all()
-    from app.schemas import EvidenceResult
-
-    return ProofPack(
-        record=build_record(plan, flags.get(plan.id, [])),
-        planned_geometry=to_geojson(plan.planned_geometry),
-        actual_geometry=to_geojson(execution.actual_geometry) if execution else None,
-        performed_at=execution.performed_at if execution else None,
-        evidence=[
-            EvidenceResult(id=ev.id, type=ev.type, upload_status=ev.upload_status)
-            for ev in (execution.evidence if execution else [])
-        ],
-        observations=[_obs_out(o) for o in plan.observations],
-        audit_trail=[
-            AuditOut(action=a.action, actor_id=a.actor_id, reason=a.reason, created_at=a.created_at)
-            for a in audit
-        ],
-    )
+    """Assemble the full auditable package for a record (synchronous view). For
+    off-request-path generation, enqueue a job via POST /api/jobs/proof-pack."""
+    pack = proofpack.assemble(db, plan_id)
+    if pack is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Plan not found"})
+    return pack

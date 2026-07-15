@@ -474,6 +474,19 @@ export interface ReliabilityBoard {
   circuits: ReliabilityCircuit[];
 }
 
+export interface JobRecord {
+  id: string;
+  type: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  attempts: number;
+  maxAttempts: number;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+  createdAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+}
+
 export interface AuditCheck {
   key: string;
   label: string;

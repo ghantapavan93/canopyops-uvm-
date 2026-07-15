@@ -10,6 +10,7 @@ import {
   Corridor,
   CycleBusterBoard,
   HotspotBoard,
+  JobRecord,
   PlanDossier,
   QualityAuditRecord,
   VaultIndex,
@@ -224,5 +225,20 @@ export class ApiService {
 
   getMetrics(): Observable<SystemHealth> {
     return this.http.get<SystemHealth>(`${this.base}/metrics`);
+  }
+
+  /** Recent background jobs from the durable queue (worker-processed). */
+  listJobs(): Observable<JobRecord[]> {
+    return this.http.get<JobRecord[]>(`${this.base}/jobs`);
+  }
+
+  /** Enqueue Proof Pack generation off the request path; returns a queued job. */
+  enqueueProofPack(planId: string): Observable<JobRecord> {
+    return this.http.post<JobRecord>(`${this.base}/jobs/proof-pack/${planId}`, {});
+  }
+
+  /** Poll a single job's status/result. */
+  getJob(jobId: string): Observable<JobRecord> {
+    return this.http.get<JobRecord>(`${this.base}/jobs/${jobId}`);
   }
 }

@@ -29,6 +29,7 @@ from app.api import (
     geo_reference,
     health,
     integration,
+    jobs,
     observability,
     odata,
     overview,
@@ -218,6 +219,7 @@ app.include_router(reliability.router, prefix="/api")
 app.include_router(vegetation.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
 app.include_router(vault.router, prefix="/api")
+app.include_router(jobs.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 
 

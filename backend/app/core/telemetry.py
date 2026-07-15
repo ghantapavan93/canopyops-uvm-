@@ -29,15 +29,16 @@ logger = logging.getLogger("canopyops")
 _provider: TracerProvider | None = None
 
 
-def setup_telemetry(app, engine) -> None:
-    """Idempotently install tracing on the FastAPI app and the DB engine."""
+def setup_tracing_core(engine, service_suffix: str = "") -> TracerProvider | None:
+    """Install the tracer provider + exporters + SQLAlchemy instrumentation.
+    Shared by the API and the worker (the worker has no FastAPI app)."""
     global _provider
     s = get_settings()
     if not s.otel_enabled or _provider is not None:
-        return
+        return _provider
 
     resource = Resource.create({
-        "service.name": s.otel_service_name,
+        "service.name": s.otel_service_name + service_suffix,
         "service.version": "0.1.0",
         "deployment.environment": s.environment,
     })
@@ -53,14 +54,21 @@ def setup_telemetry(app, engine) -> None:
 
     trace.set_tracer_provider(provider)
     _provider = provider
+    # Child spans per SQL statement, parented to the active span.
+    SQLAlchemyInstrumentor().instrument(engine=engine, tracer_provider=provider)
+    logger.info("otel_initialized", extra={"service": s.otel_service_name + service_suffix})
+    return provider
 
+
+def setup_telemetry(app, engine) -> None:
+    """Idempotently install tracing on the FastAPI app and the DB engine."""
+    provider = setup_tracing_core(engine)
+    if provider is None:
+        return
     # Server spans + W3C propagation; probes are excluded to keep traces signal.
     FastAPIInstrumentor.instrument_app(
         app, tracer_provider=provider, excluded_urls="health,ready,metrics"
     )
-    # Child spans per SQL statement, parented to the active request span.
-    SQLAlchemyInstrumentor().instrument(engine=engine, tracer_provider=provider)
-    logger.info("otel_initialized", extra={"service": s.otel_service_name})
 
 
 def current_trace_id() -> str | None:

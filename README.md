@@ -173,6 +173,11 @@ a real SAP connection.
 - **Safe retries by construction** — idempotent mutations + explicit `409`
   conflicts mean a client or load balancer can retry a shed `503` or a transient
   drop with no risk of a duplicate or a silent overwrite.
+- **Durable background worker** — a separate `worker` container drains a
+  DB-backed job queue (`SELECT … FOR UPDATE SKIP LOCKED`), so Proof Pack
+  generation and large GeoJSON imports run **off the request path** (the API
+  returns `202` + a job to poll) and survive a restart. Failures retry with
+  exponential backoff up to `max_attempts`, then land in a terminal `failed`.
 - **Distributed tracing (OpenTelemetry)** — every request emits a server span
   with automatic child spans for each SQLAlchemy statement (the request → DB
   chain on one trace), W3C `traceparent` context propagation, and the `trace_id`
