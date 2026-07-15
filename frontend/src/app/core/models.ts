@@ -422,7 +422,9 @@ export interface SystemHealth {
   latency_ms: { p50: number; p95: number; p99: number };
   endpoints: { endpoint: string; count: number; errors: number; p50_ms: number; p95_ms: number }[];
   concurrency?: { in_flight: number; peak: number; shed_total: number; limit: number };
+  rate_limit?: { tracked_clients: number; rejected_total: number; capacity: number; refill_per_min: number; enabled: boolean };
   database?: { size?: number; checkedin?: number; checkedout?: number; overflow?: number; statement_timeout_ms: number };
+  db_circuit?: { state: 'closed' | 'open' | 'half_open'; consecutive_failures: number; trips_total: number; failure_threshold: number; reset_timeout_s: number; enabled: boolean };
 }
 
 export interface ConstraintBrief {

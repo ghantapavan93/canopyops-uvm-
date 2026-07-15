@@ -13,9 +13,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import math
+
 from app.core.concurrency import limiter
 from app.core.logging import setup_logging
 from app.core.metrics import metrics
+from app.core.ratelimit import rate_limiter
 
 from app.api import (
     auth,
@@ -70,15 +73,44 @@ app.add_middleware(
 _SHED_EXEMPT = {"/api/health", "/api/ready"}
 
 
+def _client_key(request: Request) -> str:
+    """Identify the caller for per-client limits. Trust the first X-Forwarded-For
+    hop when present (the nginx web tier sets it), else the socket peer."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @app.middleware("http")
 async def observability_middleware(request: Request, call_next):
-    """Attach a correlation id, shed load past the in-flight cap, time the
-    request, emit a structured access log, and record it to the metrics
-    registry."""
+    """Attach a correlation id, apply per-client rate limiting then global
+    load-shedding, time the request, emit a structured access log, and record it
+    to the metrics registry."""
     correlation_id = request.headers.get("X-Correlation-Id") or str(uuid.uuid4())
     request.state.correlation_id = correlation_id
 
     exempt = request.url.path in _SHED_EXEMPT
+
+    # 1) Per-client rate limit (429) — before consuming a global slot, so a noisy
+    #    client can't crowd out everyone else's capacity.
+    if not exempt:
+        allowed, retry_after = rate_limiter.check(_client_key(request))
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "code": "rate_limited",
+                    "message": "Too many requests. Slow down and retry.",
+                    "correlation_id": correlation_id,
+                },
+                headers={
+                    "Retry-After": str(max(1, math.ceil(retry_after))),
+                    "X-Correlation-Id": correlation_id,
+                },
+            )
+
+    # 2) Global in-flight cap (503 load-shed).
     admitted = exempt or limiter.try_acquire()
     if not admitted:
         # Deliberate, self-protective 503 — not a server fault, so it's counted

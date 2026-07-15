@@ -152,6 +152,15 @@ a real SAP connection.
   than letting an unbounded queue turn one overload into a timeout for everyone.
   Liveness/readiness probes stay exempt, so an orchestrator can tell *overloaded*
   from *down*. Live shed count + in-flight are at `GET /api/metrics`.
+- **Per-client rate limiting** — a token bucket per client (`RATE_LIMIT_PER_MIN`
+  refill, `RATE_LIMIT_BURST` burst) returns `429` + `Retry-After` to a single
+  noisy caller, so one client can't monopolise capacity. Distinct from the
+  global load-shedder and checked *before* a global slot is taken.
+- **Database circuit breaker** — after N consecutive DB connection errors the
+  breaker OPENs and DB-backed requests fail fast with `503` instead of each
+  waiting for a connection timeout; it HALF-OPENs after a reset window, probes
+  once, and closes on success — turning a slow cascading failure into a fast,
+  self-healing one.
 - **Bounded query time** — every pooled connection carries a Postgres
   `statement_timeout` (default 15s), so a runaway query is cancelled server-side
   instead of pinning a connection.

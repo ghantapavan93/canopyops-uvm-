@@ -9,7 +9,7 @@
   <!-- test scoreboard -->
   <div class="mb-4 grid grid-cols-3 gap-2">
     <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
-      <div class="text-2xl font-bold text-ok">70</div>
+      <div class="text-2xl font-bold text-ok">77</div>
       <div class="text-[11px] text-muted">backend pytest</div>
     </div>
     <div class="rounded-lg border border-ok/40 bg-ok-soft p-3 text-center">
@@ -48,18 +48,27 @@
         <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p99 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p99</div></div>
       </div>
 
-      <!-- reliability surface: overload limiter + connection pool -->
+      <!-- reliability surface: limiter + rate-limit + pool + circuit breaker -->
       @if (h.concurrency || h.database) {
         <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-[11px]">
           @if (h.concurrency; as c) {
             <span class="text-muted">in-flight <strong class="text-ink">{{ c.in_flight }}</strong> / {{ c.limit }} <span class="text-[10px]">(peak {{ c.peak }})</span></span>
             <span [class.text-ok]="c.shed_total === 0" [class.text-warn]="c.shed_total > 0">load-shed <strong>{{ c.shed_total }}</strong></span>
           }
+          @if (h.rate_limit; as rl) {
+            <span class="text-muted">rate-limit <strong class="text-ink">{{ rl.refill_per_min }}</strong>/min <span class="text-[10px]">(burst {{ rl.capacity }})</span></span>
+            <span [class.text-ok]="rl.rejected_total === 0" [class.text-warn]="rl.rejected_total > 0">429s <strong>{{ rl.rejected_total }}</strong></span>
+          }
           @if (h.database; as d) {
             <span class="text-muted">pool <strong class="text-ink">{{ d.checkedout }}</strong> out / {{ d.size }} <span class="text-[10px]">(+{{ d.overflow }} overflow)</span></span>
             <span class="text-muted">stmt timeout <strong class="text-ink">{{ d.statement_timeout_ms }}</strong>ms</span>
           }
-          <span class="ml-auto text-[10px] text-muted">graceful load-shedding · bounded query time</span>
+          @if (h.db_circuit; as cb) {
+            <span [class.text-ok]="cb.state === 'closed'" [class.text-danger]="cb.state === 'open'" [class.text-warn]="cb.state === 'half_open'">
+              DB circuit <strong>{{ cb.state }}</strong>@if (cb.trips_total > 0) { <span class="text-[10px]">({{ cb.trips_total }} trips)</span> }
+            </span>
+          }
+          <span class="ml-auto text-[10px] text-muted">load-shed · rate-limit · bounded queries · circuit breaker</span>
         </div>
       }
       @if (h.endpoints.length) {

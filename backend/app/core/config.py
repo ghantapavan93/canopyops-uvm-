@@ -33,6 +33,22 @@ class Settings(BaseSettings):
     # herd. 0 disables the cap. Health/readiness probes are always exempt.
     max_concurrent_requests: int = 64
 
+    # --- Per-client rate limiting (token bucket) ------------------------------
+    # Protects the service from a single noisy client (distinct from the global
+    # load-shedder above). Each client refills `rate_limit_per_min` tokens/min
+    # and may burst up to `rate_limit_burst`; over that → 429 + Retry-After.
+    rate_limit_enabled: bool = True
+    rate_limit_per_min: int = 240
+    rate_limit_burst: int = 60
+
+    # --- Database circuit breaker ---------------------------------------------
+    # After this many consecutive DB errors the breaker OPENS and DB-backed
+    # requests fail fast with 503 (instead of each waiting for a connection
+    # timeout); after reset_timeout_s it probes once and closes on success.
+    db_breaker_enabled: bool = True
+    db_breaker_failure_threshold: int = 5
+    db_breaker_reset_timeout_s: float = 10.0
+
     # --- Horizontal scale -----------------------------------------------------
     # Uvicorn worker processes. The API is stateless (session-per-request; all
     # shared state lives in Postgres), so this scales across cores/replicas with

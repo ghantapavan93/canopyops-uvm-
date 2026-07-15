@@ -8,9 +8,12 @@ runaway query is cancelled by Postgres instead of pinning a pooled connection.
 """
 from collections.abc import Iterator
 
+from fastapi import HTTPException
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.exc import DisconnectionError, InterfaceError, OperationalError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+from app.core.circuit import db_breaker
 from app.core.config import get_settings
 
 _settings = get_settings()
@@ -65,10 +68,30 @@ class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
 
 
+# Connection-level failures that should trip the breaker (a browning-out DB),
+# as opposed to app/client errors (IntegrityError, etc.) which must NOT.
+_DB_OUTAGE_ERRORS = (OperationalError, InterfaceError, DisconnectionError)
+
+
 def get_db() -> Iterator["SessionLocal"]:
-    """FastAPI dependency yielding a request-scoped session."""
+    """FastAPI dependency yielding a request-scoped session, guarded by a circuit
+    breaker. When the DB is browning out the breaker OPENs and this fails fast
+    with 503 instead of every request waiting for a connection timeout."""
+    if not db_breaker.allow():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "db_unavailable",
+                "message": "The database is temporarily unavailable (circuit open). Retry shortly.",
+            },
+            headers={"Retry-After": "5"},
+        )
     db = SessionLocal()
     try:
         yield db
+        db_breaker.record_success()
+    except _DB_OUTAGE_ERRORS:
+        db_breaker.record_failure()
+        raise
     finally:
         db.close()
