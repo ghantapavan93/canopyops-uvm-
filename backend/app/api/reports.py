@@ -34,13 +34,38 @@ _EXECUTED = {
 }
 
 
-def build_report(db: Session, circuit: str | None = None) -> ComplianceReport:
+def _as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _last_activity(p: m.TreatmentPlan) -> datetime:
+    """Most-recent activity date for a plan (field execution, else last update)."""
+    if p.execution and p.execution.performed_at:
+        return _as_utc(p.execution.performed_at)
+    return _as_utc(p.updated_at or p.created_at)
+
+
+def build_report(
+    db: Session,
+    circuit: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+) -> ComplianceReport:
+    since, until = _as_utc(since), _as_utc(until)
     plans = db.scalars(select(m.TreatmentPlan)).all()
     if circuit:
         plans = [
             p for p in plans
             if p.work_order and p.work_order.corridor
             and p.work_order.corridor.circuit_id == circuit
+        ]
+    if since or until:
+        plans = [
+            p for p in plans
+            if (since is None or _last_activity(p) >= since)
+            and (until is None or _last_activity(p) <= until)
         ]
     total = len(plans) or 1
     risk = {s.plan_id: s for s in score_spans(db)}
@@ -107,8 +132,13 @@ def build_report(db: Session, circuit: str | None = None) -> ComplianceReport:
 
 
 @router.get("/reports/compliance", response_model=ComplianceReport)
-def compliance_report(circuit: str | None = None, db: Session = Depends(get_db)) -> ComplianceReport:
-    return build_report(db, circuit)
+def compliance_report(
+    circuit: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    db: Session = Depends(get_db),
+) -> ComplianceReport:
+    return build_report(db, circuit, since, until)
 
 
 # --------------------------------------------------------------------------- #
@@ -125,23 +155,52 @@ def _ascii(s: str) -> str:
     return (s or "").encode("latin-1", "replace").decode("latin-1")
 
 
-def render_pdf(report: ComplianceReport, circuit: str | None) -> bytes:
-    pdf = FPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_auto_page_break(True, margin=16)
-    pdf.add_page()
+class _ReportPDF(FPDF):
+    """Letterhead on page 1, a slim running header on continuations, and a
+    page-numbered footer — so a large program paginates cleanly."""
 
-    # --- letterhead ---
-    pdf.set_fill_color(*GREEN)
-    pdf.rect(0, 0, 210, 22, style="F")
-    pdf.set_xy(12, 6)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "CanopyOps  -  UVM Compliance Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    def header(self) -> None:
+        if self.page_no() == 1:
+            self.set_fill_color(*GREEN)
+            self.rect(0, 0, 210, 22, style="F")
+            self.set_xy(12, 6)
+            self.set_text_color(255, 255, 255)
+            self.set_font("Helvetica", "B", 16)
+            self.cell(0, 10, "CanopyOps  -  UVM Compliance Report",
+                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            self.set_y(26)
+        else:
+            self.set_fill_color(*GREEN)
+            self.rect(0, 0, 210, 11, style="F")
+            self.set_xy(12, 3)
+            self.set_text_color(255, 255, 255)
+            self.set_font("Helvetica", "B", 9)
+            self.cell(0, 5, "CanopyOps  -  UVM Compliance Report (continued)",
+                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            self.set_y(16)
+
+    def footer(self) -> None:
+        self.set_y(-12)
+        self.set_text_color(*MUTE)
+        self.set_font("Helvetica", "I", 7)
+        self.cell(0, 6, _ascii(f"Synthetic data - not a regulatory filing.    Page {self.page_no()}/{{nb}}"),
+                  align="C")
+
+
+def render_pdf(report: ComplianceReport, circuit: str | None, since: datetime | None = None) -> bytes:
+    from fpdf.fonts import FontFace
+
+    pdf = _ReportPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(True, margin=18)
+    pdf.set_left_margin(12)
+    pdf.set_right_margin(12)
+    pdf.add_page()
 
     pdf.set_text_color(*MUTE)
     pdf.set_font("Helvetica", "", 9)
-    pdf.set_xy(12, 26)
     scope = f"circuit {circuit}" if circuit else "all circuits"
+    if since:
+        scope += f", activity since {since.strftime('%Y-%m-%d')}"
     stamp = report.generated_at.strftime("%Y-%m-%d %H:%M UTC")
     pdf.cell(0, 5, _ascii(f"Generated {stamp}  -  {report.total_plans} records  -  {scope}"),
              new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -156,7 +215,7 @@ def render_pdf(report: ComplianceReport, circuit: str | None) -> bytes:
         pdf.set_font("Helvetica", "B", 9)
         pdf.cell(0, 6, _ascii(title.upper()), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    # --- program attainment ---
+    # --- program attainment (KPI strip) ---
     section("Program attainment")
     kpis = [
         (f"{report.attainment_pct}%", "attainment"),
@@ -165,21 +224,20 @@ def render_pdf(report: ComplianceReport, circuit: str | None) -> bytes:
         (str(report.closed), "records closed"),
         (str(report.hftd_intersecting), "HFTD-intersecting"),
     ]
-    w = 190 / len(kpis)
+    w = 186 / len(kpis)
     y0 = pdf.get_y()
     for i, (val, _) in enumerate(kpis):
         pdf.set_xy(12 + i * w, y0)
         pdf.set_text_color(*DARK)
         pdf.set_font("Helvetica", "B", 15)
         pdf.cell(w, 8, val, align="C")
-    pdf.set_y(y0 + 8)
     for i, (_, lab) in enumerate(kpis):
         pdf.set_xy(12 + i * w, y0 + 8)
         pdf.set_text_color(*MUTE)
         pdf.set_font("Helvetica", "", 7)
         pdf.cell(w, 4, _ascii(lab), align="C")
     pdf.set_y(y0 + 14)
-    pdf.ln(3)
+    pdf.ln(2)
 
     # --- risk governance ---
     section("Risk governance")
@@ -198,33 +256,31 @@ def render_pdf(report: ComplianceReport, circuit: str | None) -> bytes:
         pdf.set_font("Helvetica", "B", 9)
         pdf.cell(0, 5, _ascii(f"{report.unreviewed_high_or_critical} high/critical span(s) awaiting a certified sign-off"),
                  new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.ln(3)
+    pdf.ln(2)
 
-    # --- span table ---
+    # --- span table (auto-paginates; heading row repeats on each page) ---
     section(f"Span detail ({len(report.spans)})")
-    cols = [("Work order", 26), ("Circuit / Span", 40), ("Status", 28), ("Cov", 14),
-            ("Evidence", 22), ("Risk", 14), ("Level", 22), ("Reviewed", 24)]
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_text_color(*MUTE)
-    for i, (h, cw) in enumerate(cols):
-        last = i == len(cols) - 1
-        pdf.cell(cw, 6, _ascii(h), border="B",
-                 new_x=XPos.LMARGIN if last else XPos.RIGHT,
-                 new_y=YPos.NEXT if last else YPos.TOP)
+    headings = ("Work order", "Circuit / Span", "Status", "Cov", "Evidence", "Risk", "Level", "Reviewed")
     pdf.set_font("Helvetica", "", 8)
-    for s in report.spans:
-        cov = f"{s.coverage_pct}%" if s.coverage_pct is not None else "-"
-        vals = [s.work_order_ref, f"{s.circuit} {s.span}", s.status.replace("_", " "),
-                cov, "complete" if s.evidence_complete else "incomplete",
-                str(s.risk_score), s.risk_level, "signed" if s.reviewed else "pending"]
-        for i, ((_, cw), v) in enumerate(zip(cols, vals)):
-            last = i == len(cols) - 1
-            pdf.set_text_color(*DARK)
-            pdf.cell(cw, 6, _ascii(v), border="B",
-                     new_x=XPos.LMARGIN if last else XPos.RIGHT,
-                     new_y=YPos.NEXT if last else YPos.TOP)
+    pdf.set_text_color(*DARK)
+    with pdf.table(
+        col_widths=(26, 36, 28, 14, 22, 14, 22, 24),  # sums to 186 = usable width
+        text_align=("LEFT", "LEFT", "LEFT", "RIGHT", "LEFT", "RIGHT", "LEFT", "LEFT"),
+        headings_style=FontFace(emphasis="BOLD", color=MUTE, fill_color=(240, 244, 241)),
+        line_height=6, first_row_as_headings=True, width=186,
+    ) as table:
+        hr = table.row()
+        for h in headings:
+            hr.cell(h)
+        for s in report.spans:
+            cov = f"{s.coverage_pct}%" if s.coverage_pct is not None else "-"
+            row = table.row()
+            for v in (s.work_order_ref, f"{s.circuit} {s.span}", s.status.replace("_", " "),
+                      cov, "complete" if s.evidence_complete else "incomplete",
+                      str(s.risk_score), s.risk_level, "signed" if s.reviewed else "pending"):
+                row.cell(_ascii(v))
 
-    pdf.ln(4)
+    pdf.ln(3)
     pdf.set_text_color(*MUTE)
     pdf.set_font("Helvetica", "I", 7)
     pdf.multi_cell(0, 4, _ascii(report.note + "  -  CanopyOps Treatment Assurance."))
@@ -233,11 +289,16 @@ def render_pdf(report: ComplianceReport, circuit: str | None) -> bytes:
 
 
 @router.get("/reports/compliance.pdf")
-def compliance_report_pdf(circuit: str | None = None, db: Session = Depends(get_db)) -> Response:
-    report = build_report(db, circuit)
+def compliance_report_pdf(
+    circuit: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    db: Session = Depends(get_db),
+) -> Response:
+    report = build_report(db, circuit, since, until)
     suffix = f"-{circuit}" if circuit else ""
     return Response(
-        content=render_pdf(report, circuit),
+        content=render_pdf(report, circuit, since),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="canopyops-compliance{suffix}.pdf"'},
     )

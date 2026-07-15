@@ -4,10 +4,16 @@
     <div class="toolbar no-print">
       <a routerLink="/console/overview" class="tbtn">← Back to console</a>
       <label class="scope">
-        Scope
-        <select [value]="circuit()" (change)="setCircuit($any($event.target).value)">
+        Circuit
+        <select data-scope="circuit" [value]="circuit()" (change)="setCircuit($any($event.target).value)">
           <option value="">All circuits</option>
           @for (c of circuits(); track c) { <option [value]="c">{{ c }}</option> }
+        </select>
+      </label>
+      <label class="scope">
+        Activity
+        <select data-scope="window" [value]="windowDays()" (change)="setWindow(+$any($event.target).value)">
+          @for (w of windows; track w.days) { <option [value]="w.days">{{ w.label }}</option> }
         </select>
       </label>
       <a [href]="pdfHref()" class="tbtn ml-auto" download>⤓ Download PDF</a>

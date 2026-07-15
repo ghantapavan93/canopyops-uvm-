@@ -1,6 +1,8 @@
 """Compliance report — the exportable program-evidence rollup."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from tests.conftest import auth
 
 
@@ -41,6 +43,15 @@ def test_report_scopes_to_a_single_circuit(client):
     scoped = client.get(f"/api/reports/compliance?circuit={circuit}").json()
     assert scoped["totalPlans"] < full["totalPlans"]
     assert all(s["circuit"] == circuit for s in scoped["spans"])
+
+
+def test_report_scopes_by_activity_date(client):
+    full = client.get("/api/reports/compliance").json()
+    since = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+    scoped = client.get("/api/reports/compliance", params={"since": since}).json()
+    # Executed spans are dated ~15-19 days back in the seed, so a 10-day window
+    # excludes them and keeps the recently-touched (unexecuted) plans.
+    assert 1 <= scoped["totalPlans"] < full["totalPlans"]
 
 
 def test_report_pdf_is_a_real_pdf(client):

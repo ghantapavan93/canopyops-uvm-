@@ -21,26 +21,48 @@ export class ReportComponent {
   readonly report = signal<ComplianceReport | null>(null);
   readonly circuit = signal<string>('');           // '' = all circuits
   readonly circuits = signal<string[]>([]);
+  readonly windowDays = signal<number>(0);         // 0 = all time
+
+  readonly windows = [
+    { label: 'All time', days: 0 },
+    { label: '30 days', days: 30 },
+    { label: '90 days', days: 90 },
+    { label: '1 year', days: 365 },
+  ];
 
   readonly levels = ['critical', 'high', 'elevated', 'low'] as const;
   readonly distTotal = computed(() =>
     Object.values(this.report()?.riskDistribution ?? {}).reduce((a, b) => a + b, 0) || 1);
-  /** Direct link to the server-generated PDF (honours the circuit scope). */
-  readonly pdfHref = computed(() =>
-    `${environment.apiBase}/reports/compliance.pdf${this.circuit() ? `?circuit=${this.circuit()}` : ''}`);
+
+  private sinceIso(): string | undefined {
+    const d = this.windowDays();
+    return d ? new Date(Date.now() - d * 864e5).toISOString() : undefined;
+  }
+  private query(): string {
+    const p: string[] = [];
+    if (this.circuit()) p.push(`circuit=${encodeURIComponent(this.circuit())}`);
+    const s = this.sinceIso();
+    if (s) p.push(`since=${encodeURIComponent(s)}`);
+    return p.length ? '?' + p.join('&') : '';
+  }
+  /** Direct link to the server-generated PDF (honours circuit + date scope). */
+  readonly pdfHref = computed(() => {
+    this.circuit(); this.windowDays();     // track deps
+    return `${environment.apiBase}/reports/compliance.pdf${this.query()}`;
+  });
 
   constructor() { this.load(); }
 
   private load(): void {
-    this.api.getComplianceReport(this.circuit() || undefined).subscribe((r) => {
+    this.api.getComplianceReport(this.circuit() || undefined, this.sinceIso()).subscribe((r) => {
       this.report.set(r);
-      // Capture the full circuit list once (from the unscoped report).
-      if (!this.circuit() && !this.circuits().length) {
+      if (!this.circuit() && !this.windowDays() && !this.circuits().length) {
         this.circuits.set([...new Set(r.spans.map((s) => s.circuit))].sort());
       }
     });
   }
   setCircuit(c: string): void { this.circuit.set(c); this.load(); }
+  setWindow(days: number): void { this.windowDays.set(days); this.load(); }
 
   print(): void { window.print(); }
 

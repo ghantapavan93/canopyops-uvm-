@@ -159,10 +159,12 @@ export class ApiService {
     return this.http.get<RiskReview[]>(`${this.base}/risk/spans/${planId}/reviews`);
   }
 
-  /** Exportable compliance rollup (print-ready), optionally scoped to a circuit. */
-  getComplianceReport(circuit?: string): Observable<ComplianceReport> {
-    const q = circuit ? `?circuit=${encodeURIComponent(circuit)}` : '';
-    return this.http.get<ComplianceReport>(`${this.base}/reports/compliance${q}`);
+  /** Exportable compliance rollup (print-ready), optionally scoped by circuit + date. */
+  getComplianceReport(circuit?: string, since?: string): Observable<ComplianceReport> {
+    const p: string[] = [];
+    if (circuit) p.push(`circuit=${encodeURIComponent(circuit)}`);
+    if (since) p.push(`since=${encodeURIComponent(since)}`);
+    return this.http.get<ComplianceReport>(`${this.base}/reports/compliance${p.length ? '?' + p.join('&') : ''}`);
   }
 
   /** Elevation + slope profile along a corridor centerline. */

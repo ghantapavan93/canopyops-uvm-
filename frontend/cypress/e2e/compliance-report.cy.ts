@@ -19,12 +19,19 @@ describe('CanopyOps compliance report', () => {
     cy.get('table.tbl tbody tr').should('have.length', 6);
 
     // scope to a single circuit → fewer rows, all the same circuit
-    cy.get('.scope select').select('CKT-8842');
-    cy.get('table.tbl tbody tr').should('have.length.lessThan', 6);
-    cy.get('table.tbl tbody tr').each(($tr) => cy.wrap($tr).should('contain', 'CKT-8842'));
+    cy.get('select[data-scope="circuit"]').find('option').eq(1).then(($opt) => {
+      const ckt = $opt.val() as string;
+      cy.get('select[data-scope="circuit"]').select(ckt);
+      cy.get('table.tbl tbody tr').should('have.length.lessThan', 6);
+      cy.get('table.tbl tbody tr').each(($tr) => cy.wrap($tr).should('contain', ckt));
 
-    // the PDF link points at the server endpoint and honours the scope
-    cy.get('a[download]').should('have.attr', 'href').and('include', '/api/reports/compliance.pdf?circuit=CKT-8842');
+      // the PDF link points at the server endpoint and honours the scope
+      cy.get('a[download]').should('have.attr', 'href').and('include', `/api/reports/compliance.pdf?circuit=${ckt}`);
+    });
+
+    // narrowing the activity window keeps the PDF link in sync (adds &since=)
+    cy.get('select[data-scope="window"]').select('30 days');
+    cy.get('a[download]').should('have.attr', 'href').and('include', 'since=');
 
     // and the endpoint actually returns a real PDF
     cy.request('/api/reports/compliance.pdf').then((res) => {

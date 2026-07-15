@@ -98,7 +98,6 @@ export class EngineeringComponent implements OnDestroy {
   };
 
   readonly limitations = [
-    'Cypress e2e is authored and runnable but was not executed in the build session (the equivalent journey was verified interactively).',
     'Map uses a self-contained synthetic style (no basemap tiles) — deliberate, to stay offline-capable and free of external calls.',
     'Metrics shown in the console are synthetic and labeled as such; no real rework-rate statistics are claimed.',
     'Remote-sensing (LiDAR/multispectral) is modelled as an attach-ready data shape, not implemented.',
