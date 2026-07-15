@@ -20,6 +20,12 @@ export const routes: Routes = [
     title: 'Future Vision — CanopyOps',
   },
   {
+    path: 'report',
+    loadComponent: () =>
+      import('./features/report/report.component').then((m) => m.ReportComponent),
+    title: 'Compliance Report — CanopyOps',
+  },
+  {
     path: 'console',
     loadComponent: () =>
       import('./features/console/console-shell.component').then(

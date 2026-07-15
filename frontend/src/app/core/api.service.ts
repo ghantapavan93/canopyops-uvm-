@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import {
+  ComplianceReport,
   Corridor,
   EnvironmentalConstraint,
   EncroachmentMap,
@@ -156,6 +157,11 @@ export class ApiService {
   /** The full append-only review history for a span (newest first). */
   getReviews(planId: string): Observable<RiskReview[]> {
     return this.http.get<RiskReview[]>(`${this.base}/risk/spans/${planId}/reviews`);
+  }
+
+  /** Exportable program-wide compliance rollup (print-ready). */
+  getComplianceReport(): Observable<ComplianceReport> {
+    return this.http.get<ComplianceReport>(`${this.base}/reports/compliance`);
   }
 
   /** Elevation + slope profile along a corridor centerline. */

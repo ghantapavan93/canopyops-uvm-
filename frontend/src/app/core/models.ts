@@ -148,6 +148,34 @@ export interface RiskReview {
   createdAt: string;
 }
 
+export interface ComplianceSpanRow {
+  workOrderRef: string;
+  circuit: string;
+  span: string;
+  status: string;
+  coveragePct: number | null;
+  evidenceComplete: boolean;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  reviewed: boolean;
+}
+
+export interface ComplianceReport {
+  generatedAt: string;
+  totalPlans: number;
+  attainmentPct: number;
+  evidenceCompletePct: number;
+  verificationOverdue: number;
+  closed: number;
+  hftdIntersecting: number;
+  riskDistribution: Record<string, number>;
+  reviewedPct: number;
+  unreviewedHighOrCritical: number;
+  avgRiskScore: number;
+  spans: ComplianceSpanRow[];
+  note: string;
+}
+
 export interface RiskBoard {
   generatedAt: string;
   spans: SpanRisk[];

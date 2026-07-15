@@ -267,6 +267,41 @@ class RiskReviewOut(Schema):
     created_at: datetime
 
 
+# --- compliance report (the exportable evidence artifact) ---
+class ComplianceSpanRow(Schema):
+    work_order_ref: str
+    circuit: str
+    span: str
+    status: str
+    coverage_pct: int | None
+    evidence_complete: bool
+    risk_score: float
+    risk_level: str
+    reviewed: bool
+
+
+class ComplianceReport(Schema):
+    generated_at: datetime
+    # program
+    total_plans: int
+    attainment_pct: float          # share past "applied"
+    evidence_complete_pct: float
+    verification_overdue: int
+    closed: int
+    # regulatory
+    hftd_intersecting: int
+    # risk governance
+    risk_distribution: dict[str, int]   # level -> count
+    reviewed_pct: float
+    unreviewed_high_or_critical: int
+    avg_risk_score: float
+    spans: list[ComplianceSpanRow]
+    note: str = (
+        "Independent concept · synthetic data. Illustrative compliance summary — "
+        "not a regulatory filing."
+    )
+
+
 class RiskBoard(Schema):
     generated_at: datetime
     spans: list[SpanRisk]  # ranked, highest risk first

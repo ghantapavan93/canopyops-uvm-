@@ -22,6 +22,7 @@ const COMMANDS: Cmd[] = [
   { label: 'Stewardship', hint: 'IVM, compliance', icon: '❋', route: '/console/stewardship' },
   { label: 'Integration · OData', hint: 'WBS / CATS, SAP seam', icon: '🔌', route: '/console/integration' },
   { label: 'Engineering Evidence', hint: 'tests, health, boundaries', icon: '⚙', route: '/console/engineering' },
+  { label: 'Compliance Report', hint: 'print / save as PDF', icon: '📋', route: '/report' },
   { label: 'Open API docs (Swagger)', hint: '/api/docs', icon: '❯', href: '/api/docs' },
   { label: 'Prometheus metrics', hint: '/api/metrics/prometheus', icon: '❯', href: '/api/metrics/prometheus' },
   { label: 'Back to landing', hint: 'marketing page', icon: '❦', route: '/' },

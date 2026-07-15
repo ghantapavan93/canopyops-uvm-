@@ -147,6 +147,7 @@ export class ConsoleShellComponent {
     { label: 'Stewardship', route: '/console/stewardship', glyph: '❋', ready: true },
     { label: 'Integration · OData', route: '/console/integration', glyph: '🔌', ready: true },
     { label: 'Engineering Evidence', route: '/console/engineering', glyph: '⚙', ready: true },
+    { label: 'Compliance Report', route: '/report', glyph: '📋', ready: true },
   ];
 
   async switchRole(u: { role: Role; email: string }): Promise<void> {

@@ -1,0 +1,91 @@
+@if (report(); as r) {
+  <div class="doc">
+    <!-- screen-only toolbar -->
+    <div class="toolbar no-print">
+      <a routerLink="/console/overview" class="tbtn">← Back to console</a>
+      <button type="button" (click)="print()" class="tbtn tbtn--primary">⎙ Print / Save as PDF</button>
+    </div>
+
+    <header class="rhead">
+      <div class="brand"><span class="mark">❦</span> CanopyOps</div>
+      <h1>UVM Compliance Report</h1>
+      <p class="sub">Generated {{ r.generatedAt | date: 'medium' }} · {{ r.totalPlans }} treatment records</p>
+      <p class="disc">Independent concept · synthetic data. Illustrative summary — not a regulatory filing, and not
+        affiliated with or endorsed by The Davey Tree Expert Company.</p>
+    </header>
+
+    <!-- program summary -->
+    <section>
+      <h2>Program attainment</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="kv">{{ r.attainmentPct }}%</div><div class="kl">work-plan attainment</div></div>
+        <div class="kpi"><div class="kv">{{ r.evidenceCompletePct }}%</div><div class="kl">evidence complete</div></div>
+        <div class="kpi"><div class="kv" [class.warn]="r.verificationOverdue > 0">{{ r.verificationOverdue }}</div><div class="kl">verification overdue</div></div>
+        <div class="kpi"><div class="kv">{{ r.closed }}</div><div class="kl">records closed</div></div>
+        <div class="kpi"><div class="kv" [class.warn]="r.hftdIntersecting > 0">{{ r.hftdIntersecting }}</div><div class="kl">HFTD-intersecting</div></div>
+      </div>
+    </section>
+
+    <!-- risk governance -->
+    <section>
+      <h2>Risk governance</h2>
+      <div class="gov">
+        <div class="gov__dist">
+          <div class="bar">
+            @for (l of levels; track l) {
+              <div class="seg" [style.width.%]="distPct(l)" [style.background]="levelColor(l)"
+                   [title]="l + ': ' + (r.riskDistribution[l] || 0)"></div>
+            }
+          </div>
+          <div class="legend">
+            @for (l of levels; track l) {
+              <span class="lg"><i [style.background]="levelColor(l)"></i>{{ l }} · {{ r.riskDistribution[l] || 0 }}</span>
+            }
+          </div>
+        </div>
+        <div class="gov__stats">
+          <div><b>{{ r.avgRiskScore }}</b> average risk score</div>
+          <div><b>{{ r.reviewedPct }}%</b> human-reviewed &amp; signed</div>
+          <div [class.flag]="r.unreviewedHighOrCritical > 0">
+            <b>{{ r.unreviewedHighOrCritical }}</b> high/critical spans <em>awaiting</em> a certified sign-off
+          </div>
+        </div>
+      </div>
+      <p class="fine">Risk scores are deterministic and explainable; AI prioritizes, a certified reviewer decides. Every
+        sign-off is recorded to an append-only audit trail.</p>
+    </section>
+
+    <!-- per-span table -->
+    <section>
+      <h2>Span detail ({{ r.spans.length }})</h2>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Work order</th><th>Circuit · Span</th><th>Status</th><th class="num">Coverage</th>
+            <th>Evidence</th><th class="num">Risk</th><th>Level</th><th>Reviewed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of r.spans; track s.workOrderRef) {
+            <tr>
+              <td class="mono">{{ s.workOrderRef }}</td>
+              <td>{{ s.circuit }} · {{ s.span }}</td>
+              <td class="cap">{{ s.status.replaceAll('_', ' ') }}</td>
+              <td class="num">{{ s.coveragePct !== null ? s.coveragePct + '%' : '—' }}</td>
+              <td [class.ok]="s.evidenceComplete" [class.warn]="!s.evidenceComplete">{{ s.evidenceComplete ? 'complete' : 'incomplete' }}</td>
+              <td class="num"><b>{{ s.riskScore }}</b></td>
+              <td class="cap" [style.color]="levelColor(s.riskLevel)"><b>{{ s.riskLevel }}</b></td>
+              <td [class.ok]="s.reviewed" [class.warn]="!s.reviewed">{{ s.reviewed ? '✓ signed' : 'pending' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="rfoot">
+      {{ r.note }} · CanopyOps — Treatment Assurance.
+    </footer>
+  </div>
+} @else {
+  <div class="loading">Assembling compliance report…</div>
+}
