@@ -76,13 +76,20 @@ def _latest_reviews(db: Session) -> dict[str, m.RiskReview]:
 
 
 def score_spans(db: Session) -> list[SpanRisk]:
+    from app.core.tenancy import get_current_tenant
+
     plans = db.scalars(select(m.TreatmentPlan)).all()
-    hftd_plan_ids = set(
-        db.execute(text(
-            "SELECT DISTINCT p.id FROM treatment_plan p, environmental_constraint c "
-            "WHERE c.category = 'HFTD' AND ST_Intersects(p.planned_geometry, c.geometry)"
-        )).scalars().all()
+    # Raw SQL bypasses the ORM tenant filter, so scope it explicitly.
+    tid = get_current_tenant()
+    hftd_sql = (
+        "SELECT DISTINCT p.id FROM treatment_plan p, environmental_constraint c "
+        "WHERE c.category = 'HFTD' AND ST_Intersects(p.planned_geometry, c.geometry)"
     )
+    params: dict = {}
+    if tid is not None:
+        hftd_sql += " AND p.tenant_id = :tid"
+        params["tid"] = tid
+    hftd_plan_ids = set(db.execute(text(hftd_sql), params).scalars().all())
     reviews = _latest_reviews(db)
     reviewer_names = {u.id: u.display_name for u in db.scalars(select(m.User)).all()}
 

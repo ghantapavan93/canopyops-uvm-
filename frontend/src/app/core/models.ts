@@ -61,6 +61,8 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: Role;
+  tenantId: string;
+  tenantName?: string | null;
 }
 
 export interface Corridor {

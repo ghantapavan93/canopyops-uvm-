@@ -14,11 +14,13 @@ interface NavItem {
   ready: boolean;
 }
 
-const DEMO_USERS: { role: Role; label: string; email: string }[] = [
-  { role: 'program_manager', label: 'Manager', email: 'manager@synthetic.test' },
-  { role: 'field_crew', label: 'Field crew', email: 'crew@synthetic.test' },
-  { role: 'quality_reviewer', label: 'Reviewer', email: 'reviewer@synthetic.test' },
-  { role: 'compliance_reviewer', label: 'Compliance', email: 'compliance@synthetic.test' },
+const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = [
+  { key: 'manager', role: 'program_manager', label: 'Manager', email: 'manager@synthetic.test' },
+  { key: 'crew', role: 'field_crew', label: 'Field crew', email: 'crew@synthetic.test' },
+  { key: 'reviewer', role: 'quality_reviewer', label: 'Reviewer', email: 'reviewer@synthetic.test' },
+  { key: 'compliance', role: 'compliance_reviewer', label: 'Compliance', email: 'compliance@synthetic.test' },
+  // A different program (tenant) — switching here proves isolation: the data changes.
+  { key: 'northgrid', role: 'program_manager', label: 'NorthGrid ⧉', email: 'ng.manager@synthetic.test' },
 ];
 
 @Component({
@@ -64,16 +66,20 @@ const DEMO_USERS: { role: Role; label: string; email: string }[] = [
                   [class.live-dot]="conn.online()" [class.live-dot--danger]="!conn.online()"></span>
             {{ conn.online() ? 'Online' : 'Offline' }}
           </span>
+          @if (auth.user()?.tenantName; as tenant) {
+            <span class="hidden items-center gap-1 rounded-full border border-primary/40 bg-primary-soft px-2 py-1 text-[11px] font-semibold text-primary md:inline-flex"
+                  title="Current program (tenant) — data is isolated per program">⧉ {{ tenant }}</span>
+          }
           <span class="hidden text-xs text-muted md:inline">Acting as</span>
           <div class="flex overflow-hidden rounded-md border border-border" role="group"
-               aria-label="Switch synthetic role">
-            @for (u of demoUsers; track u.role) {
+               aria-label="Switch synthetic role / program">
+            @for (u of demoUsers; track u.key) {
               <button
                 type="button"
                 (click)="switchRole(u)"
-                [class.bg-primary]="role() === u.role"
-                [class.text-primary-ink]="role() === u.role"
-                [attr.aria-pressed]="role() === u.role"
+                [class.bg-primary]="auth.user()?.email === u.email"
+                [class.text-primary-ink]="auth.user()?.email === u.email"
+                [attr.aria-pressed]="auth.user()?.email === u.email"
                 class="px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
               >{{ u.label }}</button>
             }
@@ -128,7 +134,7 @@ const DEMO_USERS: { role: Role; label: string; email: string }[] = [
   `,
 })
 export class ConsoleShellComponent {
-  private auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   readonly sync = inject(SyncService);
   readonly conn = inject(ConnectivityService);
   readonly demoUsers = DEMO_USERS;

@@ -24,6 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenancy import TenantScoped
 from app.models import enums
 
 
@@ -35,10 +36,24 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class Tenant(Base):
+    """A program / utility client — the isolation boundary. id is a stable slug
+    (e.g. "demo", "northgrid") so it can ride in the JWT without a DB lookup."""
+
+    __tablename__ = "tenant"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)     # slug
+    name: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class User(Base):
     __tablename__ = "app_user"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    # Users are looked up before the tenant is known (login), so User is NOT
+    # auto-scoped; it carries a tenant_id for membership + token minting.
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenant.id"), index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String)
     role: Mapped[enums.Role] = mapped_column(Enum(enums.Role, name="role"))
@@ -46,7 +61,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
-class Corridor(Base):
+class Corridor(TenantScoped, Base):
     """A right-of-way corridor: circuit + span geometry the work applies to."""
 
     __tablename__ = "corridor"
@@ -63,7 +78,7 @@ class Corridor(Base):
     work_orders: Mapped[list[WorkOrder]] = relationship(back_populates="corridor")
 
 
-class WorkOrder(Base):
+class WorkOrder(TenantScoped, Base):
     __tablename__ = "work_order"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
@@ -83,7 +98,7 @@ class WorkOrder(Base):
     plans: Mapped[list[TreatmentPlan]] = relationship(back_populates="work_order")
 
 
-class TreatmentPlan(Base):
+class TreatmentPlan(TenantScoped, Base):
     """Approved intent for a defined area (the 'what was intended')."""
 
     __tablename__ = "treatment_plan"
@@ -120,7 +135,7 @@ class TreatmentPlan(Base):
     )
 
 
-class TreatmentExecution(Base):
+class TreatmentExecution(TenantScoped, Base):
     """Field record of what actually occurred (the 'what happened').
 
     Carries local_revision (device) and server_revision to power idempotent,
@@ -149,7 +164,7 @@ class TreatmentExecution(Base):
     evidence: Mapped[list[EvidenceItem]] = relationship(back_populates="execution")
 
 
-class EvidenceItem(Base):
+class EvidenceItem(TenantScoped, Base):
     """Photo, measurement, note, or form. A failed upload can never mark the
     evidence set complete (invariant enforced by completeness scoring)."""
 
@@ -199,7 +214,7 @@ class EnvironmentalConstraint(Base):
     )
 
 
-class VerificationObservation(Base):
+class VerificationObservation(TenantScoped, Base):
     """Follow-up result linked to plan geometry (the 'what was learned')."""
 
     __tablename__ = "verification_observation"
@@ -223,7 +238,7 @@ class VerificationObservation(Base):
     plan: Mapped[TreatmentPlan] = relationship(back_populates="observations")
 
 
-class SyncAttempt(Base):
+class SyncAttempt(TenantScoped, Base):
     """Recoverable transport history for offline mobile mutations."""
 
     __tablename__ = "sync_attempt"
@@ -244,7 +259,7 @@ class SyncAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
-class RiskReview(Base):
+class RiskReview(TenantScoped, Base):
     """A certified human's sign-off on a span's computed risk. Append-only: this
     is the durable evidence that a machine's ranking was reviewed by a person —
     the human-in-the-loop guardrail made into a record, with a snapshot of the
@@ -262,7 +277,7 @@ class RiskReview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
-class QualityAudit(Base):
+class QualityAudit(TenantScoped, Base):
     """An independent QA audit of a completed work plan — the "checks and
     balances" second pass. The crew did the work and a verifier confirmed the
     outcome; a *different* certified reviewer audits a sample of closed work
@@ -282,7 +297,7 @@ class QualityAudit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
-class Job(Base):
+class Job(TenantScoped, Base):
     """A durable background job — the off-request-path task queue. Heavy work
     (Proof Pack generation, large GeoJSON imports, reports) is enqueued here and
     a worker claims it with SELECT ... FOR UPDATE SKIP LOCKED, so the request
@@ -306,7 +321,7 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class AuditEvent(Base):
+class AuditEvent(TenantScoped, Base):
     """Immutable business history. Never updated or deleted."""
 
     __tablename__ = "audit_event"

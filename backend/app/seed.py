@@ -17,6 +17,7 @@ from sqlalchemy import delete
 
 from app.core.database import SessionLocal, engine, Base
 from app.core.security import hash_password
+from app.core.tenancy import DEFAULT_TENANT, reset_current_tenant, set_current_tenant
 from app.models import domain as m
 from app.models import enums as e
 from app.models.domain import _now
@@ -39,7 +40,7 @@ def clear(db) -> None:
     for table in (
         m.Job, m.QualityAudit, m.RiskReview, m.AuditEvent, m.SyncAttempt, m.VerificationObservation,
         m.EvidenceItem, m.TreatmentExecution, m.TreatmentPlan, m.WorkOrder,
-        m.EnvironmentalConstraint, m.Corridor, m.User,
+        m.EnvironmentalConstraint, m.Corridor, m.User, m.Tenant,
     ):
         db.execute(delete(table))
     db.commit()
@@ -48,16 +49,27 @@ def clear(db) -> None:
 def seed() -> None:
     Base.metadata.create_all(engine)  # safety net if migrations skipped
     db = SessionLocal()
+    tenant_token = None
     try:
         clear(db)
+
+        # --- Tenants (programs / utility clients) ---
+        db.add_all([
+            m.Tenant(id=DEFAULT_TENANT, name="CanopyOps Demo Utility"),
+            m.Tenant(id="northgrid", name="NorthGrid Power (isolation demo)"),
+        ])
+        db.flush()
+
+        # Everything below is stamped to the demo program by the tenant guard.
+        tenant_token = set_current_tenant(DEFAULT_TENANT)
 
         # --- Users (one per RBAC role) ---
         pw = hash_password("canopyops")
         users = {
-            "manager": m.User(email="manager@synthetic.test", display_name="Morgan Reyes (Program Manager)", role=e.Role.PROGRAM_MANAGER, password_hash=pw),
-            "crew": m.User(email="crew@synthetic.test", display_name="Casey Lin (Field Crew)", role=e.Role.FIELD_CREW, password_hash=pw),
-            "reviewer": m.User(email="reviewer@synthetic.test", display_name="Avery Stone (ISA Arborist / QA)", role=e.Role.QUALITY_REVIEWER, password_hash=pw),
-            "compliance": m.User(email="compliance@synthetic.test", display_name="Jordan Diaz (Compliance)", role=e.Role.COMPLIANCE_REVIEWER, password_hash=pw),
+            "manager": m.User(tenant_id=DEFAULT_TENANT, email="manager@synthetic.test", display_name="Morgan Reyes (Program Manager)", role=e.Role.PROGRAM_MANAGER, password_hash=pw),
+            "crew": m.User(tenant_id=DEFAULT_TENANT, email="crew@synthetic.test", display_name="Casey Lin (Field Crew)", role=e.Role.FIELD_CREW, password_hash=pw),
+            "reviewer": m.User(tenant_id=DEFAULT_TENANT, email="reviewer@synthetic.test", display_name="Avery Stone (ISA Arborist / QA)", role=e.Role.QUALITY_REVIEWER, password_hash=pw),
+            "compliance": m.User(tenant_id=DEFAULT_TENANT, email="compliance@synthetic.test", display_name="Jordan Diaz (Compliance)", role=e.Role.COMPLIANCE_REVIEWER, password_hash=pw),
         }
         db.add_all(users.values())
         db.flush()
@@ -205,7 +217,38 @@ def seed() -> None:
             ))
 
         db.commit()
+
+        # --- Second program (NorthGrid): a minimal, fully isolated dataset. Its
+        #     users/corridors/plans must never surface for the demo program. ---
+        reset_current_tenant(tenant_token)
+        tenant_token = set_current_tenant("northgrid")
+        ng_mgr = m.User(tenant_id="northgrid", email="ng.manager@synthetic.test",
+                        display_name="Riley Fox (NorthGrid PM)", role=e.Role.PROGRAM_MANAGER, password_hash=pw)
+        db.add(ng_mgr)
+        db.flush()
+        ng_corr = m.Corridor(circuit_id="NG-1201", span_label="SPAN 4-5",
+                             name="NorthGrid ROW (synthetic)", voltage_kv=115,
+                             centerline=geom(LineString([(-83.30, 40.20), (-83.29, 40.206)])))
+        db.add(ng_corr)
+        db.flush()
+        ng_wo = m.WorkOrder(reference="NG-2026-0001", priority=e.WorkOrderPriority.ELEVATED,
+                            corridor_id=ng_corr.id, owner_id=ng_mgr.id)
+        db.add(ng_wo)
+        db.flush()
+        db.add(m.TreatmentPlan(
+            work_order_id=ng_wo.id, status=e.TreatmentStatus.AWAITING_VERIFICATION,
+            planned_geometry=geom(box(-83.295, 40.203, 0.004, 0.0025)),
+            target_condition="Restore MVCD clearance (NorthGrid synthetic).",
+            method_category=e.MethodCategory.MECHANICAL,
+            required_evidence=[e.EvidenceType.PHOTO_BEFORE.value, e.EvidenceType.PHOTO_AFTER.value],
+            verification_policy={"window_days": 30}, owner_id=ng_mgr.id,
+        ))
+        db.commit()
+        reset_current_tenant(tenant_token)
+        tenant_token = None
+
         counts = {
+            "tenants": db.query(m.Tenant).count(),
             "users": db.query(m.User).count(),
             "corridors": db.query(m.Corridor).count(),
             "constraints": db.query(m.EnvironmentalConstraint).count(),
@@ -214,6 +257,8 @@ def seed() -> None:
         }
         print(f"[seed] done: {counts}")
     finally:
+        if tenant_token is not None:
+            reset_current_tenant(tenant_token)
         db.close()
 
 

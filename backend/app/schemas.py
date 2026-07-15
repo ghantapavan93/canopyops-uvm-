@@ -20,6 +20,8 @@ class AuthUser(Schema):
     email: str
     display_name: str
     role: e.Role
+    tenant_id: str
+    tenant_name: str | None = None
 
 
 class TokenResponse(Schema):

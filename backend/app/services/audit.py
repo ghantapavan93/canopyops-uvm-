@@ -31,11 +31,20 @@ def _stable_unit(seed: str) -> float:
 
 
 def intersecting_plan_ids(db: Session) -> set[str]:
-    """Plans whose treatment polygon intersects any environmental constraint."""
-    return set(db.execute(text(
+    """Plans whose treatment polygon intersects any environmental constraint.
+    Raw SQL bypasses the ORM tenant filter, so scope it explicitly."""
+    from app.core.tenancy import get_current_tenant
+
+    tid = get_current_tenant()
+    sql = (
         "SELECT DISTINCT p.id FROM treatment_plan p, environmental_constraint c "
         "WHERE ST_Intersects(p.planned_geometry, c.geometry)"
-    )).scalars().all())
+    )
+    params: dict = {}
+    if tid is not None:
+        sql += " AND p.tenant_id = :tid"
+        params["tid"] = tid
+    return set(db.execute(text(sql), params).scalars().all())
 
 
 def compute_checks(plan: m.TreatmentPlan, intersects_constraint: bool) -> tuple[list[dict], float]:

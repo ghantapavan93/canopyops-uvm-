@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.database import SessionLocal
+from app.core.tenancy import reset_current_tenant, set_current_tenant
 from app.models import domain as m
 from app.services import importers, proofpack
 
@@ -82,9 +83,13 @@ def process(db: Session, job_id: str) -> None:
     job = db.get(m.Job, job_id)
     if job is None:
         return
+    # Run the job under ITS tenant, so the handler's queries are isolated to the
+    # program that enqueued it (the worker itself spans all tenants).
+    tenant_token = set_current_tenant(job.tenant_id)
     with _tracer.start_as_current_span(f"job {job.type}") as span:
         span.set_attribute("job.id", job.id)
         span.set_attribute("job.type", job.type)
+        span.set_attribute("tenant.id", job.tenant_id or "")
         try:
             handler = HANDLERS.get(job.type)
             if handler is None:
@@ -110,6 +115,8 @@ def process(db: Session, job_id: str) -> None:
             logger.warning("job_failed", extra={
                 "job_id": job.id, "type": job.type, "attempts": job.attempts, "error": job.error,
             })
+        finally:
+            reset_current_tenant(tenant_token)
 
 
 def run_once(session_factory: sessionmaker = SessionLocal) -> bool:

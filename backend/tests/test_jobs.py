@@ -4,6 +4,7 @@ GeoJSON import run off the request path."""
 from __future__ import annotations
 
 from app.core.database import SessionLocal
+from app.core.tenancy import reset_current_tenant, set_current_tenant
 from app.models import domain as m
 from app.services import jobs
 from tests.conftest import auth
@@ -69,9 +70,13 @@ def test_geojson_import_job_creates_corridors(client):
 def test_failed_job_retries_then_fails(client):
     # a proof_pack job for a plan that will be deleted before it runs → handler
     # raises → retry/backoff until max_attempts, then terminal 'failed'
-    with SessionLocal() as db:
-        job = jobs.enqueue(db, "proof_pack", {"plan_id": "does-not-exist"}, max_attempts=2)
-        job_id = job.id
+    token = set_current_tenant("demo")   # enqueue outside a request needs a program
+    try:
+        with SessionLocal() as db:
+            job = jobs.enqueue(db, "proof_pack", {"plan_id": "does-not-exist"}, max_attempts=2)
+            job_id = job.id
+    finally:
+        reset_current_tenant(token)
     # first run: attempt 1 fails → requeued with backoff (run_after in the future)
     jobs.run_once(SessionLocal)
     with SessionLocal() as db:

@@ -32,8 +32,27 @@ def verify_password(raw: str, hashed: str) -> bool:
 
 def create_access_token(user: User) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=_settings.jwt_expire_minutes)
-    payload = {"sub": user.id, "role": user.role.value, "email": user.email, "exp": expire}
+    payload = {
+        "sub": user.id, "role": user.role.value, "email": user.email,
+        "tenant": user.tenant_id, "exp": expire,
+    }
     return jwt.encode(payload, _settings.jwt_secret, algorithm=_settings.jwt_algorithm)
+
+
+def tenant_from_authorization(authorization: str | None) -> str:
+    """Extract the tenant slug from a Bearer token without a DB hit; falls back
+    to the default program for unauthenticated / public requests."""
+    from app.core.tenancy import DEFAULT_TENANT
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return DEFAULT_TENANT
+    try:
+        payload = jwt.decode(
+            authorization.split(" ", 1)[1], _settings.jwt_secret,
+            algorithms=[_settings.jwt_algorithm],
+        )
+        return payload.get("tenant") or DEFAULT_TENANT
+    except JWTError:
+        return DEFAULT_TENANT
 
 
 def get_current_user(

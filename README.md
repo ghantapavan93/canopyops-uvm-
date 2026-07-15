@@ -119,7 +119,8 @@ canopyops/
 sequence views, data model, state machine, ADRs) · [`FAILURE-MAP.md`](docs/FAILURE-MAP.md)
 (20 edge cases → safe behavior) · [`RUNBOOK.md`](docs/RUNBOOK.md) (RPO/RTO, backups,
 recovery) · [`SLO.md`](docs/SLO.md) · [`LOAD-TEST.md`](docs/LOAD-TEST.md) (measured)
-· [`ACCESSIBILITY.md`](docs/ACCESSIBILITY.md) (axe gate) · [`BROWSER-MATRIX.md`](docs/BROWSER-MATRIX.md).
+· [`ACCESSIBILITY.md`](docs/ACCESSIBILITY.md) (axe gate) · [`BROWSER-MATRIX.md`](docs/BROWSER-MATRIX.md)
+· [`MULTI-TENANCY.md`](docs/MULTI-TENANCY.md) (program isolation).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the system/container/sequence
 views, the data model, the state machine, architecture decision records, and the
@@ -149,6 +150,13 @@ a real SAP connection.
   verification until recovered.
 - **Human-authored outcome** — the API never declares a site effective, safe, or
   compliant. RBAC is enforced on every mutation.
+- **Tenant (program) isolation** — every program-owned row carries a `tenant_id`
+  and is auto-scoped by a SQLAlchemy `Session` filter driven by the JWT, so one
+  utility program can never read or fetch another's data (a cross-program fetch
+  returns `404`, not `403`). A forgotten `WHERE tenant_id` can't leak — the
+  filter is applied centrally. Switch programs live via the header's **NorthGrid**
+  button. DB Row-Level Security is documented as the production hardening in
+  [`docs/MULTI-TENANCY.md`](docs/MULTI-TENANCY.md).
 
 ### Scalability & reliability
 

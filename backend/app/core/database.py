@@ -54,6 +54,11 @@ engine = build_engine()
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
+# Install the multi-tenant read filter + insert stamp on the Session class.
+from app.core.tenancy import register_tenant_guards  # noqa: E402
+
+register_tenant_guards()
+
 
 def pool_status() -> dict:
     """A snapshot of the connection pool for the health surface."""

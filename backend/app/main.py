@@ -20,6 +20,8 @@ from app.core.database import engine
 from app.core.logging import setup_logging
 from app.core.metrics import metrics
 from app.core.ratelimit import rate_limiter
+from app.core.security import tenant_from_authorization
+from app.core.tenancy import reset_current_tenant, set_current_tenant
 from app.core.telemetry import current_trace_id, setup_telemetry
 
 from app.api import (
@@ -88,6 +90,20 @@ def _client_key(request: Request) -> str:
     if xff:
         return xff.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+@app.middleware("http")
+async def tenant_scope_middleware(request: Request, call_next):
+    """Set the current tenant (program) for the request from the JWT, so the
+    Session-level filter isolates every query. Unauthenticated/public requests
+    resolve to the default demo program."""
+    tenant = tenant_from_authorization(request.headers.get("Authorization"))
+    request.state.tenant = tenant
+    token = set_current_tenant(tenant)
+    try:
+        return await call_next(request)
+    finally:
+        reset_current_tenant(token)
 
 
 @app.middleware("http")
