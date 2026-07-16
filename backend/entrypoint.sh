@@ -7,7 +7,8 @@ import time, sys
 from sqlalchemy import create_engine, text
 from app.core.config import get_settings
 
-url = get_settings().database_url
+# Use the admin URL — the app role may not exist until migrations run.
+url = get_settings().effective_admin_url
 for attempt in range(30):
     try:
         create_engine(url).connect().execute(text("SELECT 1"))

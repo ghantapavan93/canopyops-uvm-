@@ -4,6 +4,10 @@ can never see or fetch another program's data — enforced at the data-access
 layer, not just the UI."""
 from __future__ import annotations
 
+from sqlalchemy import text
+
+from app.core.database import AdminSessionLocal, SessionLocal
+from app.core.tenancy import reset_current_tenant, set_current_tenant
 from tests.conftest import auth
 
 
@@ -69,3 +73,25 @@ def test_new_rows_are_stamped_with_the_creators_program(client):
     # northgrid can't see it
     assert client.get(f"/api/treatments/{new_id}",
                       headers=auth(client, "ng.manager@synthetic.test")).status_code == 404
+
+
+def test_rls_enforced_at_the_database_even_for_raw_sql(client):
+    """The DATABASE enforces isolation, not just the ORM filter: a raw SQL count
+    (which the app-layer ``with_loader_criteria`` never touches) still returns
+    only the current program's rows, because Postgres Row-Level Security applies
+    to the non-superuser app role. If the app connects as a superuser this test
+    fails — which is exactly the point."""
+    # superuser (admin) sees every program's plans — RLS is bypassed for it
+    with AdminSessionLocal() as adb:
+        total = adb.execute(text("SELECT count(*) FROM treatment_plan")).scalar()
+
+    # the app role, scoped to northgrid, sees only northgrid's — enforced by the DB
+    token = set_current_tenant("northgrid")
+    try:
+        with SessionLocal() as db:
+            scoped = db.execute(text("SELECT count(*) FROM treatment_plan")).scalar()
+    finally:
+        reset_current_tenant(token)
+
+    assert scoped == 1, "RLS should hide every other program's plans from a raw query"
+    assert total > scoped, "more plans exist across programs, invisible to the scoped role"

@@ -36,7 +36,10 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
+      # App connects as a NON-superuser role so Row-Level Security applies;
+      # migrations + seed use the superuser (ADMIN_DATABASE_URL).
+      DATABASE_URL: postgresql+psycopg2://canopyops_app:canopyops_app@db:5432/canopyops
+      ADMIN_DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
       FRONTEND_ORIGIN: http://localhost:8080
       SEED_ON_START: "true"
       # Scalability / reliability knobs (see app/core/config.py). Kept at 1
@@ -84,7 +87,8 @@ services:
     # loop. depends_on api-healthy guarantees migrations have already run.
     entrypoint: ["python", "-m", "app.worker"]
     environment:
-      DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
+      DATABASE_URL: postgresql+psycopg2://canopyops_app:canopyops_app@db:5432/canopyops
+      ADMIN_DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@db:5432/canopyops
       OTEL_SERVICE_NAME: "canopyops-api"
       STORAGE_BACKEND: "s3"
       STORAGE_ENDPOINT: "http://minio:9000"

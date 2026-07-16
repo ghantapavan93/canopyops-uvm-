@@ -154,8 +154,11 @@ a real SAP connection.
   and is auto-scoped by a SQLAlchemy `Session` filter driven by the JWT, so one
   utility program can never read or fetch another's data (a cross-program fetch
   returns `404`, not `403`). A forgotten `WHERE tenant_id` can't leak — the
-  filter is applied centrally. Switch programs live via the header's **NorthGrid**
-  button. DB Row-Level Security is documented as the production hardening in
+  filter is applied centrally. And **Postgres Row-Level Security is enabled** for
+  defense-in-depth: the API/worker connect as a non-superuser role and per-program
+  policies key on a transaction GUC, so even a raw SQL query can't cross programs
+  (verified: a raw count returns 6 for demo, 1 for NorthGrid, 0 with the GUC
+  unset). Switch programs live via the header's **NorthGrid** button. See
   [`docs/MULTI-TENANCY.md`](docs/MULTI-TENANCY.md).
 
 ### Scalability & reliability

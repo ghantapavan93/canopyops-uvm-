@@ -43,27 +43,38 @@ under one program is invisible to the other. Try it live: the header's program
 switcher (**NorthGrid ⧉**) logs in as a different program and the whole console's
 data changes.
 
-## Production hardening: database Row-Level Security (RLS)
+## Defense-in-depth: database Row-Level Security (RLS) — **enabled**
 
-The app-layer filter above is the active guarantee. For defense-in-depth, add
-Postgres **RLS** so the *database* refuses cross-tenant rows even for a raw query
-or a bug. It requires (a) a **non-superuser** app role (superusers bypass RLS),
-and (b) setting the tenant as a transaction GUC in `get_db`
-(`SET LOCAL app.tenant_id = :tenant`). Then, per scoped table:
+The app-layer filter is one guarantee; the **database enforces a second**, so a
+raw query or an ORM-filter bug still can't cross programs. This is live in the
+demo (migration `f7a1c2d8e934`):
+
+- **A non-superuser app role.** The API + worker connect as `canopyops_app`
+  (superusers bypass RLS); migrations and seeding use the superuser via
+  `ADMIN_DATABASE_URL`.
+- **A transaction GUC.** A SQLAlchemy `after_begin` hook runs
+  `SELECT set_config('app.tenant_id', :tenant, true)` at the start of every
+  transaction from the request/worker's ContextVar. Being **transaction-local**,
+  it clears on commit — a pooled connection never carries a stale program.
+- **Policies** on every program-owned table (`job` excluded — the worker claims
+  across programs, then runs each job under its own program):
 
 ```sql
 ALTER TABLE treatment_plan ENABLE ROW LEVEL SECURITY;
-ALTER TABLE treatment_plan FORCE  ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON treatment_plan
   USING      (tenant_id = current_setting('app.tenant_id', true))
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true));
-GRANT SELECT, INSERT, UPDATE, DELETE ON treatment_plan TO canopyops_app;
 ```
 
-This is documented rather than enabled in the demo because the compose Postgres
-role is a superuser (which bypasses RLS) and the GUC must be transaction-scoped;
-wiring both is the production step. The app-layer enforcement is what the tests
-exercise today.
+Proven at the DB (see `test_rls_enforced_at_the_database_even_for_raw_sql` and a
+psql check): as `canopyops_app`, a **raw** `SELECT count(*) FROM treatment_plan`
+returns 6 with `app.tenant_id=demo`, 1 with `northgrid`, and **0 with the GUC
+unset** (fail-closed) — while the superuser sees all 7 (RLS bypassed).
+
+An unset GUC yielding zero rows is deliberate: every HTTP request sets a program
+(the default `demo` for public/unauthenticated), and only trusted infra
+(migrations/seed as superuser; the worker's cross-program job claim on the
+RLS-exempt `job` table) runs without it.
 
 ## Known limitations
 

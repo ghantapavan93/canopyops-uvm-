@@ -11,9 +11,18 @@ class Settings(BaseSettings):
     environment: str = "local"
 
     # Database (PostGIS). Overridden by docker-compose in the container network.
+    # `database_url` is the APP connection — a non-superuser role so Postgres
+    # Row-Level Security actually applies (superusers bypass RLS). Migrations and
+    # seeding use `admin_database_url` (the owner/superuser); when unset it falls
+    # back to database_url (single-role dev without RLS enforcement).
     database_url: str = (
         "postgresql+psycopg2://canopyops:canopyops@localhost:5432/canopyops"
     )
+    admin_database_url: str | None = None
+
+    @property
+    def effective_admin_url(self) -> str:
+        return self.admin_database_url or self.database_url
 
     # --- Connection pool + query-time bounds (reliability under load) ---------
     # Each worker owns a pool of this size; max_overflow bursts above it briefly.

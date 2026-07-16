@@ -15,7 +15,7 @@ from shapely.geometry import LineString, Point, Polygon
 from shapely.geometry import shape as to_geom  # noqa: F401
 from sqlalchemy import delete
 
-from app.core.database import SessionLocal, engine, Base
+from app.core.database import AdminSessionLocal, admin_engine, Base
 from app.core.security import hash_password
 from app.core.tenancy import DEFAULT_TENANT, reset_current_tenant, set_current_tenant
 from app.models import domain as m
@@ -47,8 +47,8 @@ def clear(db) -> None:
 
 
 def seed() -> None:
-    Base.metadata.create_all(engine)  # safety net if migrations skipped
-    db = SessionLocal()
+    Base.metadata.create_all(admin_engine)  # safety net if migrations skipped
+    db = AdminSessionLocal()
     tenant_token = None
     try:
         clear(db)

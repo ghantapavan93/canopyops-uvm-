@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import contextvars
 
-from sqlalchemy import String, event
+from sqlalchemy import String, event, text
 from sqlalchemy.orm import Mapped, Session, mapped_column, with_loader_criteria
 
 # The default program for the public demo + unauthenticated requests.
@@ -76,5 +76,18 @@ def register_tenant_guards() -> None:
         for obj in session.new:
             if isinstance(obj, TenantScoped) and getattr(obj, "tenant_id", None) is None:
                 obj.tenant_id = tenant
+
+    @event.listens_for(Session, "after_begin")
+    def _set_rls_guc(session, transaction, connection):  # noqa: ANN001
+        """Push the current program into a transaction-local Postgres GUC that
+        the Row-Level-Security policies read. Fires at the start of every
+        transaction (including after a mid-request commit), so the GUC is always
+        fresh; being transaction-local, it clears on commit so a pooled
+        connection never carries a stale program. No-op off Postgres / when no
+        program is set (RLS policies then fail closed — zero rows)."""
+        tenant = _current_tenant.get()
+        if tenant is None or connection.dialect.name != "postgresql":
+            return
+        connection.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant})
 
     register_tenant_guards._installed = True

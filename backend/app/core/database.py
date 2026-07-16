@@ -50,11 +50,17 @@ def build_engine(
     )
 
 
-engine = build_engine()
+engine = build_engine()  # app connection (non-superuser when RLS is enabled)
+
+# Owner/superuser connection for migrations + seeding (bypasses RLS so seed can
+# write across programs). Falls back to the app engine in single-role dev.
+admin_engine = build_engine(_settings.effective_admin_url)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+AdminSessionLocal = sessionmaker(bind=admin_engine, autoflush=False, autocommit=False, future=True)
 
-# Install the multi-tenant read filter + insert stamp on the Session class.
+# Install the multi-tenant read filter + insert stamp + the per-transaction
+# Row-Level-Security GUC on the Session class.
 from app.core.tenancy import register_tenant_guards  # noqa: E402
 
 register_tenant_guards()

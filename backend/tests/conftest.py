@@ -2,8 +2,14 @@
 reseed synthetic data before each test for isolation."""
 import os
 
+# The app under test connects as the NON-superuser role so Row-Level Security is
+# actually enforced; seed/admin work uses the superuser (ADMIN_DATABASE_URL).
 os.environ.setdefault(
     "DATABASE_URL",
+    "postgresql+psycopg2://canopyops_app:canopyops_app@localhost:5433/canopyops",
+)
+os.environ.setdefault(
+    "ADMIN_DATABASE_URL",
     "postgresql+psycopg2://canopyops:canopyops@localhost:5433/canopyops",
 )
 

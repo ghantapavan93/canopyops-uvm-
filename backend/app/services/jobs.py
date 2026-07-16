@@ -83,9 +83,8 @@ def process(db: Session, job_id: str) -> None:
     job = db.get(m.Job, job_id)
     if job is None:
         return
-    # Run the job under ITS tenant, so the handler's queries are isolated to the
-    # program that enqueued it (the worker itself spans all tenants).
-    tenant_token = set_current_tenant(job.tenant_id)
+    # NOTE: the current program must already be set by the caller (run_once)
+    # before this session opens, so the RLS GUC is applied from the first query.
     with _tracer.start_as_current_span(f"job {job.type}") as span:
         span.set_attribute("job.id", job.id)
         span.set_attribute("job.type", job.type)
@@ -115,16 +114,24 @@ def process(db: Session, job_id: str) -> None:
             logger.warning("job_failed", extra={
                 "job_id": job.id, "type": job.type, "attempts": job.attempts, "error": job.error,
             })
-        finally:
-            reset_current_tenant(tenant_token)
 
 
 def run_once(session_factory: sessionmaker = SessionLocal) -> bool:
     """Claim and process a single job. Returns True if one was processed."""
     with session_factory() as db:
-        job_id = claim_next(db)
+        job_id = claim_next(db)   # job has no RLS — claimed across all programs
     if not job_id:
         return False
+    # Discover the job's program BEFORE the working session opens, so the RLS
+    # GUC is set from that session's first query (via the after_begin hook).
     with session_factory() as db:
-        process(db, job_id)
+        tenant = db.execute(
+            text("SELECT tenant_id FROM job WHERE id = :i"), {"i": job_id}
+        ).scalar()
+    token = set_current_tenant(tenant)
+    try:
+        with session_factory() as db:
+            process(db, job_id)
+    finally:
+        reset_current_tenant(token)
     return True
