@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../../core/auth.service';
@@ -42,6 +42,14 @@ const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = 
       <header
         class="flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-surface px-4"
       >
+        <!-- Mobile module menu: the rail is desktop-only, so a field crew on a
+             phone reaches every module through this drawer. -->
+        <button type="button" (click)="mobileNav.set(true)"
+                class="-ml-1 grid h-9 w-9 place-items-center rounded-md text-ink hover:bg-surface-2 md:hidden"
+                aria-label="Open navigation menu" [attr.aria-expanded]="mobileNav()">
+          <span aria-hidden="true" class="text-lg">☰</span>
+        </button>
+
         <a routerLink="/" class="flex items-center gap-2 no-underline">
           <span
             class="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-ink"
@@ -71,7 +79,7 @@ const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = 
                   title="Current program (tenant) — data is isolated per program">⧉ {{ tenant }}</span>
           }
           <span class="hidden text-xs text-muted md:inline">Acting as</span>
-          <div class="flex overflow-hidden rounded-md border border-border" role="group"
+          <div class="hidden overflow-hidden rounded-md border border-border md:flex" role="group"
                aria-label="Switch synthetic role / program">
             @for (u of demoUsers; track u.key) {
               <button
@@ -129,6 +137,59 @@ const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = 
         </main>
       </div>
 
+      <!-- Mobile navigation drawer (module rail is hidden below md) -->
+      @if (mobileNav()) {
+        <div class="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true"
+             aria-label="Navigation menu">
+          <div class="absolute inset-0 bg-black/50" (click)="mobileNav.set(false)"></div>
+          <nav class="absolute left-0 top-0 flex h-full w-72 max-w-[82%] flex-col gap-1 overflow-y-auto border-r border-border bg-surface p-3 shadow-pop"
+               aria-label="Modules">
+            <div class="mb-2 flex items-center justify-between">
+              <span class="font-semibold text-ink">CanopyOps</span>
+              <button type="button" (click)="mobileNav.set(false)"
+                      class="grid h-8 w-8 place-items-center rounded-md text-ink hover:bg-surface-2"
+                      aria-label="Close navigation menu">
+                <span aria-hidden="true">✕</span>
+              </button>
+            </div>
+
+            <!-- Role/program switch (synthetic) also lives here on mobile, where
+                 the header switcher is hidden to avoid overflow. -->
+            <div class="mb-1 text-[11px] uppercase tracking-wide text-muted">Acting as</div>
+            <div class="mb-3 grid grid-cols-2 gap-1" role="group" aria-label="Switch synthetic role / program">
+              @for (u of demoUsers; track u.key) {
+                <button type="button" (click)="switchRole(u); mobileNav.set(false)"
+                        [class.bg-primary]="auth.user()?.email === u.email"
+                        [class.text-primary-ink]="auth.user()?.email === u.email"
+                        [attr.aria-pressed]="auth.user()?.email === u.email"
+                        class="rounded-md border border-border px-2 py-1.5 text-xs font-medium text-ink hover:bg-surface-2">
+                  {{ u.label }}
+                </button>
+              }
+            </div>
+
+            <div class="mb-1 text-[11px] uppercase tracking-wide text-muted">Modules</div>
+            @for (item of nav; track item.label) {
+              @if (item.ready && item.route) {
+                <a [routerLink]="item.route" (click)="mobileNav.set(false)"
+                   routerLinkActive="bg-primary-soft text-primary font-semibold"
+                   class="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink no-underline hover:bg-surface-2">
+                  <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
+                  {{ item.label }}
+                </a>
+              } @else {
+                <span class="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted opacity-60"
+                      [attr.aria-disabled]="true">
+                  <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
+                  {{ item.label }}
+                  <span class="ml-auto text-[10px] uppercase tracking-wide">soon</span>
+                </span>
+              }
+            }
+          </nav>
+        </div>
+      }
+
       <app-command-palette #palette />
     </div>
   `,
@@ -139,6 +200,14 @@ export class ConsoleShellComponent {
   readonly conn = inject(ConnectivityService);
   readonly demoUsers = DEMO_USERS;
   readonly role = this.auth.role;
+
+  /** Mobile navigation drawer open state (the module rail is desktop-only). */
+  readonly mobileNav = signal(false);
+
+  @HostListener('document:keydown.escape')
+  closeMobileNav(): void {
+    if (this.mobileNav()) this.mobileNav.set(false);
+  }
 
   readonly nav: NavItem[] = [
     { label: 'Program Overview', route: '/console/overview', glyph: '▦', ready: true },
