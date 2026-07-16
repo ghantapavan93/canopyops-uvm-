@@ -12,9 +12,21 @@ from app.services import jobs
 from tests.conftest import auth
 
 
-def test_list_jobs_requires_auth(client):
-    assert client.get("/api/jobs").status_code == 401
-    assert client.get("/api/jobs/whatever").status_code == 401
+def test_job_reads_are_open_but_tenant_scoped(client):
+    """Reading the queue is open, like every other demo read — an anonymous
+    caller resolves to the demo program. Isolation comes from the tenant, not the
+    token, so requiring auth here bought nothing and only broke the Engineering
+    Evidence panel (it 401'd and rendered as 'empty' rather than 'broken').
+    Enqueuing work is still role-gated — that's asserted below."""
+    assert client.get("/api/jobs").status_code == 200
+    assert client.get("/api/jobs/does-not-exist").status_code == 404  # not 401
+
+
+def test_enqueue_still_requires_a_role(client):
+    """The write path is where authorization actually matters."""
+    plan_id = client.get("/api/treatments").json()[0]["planId"]
+    assert client.post(f"/api/jobs/proof-pack/{plan_id}").status_code == 401
+    assert client.post("/api/jobs/geojson-import", json={"features": []}).status_code == 401
 
 
 def test_reaper_fails_stuck_running_jobs(client):

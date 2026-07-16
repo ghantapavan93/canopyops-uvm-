@@ -12,6 +12,10 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    /* Lets the Engineering Evidence screen import the generated
+       assets/test-evidence.json, so the test counts it shows are compiled in
+       from a real run rather than hand-typed into the template. */
+    "resolveJsonModule": true,
     "sourceMap": true,
     "declaration": false,
     "experimentalDecorators": true,

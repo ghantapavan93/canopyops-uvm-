@@ -71,6 +71,12 @@ jobs:
         working-directory: backend
         run: pytest
 
+      - name: Engineering Evidence must not lie about the test count
+        # The screen's whole claim is "these numbers are real". They used to be
+        # hand-typed and drifted (it showed 136 while the suite was at 144). This
+        # re-runs the suite and fails if the number the app displays disagrees.
+        run: python scripts/test_evidence.py --check --suite pytest
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -86,6 +92,11 @@ jobs:
       - name: Unit tests (Jest)
         working-directory: frontend
         run: npm test -- --ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Engineering Evidence must not lie about the Jest count
+        run: python scripts/test_evidence.py --check --suite jest
       - name: Production build
         working-directory: frontend
         run: npm run build
@@ -127,6 +138,15 @@ jobs:
       - name: Run Cypress critical journey (headless)
         working-directory: frontend
         run: npx cypress run --browser electron
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Engineering Evidence must not lie about the Cypress count
+        # Re-seed first: the critical journey consumes its fixture record, so a
+        # second run against the same DB would fail for state, not for code.
+        run: |
+          docker compose exec -T api python -m app.seed
+          python scripts/test_evidence.py --check --suite cypress
       - name: Stack logs on failure
         if: failure()
         run: docker compose logs --tail 120

@@ -1,8 +1,9 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgClass } from '@angular/common';
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 
 import { ApiService } from '../../core/api.service';
 import { JobRecord, SystemHealth } from '../../core/models';
+import testEvidence from '../../../assets/test-evidence.json';
 
 interface Section {
   title: string;
@@ -15,7 +16,7 @@ interface Section {
 @Component({
   selector: 'app-engineering',
   standalone: true,
-  imports: [DatePipe],
+  imports: [DatePipe, NgClass],
   templateUrl: './engineering.component.html',
 })
 export class EngineeringComponent implements OnDestroy {
@@ -24,15 +25,37 @@ export class EngineeringComponent implements OnDestroy {
   readonly health = signal<SystemHealth | null>(null);
   /** Recent durable-queue jobs (processed by the worker container). */
   readonly jobs = signal<JobRecord[]>([]);
+  /** Why a live panel is blank, when it is. Swallowing these made a broken fetch
+   *  look identical to "nothing to show" — which is how a reviewer ends up
+   *  reading a working screen as unfinished. */
+  readonly healthError = signal<string | null>(null);
+  readonly jobsError = signal<string | null>(null);
+
+  /** Test counts, generated from a real run by scripts/test_evidence.py and
+   *  compiled in — never hand-typed. CI fails if they drift from reality. */
+  readonly testEvidence = testEvidence;
+
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     const poll = () => {
-      this.api.getMetrics().subscribe({ next: (h) => this.health.set(h), error: () => {} });
-      this.api.listJobs().subscribe({ next: (j) => this.jobs.set(j.slice(0, 6)), error: () => {} });
+      this.api.getMetrics().subscribe({
+        next: (h) => { this.health.set(h); this.healthError.set(null); },
+        error: (e) => this.healthError.set(this.describe(e)),
+      });
+      this.api.listJobs().subscribe({
+        next: (j) => { this.jobs.set(j.slice(0, 6)); this.jobsError.set(null); },
+        error: (e) => this.jobsError.set(this.describe(e)),
+      });
     };
     poll();
     this.timer = setInterval(poll, 5000);
+  }
+
+  private describe(e: { status?: number }): string {
+    if (e?.status === 0) return 'The API is unreachable from this browser.';
+    if (e?.status === 401) return 'Sign in to view the job queue.';
+    return `The API returned ${e?.status ?? 'an error'}.`;
   }
 
   jobClass(status: string): string {

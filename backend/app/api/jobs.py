@@ -57,11 +57,19 @@ def enqueue_geojson_import(
     return _out(job)
 
 
+# Reads are open, exactly like every other demo read in this app (treatments,
+# overview, risk…): an unauthenticated caller resolves to the demo program and
+# sees only that program's rows. Enqueuing work stays role-gated above.
+#
+# These two briefly required a token. That was inconsistent with the rest of the
+# read surface and bought no isolation — Job is TenantScoped, so scoping already
+# comes from the tenant, not the token. What it did buy was a broken Engineering
+# Evidence panel: the page 401'd and, because the client swallowed the error,
+# rendered empty rather than broken — which reads as an unfinished product.
+
+
 @router.get("/{job_id}", response_model=JobOut)
-def get_job(
-    job_id: str, db: Session = Depends(get_db),
-    user: m.User = Depends(get_current_user),
-) -> JobOut:
+def get_job(job_id: str, db: Session = Depends(get_db)) -> JobOut:
     job = db.get(m.Job, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Job not found"})
@@ -69,10 +77,7 @@ def get_job(
 
 
 @router.get("", response_model=list[JobOut])
-def list_jobs(
-    db: Session = Depends(get_db), limit: int = 25,
-    user: m.User = Depends(get_current_user),
-) -> list[JobOut]:
+def list_jobs(db: Session = Depends(get_db), limit: int = 25) -> list[JobOut]:
     rows = db.scalars(
         select(m.Job).order_by(m.Job.created_at.desc()).limit(min(limit, 100))
     ).all()
