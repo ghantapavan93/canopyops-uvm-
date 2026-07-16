@@ -42,15 +42,37 @@ differentiator. That's where depth pays off most.
 
 ## 3. Trade-offs a reviewer will probe
 
-### 3.1 Polling vs push
-Every live surface refetches every 12s and renders "updated Ns ago." Simple and
-robust, but O(N clients × polls) of load for data that changes rarely.
-- **Keep polling** if the story is "operational simplicity, no stateful fan-out."
-- **Move to SSE** (one-way server→client) if the story is "live ops board." SSE
-  fits this app better than websockets — traffic is one-directional and SSE
-  survives proxies/reconnects cheaply.
-- **Decision:** defensible either way; the failure is not having an answer.
-  Recommend SSE for the Command Center only, polling elsewhere.
+### 3.1 Polling vs push — RESOLVED: SSE for the Command Center
+Every live surface refetched every 12s — O(N clients × polls) for data that
+changes rarely. **Decision: SSE for the Command Center; polling stays elsewhere
+and as the fallback.** Traffic is one-directional, so SSE beats websockets here.
+
+What the implementation had to get right (each of these is a real trap):
+- **The stream carries a signal, not data.** On `treatments.changed` the client
+  refetches the page it's showing through the normal filtered/paged/tenant-scoped
+  read path — no parallel delta protocol to keep correct.
+- **Server-side watermark, cached per program.** Writes come from the API *and*
+  the worker (separate containers), so an in-process event bus would miss the
+  worker and need Redis to fan out. A cheap watermark query is correct for every
+  writer, and caching it per program means N clients cost ONE query per interval.
+- **Exempt from the in-flight limiter.** A long-lived stream counted against the
+  concurrency cap would let a few open dashboards hold every slot and shed all
+  real traffic.
+- **Never hold a DB session** for the stream's lifetime — a handful of viewers
+  would exhaust the pool. Open a short session per check.
+- **Capture the tenant eagerly.** `StreamingResponse` bodies run *after* the
+  middleware resets the tenant ContextVar.
+- **Bounded connection lifetime.** An endless stream leaves zombies when clients
+  vanish without a clean close and pins viewers to one replica; close
+  periodically and let the client reconnect.
+- **fetch + ReadableStream, not EventSource.** EventSource cannot send headers,
+  which would force the JWT into the query string (logged by every proxy).
+- **nginx must not buffer** (`proxy_buffering off` + `X-Accel-Buffering: no`) or
+  nothing ever reaches the browser.
+- **One loop only.** A reconnect loop guarded by a plain `stopped` flag can be
+  resurrected by a later `connect()` while it sleeps in backoff, leaving two live
+  streams. Browsers allow ~6 connections per origin over HTTP/1.1, so the extras
+  starve every XHR. Guarded with a generation counter.
 
 ### 3.2 Client-side vs server-side filtering
 The Command Center pulls up to 200 rows and filters status **client-side**. Past
@@ -77,10 +99,17 @@ things that need you today," with the full grid one click away.
 - Real photo capture buffered in IndexedDB with quota handling + resumable sync.
 
 **P2 — Scale the operator surfaces**
-- Server-side pagination + filtering for the Command Center queue; total counts.
-- List virtualization (windowing) so 10k rows stay smooth.
-- SSE for the live board; keep polling as the fallback.
-- An Overview "needs you today" focal card ahead of the tables.
+- ✅ Total counts (`X-Total-Count`) + honest "showing first N of TOTAL"; server-side
+  status filtering for Field Execution and Verification.
+- ✅ SSE for the live board, with polling kept as the fallback (see 3.1).
+- ⬜ Server-side pagination for the Command Center queue. Blocked on a
+  `GET /treatments/stats` endpoint: the KPI cards and status chips are computed
+  in the browser over the full loaded set, so paging without server-side facets
+  + summary would silently under-report them.
+- ⬜ List virtualization (windowing) so 10k rows stay smooth. Needs measured item
+  sizing — the queue rows are variable-height (conditional overdue badge and
+  constraint chips), so a fixed-size viewport misrenders them.
+- ⬜ An Overview "needs you today" focal card ahead of the tables.
 
 **P3 — Product/narrative polish**
 - Per-persona entry so each role lands on its 30-second job.

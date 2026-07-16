@@ -34,11 +34,15 @@ def _apply_filters(
     COUNT query so the returned rows and the reported total can never diverge."""
     if status:
         stmt = stmt.where(m.TreatmentPlan.status.in_(status))
+    # Join WorkOrder at most once — both the priority filter and the text search
+    # need it, and joining twice raises.
+    if priority or q:
+        stmt = stmt.join(m.WorkOrder)
     if priority:
-        stmt = stmt.join(m.WorkOrder).where(m.WorkOrder.priority.in_(priority))
+        stmt = stmt.where(m.WorkOrder.priority.in_(priority))
     if q:
         like = f"%{q}%"
-        stmt = stmt.join(m.WorkOrder).join(m.Corridor).where(
+        stmt = stmt.join(m.Corridor).where(
             or_(
                 m.WorkOrder.reference.ilike(like),
                 m.Corridor.circuit_id.ilike(like),
@@ -78,11 +82,10 @@ def list_treatments(
     # Total matching the filters BEFORE paging — so the client can show
     # "N of TOTAL" and page without loading the whole set. Exposed as a header
     # (X-Total-Count) to keep the body a plain list.
-    total = db.scalar(
-        select(func.count(func.distinct(m.TreatmentPlan.id))).select_from(
-            _apply_filters(select(m.TreatmentPlan.id), status, priority, q, bbox).subquery()
-        )
-    ) or 0
+    matching = _apply_filters(
+        select(m.TreatmentPlan.id), status, priority, q, bbox
+    ).distinct().subquery()
+    total = db.scalar(select(func.count()).select_from(matching)) or 0
     response.headers["X-Total-Count"] = str(total)
 
     stmt = _apply_filters(_base_query(), status, priority, q, bbox)

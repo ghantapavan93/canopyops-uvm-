@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
+import { LiveService } from '../../core/live.service';
 import {
   Corridor,
   EnvironmentalConstraint,
@@ -44,6 +45,8 @@ export class CommandCenterComponent implements OnDestroy {
   private api = inject(ApiService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  /** Server push. Named `sse` to avoid colliding with the `live` toggle below. */
+  readonly sse = inject(LiveService);
 
   readonly STATUS_META = STATUS_META;
   readonly PRIORITY_META = PRIORITY_META;
@@ -180,6 +183,16 @@ export class CommandCenterComponent implements OnDestroy {
       () => this.tick.set(Math.floor((Date.now() - this.start) / 1000)),
       1000,
     );
+
+    // Server push: refetch the current page only when the program's data
+    // actually changed. Note we do NOT skip on document.hidden — the server
+    // emits a change once per connection, so ignoring it would drop the update
+    // permanently rather than defer it.
+    this.sse.events.pipe(takeUntilDestroyed()).subscribe((name) => {
+      if (name === 'treatments.changed' && this.live()) this.reload(true);
+    });
+    this.sse.connect();
+
     this.startPoll();
   }
 
@@ -233,13 +246,16 @@ export class CommandCenterComponent implements OnDestroy {
   private startPoll(): void {
     if (this.pollId) clearInterval(this.pollId);
     this.pollId = setInterval(() => {
-      if (this.live() && !document.hidden) this.reload(true);
+      // Fallback only. While server push is connected it drives refreshes, so
+      // polling here would just be duplicate load.
+      if (this.live() && !document.hidden && !this.sse.connected()) this.reload(true);
     }, 12000);
   }
 
   ngOnDestroy(): void {
     if (this.clockId) clearInterval(this.clockId);
     if (this.pollId) clearInterval(this.pollId);
+    this.sse.disconnect();
   }
 
   setSort(key: SortKey): void {

@@ -27,6 +27,7 @@ from app.core.telemetry import current_trace_id, setup_telemetry
 from app.api import (
     audit,
     auth,
+    events,
     evidence,
     executions,
     geo_reference,
@@ -80,7 +81,12 @@ app.add_middleware(
 
 # Probes must answer even while the app is shedding load, so orchestrators can
 # still tell "overloaded" (shed 503s) apart from "unhealthy" (process/DB down).
-_SHED_EXEMPT = {"/api/health", "/api/ready"}
+#
+# /api/events/stream is exempt for a different reason: it is a LONG-LIVED SSE
+# connection. Counting it against the in-flight cap would let a handful of open
+# dashboards hold every slot for their entire session and shed all real traffic.
+# It does its own bounded work (one cached watermark query per interval).
+_SHED_EXEMPT = {"/api/health", "/api/ready", "/api/events/stream"}
 
 
 def _client_key(request: Request) -> str:
@@ -248,6 +254,7 @@ app.include_router(audit.router, prefix="/api")
 app.include_router(vault.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(events.router, prefix="/api")
 
 
 @app.get("/api")

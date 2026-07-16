@@ -199,3 +199,24 @@ def test_treatments_total_count_header(client):
     # Total is stable regardless of the page size requested.
     full = client.get("/api/treatments", params={"limit": 500}).json()
     assert total == len(full)
+
+
+def test_total_count_respects_filters(client):
+    """The total must reflect the SAME filters as the rows. Guards a real bug:
+    counting over a cross-joined subquery silently reported every plan instead
+    of the filtered set."""
+    everything = int(client.get("/api/treatments").headers["X-Total-Count"])
+    res = client.get("/api/treatments", params={"status": "scheduled", "limit": 500})
+    scoped = int(res.headers["X-Total-Count"])
+    rows = res.json()
+    assert scoped == len(rows)
+    assert scoped < everything  # the seed has more than just 'scheduled'
+
+
+def test_priority_and_search_filters_combine(client):
+    """priority + q both need the work_order join; joining it twice raises."""
+    res = client.get(
+        "/api/treatments", params={"priority": "hazard", "q": "CKT", "limit": 500}
+    )
+    assert res.status_code == 200, res.text
+    assert int(res.headers["X-Total-Count"]) == len(res.json())

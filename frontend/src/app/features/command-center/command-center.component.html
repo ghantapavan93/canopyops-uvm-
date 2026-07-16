@@ -54,10 +54,18 @@
             class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
             [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
             [class.border-border]="!live()" [class.text-muted]="!live()"
-            [title]="live() ? 'Live — auto-refreshing every 12s' : 'Paused'">
+            [title]="!live() ? 'Paused'
+              : sse.connected()
+                ? 'Live — the server pushes changes (SSE); no polling'
+                : 'Live — polling every 12s (server push unavailable)'">
       <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="live()" [class.live-dot]="live()"
             [class.bg-muted]="!live()"></span>
       {{ live() ? 'Live' : 'Paused' }}
+      @if (live()) {
+        <span class="text-[9px] font-semibold uppercase tracking-wide opacity-70">
+          {{ sse.connected() ? 'push' : 'poll' }}
+        </span>
+      }
     </button>
     <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
             class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
