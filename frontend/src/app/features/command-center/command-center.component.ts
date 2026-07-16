@@ -52,6 +52,9 @@ export class CommandCenterComponent implements OnDestroy {
   readonly sorts = SORTS;
 
   readonly records = signal<TreatmentRecord[]>([]);
+  /** Full filtered total on the server (from X-Total-Count) — may exceed the
+   *  loaded page, in which case the UI says so rather than silently truncating. */
+  readonly total = signal(0);
   readonly constraints = signal<EnvironmentalConstraint[]>([]);
   readonly corridors = signal<Corridor[]>([]);
   readonly loading = signal(true);
@@ -188,10 +191,12 @@ export class CommandCenterComponent implements OnDestroy {
       .listTreatments({
         q: this.q() || undefined,
         priority: [...this.activePriorities()],
+        limit: 500,
       })
       .subscribe({
-        next: (records) => {
-          this.records.set(records);
+        next: ({ items, total }) => {
+          this.records.set(items);
+          this.total.set(total);
           this.loading.set(false);
           this.refreshing.set(false);
           this.lastSync.set(this.tick());

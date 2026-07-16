@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import {
@@ -46,19 +47,32 @@ export class ApiService {
   private http = inject(HttpClient);
   private base = environment.apiBase;
 
-  /** Command Center / queue rows, optionally filtered server-side. */
+  /** Command Center / queue rows, filtered + paged server-side. Returns the page
+   *  plus the full filtered total (from the X-Total-Count header) so the UI can
+   *  show "N of TOTAL" and page without loading the whole set. */
   listTreatments(filters: {
     status?: string[];
     priority?: string[];
     bbox?: [number, number, number, number];
     q?: string;
-  } = {}): Observable<TreatmentRecord[]> {
+    limit?: number;
+    offset?: number;
+  } = {}): Observable<{ items: TreatmentRecord[]; total: number }> {
     let params = new HttpParams();
     for (const s of filters.status ?? []) params = params.append('status', s);
     for (const p of filters.priority ?? []) params = params.append('priority', p);
     if (filters.q) params = params.set('q', filters.q);
     if (filters.bbox) params = params.set('bbox', filters.bbox.join(','));
-    return this.http.get<TreatmentRecord[]>(`${this.base}/treatments`, { params });
+    if (filters.limit != null) params = params.set('limit', String(filters.limit));
+    if (filters.offset != null) params = params.set('offset', String(filters.offset));
+    return this.http
+      .get<TreatmentRecord[]>(`${this.base}/treatments`, { params, observe: 'response' })
+      .pipe(
+        map((resp) => ({
+          items: resp.body ?? [],
+          total: Number(resp.headers.get('X-Total-Count') ?? (resp.body?.length ?? 0)),
+        })),
+      );
   }
 
   getTreatment(planId: string): Observable<TreatmentRecord> {

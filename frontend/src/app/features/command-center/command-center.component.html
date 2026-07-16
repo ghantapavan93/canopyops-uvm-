@@ -149,6 +149,12 @@
         <div class="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-1.5 backdrop-blur">
           <span class="text-[11px] font-semibold tabular-nums text-ink">{{ visible().length }}</span>
           <span class="text-[11px] text-muted">in queue</span>
+          @if (total() > records().length) {
+            <span class="rounded-sm bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn"
+                  title="More records match on the server than are loaded here — refine filters or page.">
+              of {{ total() }} · showing first {{ records().length }}
+            </span>
+          }
           <label class="ml-auto flex items-center gap-1 text-[11px] text-muted">
             <span class="sr-only">Sort queue</span>
             Sort

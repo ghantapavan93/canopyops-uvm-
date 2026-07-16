@@ -118,11 +118,9 @@ export class FieldExecutionComponent implements OnDestroy {
 
   private loadPlans(silent = false): void {
     if (silent) this.refreshing.set(true);
-    this.api.listTreatments().subscribe({
-      next: (rows) => {
-        this.plans.set(
-          rows.filter((r) => ['draft', 'scheduled', 'in_progress', 'applied'].includes(r.status)),
-        );
+    this.api.listTreatments({ status: ['draft', 'scheduled', 'in_progress', 'applied'] }).subscribe({
+      next: ({ items }) => {
+        this.plans.set(items);
         this.refreshing.set(false);
         this.lastSync.set(this.tick());
       },

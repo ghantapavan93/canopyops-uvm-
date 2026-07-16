@@ -74,7 +74,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Correlation-Id"],
+    expose_headers=["X-Correlation-Id", "X-Total-Count"],
 )
 
 

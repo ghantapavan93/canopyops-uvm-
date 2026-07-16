@@ -186,3 +186,16 @@ def test_validation_errors_use_structured_envelope(client):
 def test_treatments_pagination_limit(client):
     rows = client.get("/api/treatments", params={"limit": 2}).json()
     assert len(rows) <= 2
+
+
+def test_treatments_total_count_header(client):
+    """The X-Total-Count header reports the full filtered total, independent of
+    the page limit, so the client can page without loading everything."""
+    res = client.get("/api/treatments", params={"limit": 1})
+    assert "X-Total-Count" in res.headers
+    total = int(res.headers["X-Total-Count"])
+    assert len(res.json()) <= 1
+    assert total >= len(res.json())
+    # Total is stable regardless of the page size requested.
+    full = client.get("/api/treatments", params={"limit": 500}).json()
+    assert total == len(full)

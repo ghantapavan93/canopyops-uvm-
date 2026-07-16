@@ -1,8 +1,8 @@
 """Treatment records — the Command Center queue and detail (read side)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.database import get_db
@@ -23,17 +23,15 @@ def _base_query():
     )
 
 
-@router.get("", response_model=list[TreatmentRecord])
-def list_treatments(
-    db: Session = Depends(get_db),
-    status: list[e.TreatmentStatus] | None = Query(default=None),
-    priority: list[e.WorkOrderPriority] | None = Query(default=None),
-    q: str | None = Query(default=None),
-    bbox: str | None = Query(default=None, description="minLon,minLat,maxLon,maxLat"),
-    limit: int = Query(default=200, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-) -> list[TreatmentRecord]:
-    stmt = _base_query()
+def _apply_filters(
+    stmt: Select,
+    status: list[e.TreatmentStatus] | None,
+    priority: list[e.WorkOrderPriority] | None,
+    q: str | None,
+    bbox: str | None,
+) -> Select:
+    """Apply the Command Center filter set. Shared by the page query and the
+    COUNT query so the returned rows and the reported total can never diverge."""
     if status:
         stmt = stmt.where(m.TreatmentPlan.status.in_(status))
     if priority:
@@ -63,7 +61,31 @@ def list_treatments(
                 func.ST_MakeEnvelope(min_lon, min_lat, max_lon, max_lat, 4326),
             )
         )
+    return stmt
 
+
+@router.get("", response_model=list[TreatmentRecord])
+def list_treatments(
+    response: Response,
+    db: Session = Depends(get_db),
+    status: list[e.TreatmentStatus] | None = Query(default=None),
+    priority: list[e.WorkOrderPriority] | None = Query(default=None),
+    q: str | None = Query(default=None),
+    bbox: str | None = Query(default=None, description="minLon,minLat,maxLon,maxLat"),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> list[TreatmentRecord]:
+    # Total matching the filters BEFORE paging — so the client can show
+    # "N of TOTAL" and page without loading the whole set. Exposed as a header
+    # (X-Total-Count) to keep the body a plain list.
+    total = db.scalar(
+        select(func.count(func.distinct(m.TreatmentPlan.id))).select_from(
+            _apply_filters(select(m.TreatmentPlan.id), status, priority, q, bbox).subquery()
+        )
+    ) or 0
+    response.headers["X-Total-Count"] = str(total)
+
+    stmt = _apply_filters(_base_query(), status, priority, q, bbox)
     # Bounded page for scalability — a real program has thousands of spans.
     stmt = stmt.order_by(m.TreatmentPlan.created_at).limit(limit).offset(offset)
     plans = db.scalars(stmt).unique().all()

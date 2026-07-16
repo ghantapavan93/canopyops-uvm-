@@ -133,13 +133,11 @@ export class VerificationComponent implements OnDestroy {
 
   private load(silent = false): void {
     if (silent) this.refreshing.set(true);
-    this.api.listTreatments().subscribe({
-      next: (rows) => {
-        this.records.set(
-          rows.filter((r) =>
-            ['awaiting_verification', 'effective', 'partially_effective', 'ineffective', 'inconclusive', 'follow_up_planned'].includes(r.status),
-          ),
-        );
+    this.api.listTreatments({
+      status: ['awaiting_verification', 'effective', 'partially_effective', 'ineffective', 'inconclusive', 'follow_up_planned'],
+    }).subscribe({
+      next: ({ items }) => {
+        this.records.set(items);
         this.refreshing.set(false);
         this.lastSync.set(this.tick());
       },
