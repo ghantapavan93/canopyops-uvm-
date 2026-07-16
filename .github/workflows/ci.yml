@@ -20,7 +20,22 @@ jobs:
           --health-cmd "pg_isready -U canopyops"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@localhost:5432/canopyops
+      # Mirror the REAL two-role setup, exactly as production runs it.
+      #
+      # ADMIN_DATABASE_URL is the superuser: alembic + seed need it (the app role
+      # doesn't exist until the RLS migration CREATEs it).
+      #
+      # DATABASE_URL is the NON-superuser app role. This matters: superusers
+      # bypass Row-Level Security unconditionally, so pointing the app at the
+      # superuser meant CI exercised ZERO of the DB-level tenant isolation —
+      # a dropped policy or a removed FORCE ROW LEVEL SECURITY would have gone
+      # green. (It also made test_rls_enforced_at_the_database_even_for_raw_sql
+      # fail by construction — that test asserts the DB blocks a cross-tenant
+      # raw-SQL read, which a superuser is entitled to do.)
+      #
+      # The role + password are created by migration f7a1c2d8e934.
+      ADMIN_DATABASE_URL: postgresql+psycopg2://canopyops:canopyops@localhost:5432/canopyops
+      DATABASE_URL: postgresql+psycopg2://canopyops_app:canopyops_app@localhost:5432/canopyops
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,9 +46,27 @@ jobs:
         run: pip install -r requirements.txt
       - name: Migrate + seed
         working-directory: backend
+        # alembic reads effective_admin_url, so this runs as the superuser and
+        # creates the canopyops_app role that pytest then connects as.
         run: |
           alembic upgrade head
           python -m app.seed
+      - name: Verify the app role is actually RLS-bound
+        working-directory: backend
+        # Fail loudly if the app role ever gains SUPERUSER/BYPASSRLS — either
+        # would silently void every tenant boundary in the app with no error.
+        run: |
+          python - <<'PY'
+          from sqlalchemy import create_engine, text
+          from app.core.config import get_settings
+          with create_engine(get_settings().effective_admin_url).connect() as c:
+              row = c.execute(text(
+                  "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname='canopyops_app'"
+              )).one_or_none()
+          assert row is not None, "canopyops_app role missing — did the RLS migration run?"
+          assert row == (False, False), f"app role must not be SUPERUSER/BYPASSRLS, got {row}"
+          print("app role is a plain non-superuser — RLS will apply")
+          PY
       - name: Run pytest
         working-directory: backend
         run: pytest
