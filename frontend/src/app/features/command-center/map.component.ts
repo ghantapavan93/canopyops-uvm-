@@ -86,6 +86,7 @@ export class MapComponent implements OnDestroy {
 
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map?: MlMap;
+  private hasFit = false;   // camera auto-fit runs once, not on every live poll
   private ready = signal(false);
   private dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 
@@ -102,7 +103,10 @@ export class MapComponent implements OnDestroy {
       this.setSource('constraints', this.constraintFC(constraints));
       this.setSource('corridors', this.corridorFC(corridors));
       this.setSource('planned', this.plannedFC(records, selected));
-      this.fit(records);
+      // Fit only on the first data load — the 12s live poll re-sets `records`, so
+      // refitting every time would yank the camera back and discard whatever the
+      // operator panned/zoomed to. Selecting a row must not refit either.
+      if (!this.hasFit) this.fit(records);
     });
 
     // React to basemap switches (real imagery slides under the synthetic layers).
@@ -249,5 +253,6 @@ export class MapComponent implements OnDestroy {
       ],
       { padding: 64, maxZoom: 15, duration: 500 },
     );
+    this.hasFit = true;
   }
 }

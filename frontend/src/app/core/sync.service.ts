@@ -115,12 +115,23 @@ export class SyncService {
       await this.outbox.put({ ...item, status: 'synced', result, conflict: undefined });
     } catch (err) {
       const e = err as HttpErrorResponse;
-      if (e.status === 409) {
+      // Only a *revision* conflict is resolvable-with-server (its body carries
+      // serverRevision). Other 409s — e.g. "plan is closed" — are terminal
+      // rejections; routing them to 'conflict' would offer a "resolve with
+      // server" action that resubmits an undefined revision and 422s forever.
+      if (e.status === 409 && e.error?.detail?.serverRevision != null) {
         await this.outbox.put({
           ...item,
           status: 'conflict',
           attempts: item.attempts + 1,
           conflict: e.error?.detail,
+        });
+      } else if (e.status === 409) {
+        await this.outbox.put({
+          ...item,
+          status: 'failed',
+          attempts: item.attempts + 1,
+          lastError: e.error?.detail?.message ?? e.error?.message ?? 'Rejected by the server',
         });
       } else {
         await this.outbox.put({

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from geoalchemy2.shape import from_shape
 from shapely.geometry import shape
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.database import get_db
@@ -44,16 +45,33 @@ def create_plan(
             detail={"code": "invalid_geometry", "message": "Planned area must be a valid, non-self-intersecting polygon"},
         )
 
-    count = db.scalar(select(func.count()).select_from(m.WorkOrder)) or 0
-    work_order = m.WorkOrder(
-        reference=f"WO-2026-{2000 + count}",
-        priority=payload.priority,
-        corridor_id=corridor.id,
-        owner_id=user.id,
-        due_at=_now() + timedelta(days=payload.due_in_days),
-    )
-    db.add(work_order)
-    db.flush()
+    # The reference is derived from a per-program count, so two concurrent creates
+    # would generate the same "WO-2026-N" and collide on uq_work_order_ref_per_tenant.
+    # Insert inside a SAVEPOINT and retry with a bumped number on conflict, so a
+    # race yields a clean allocation instead of an uncaught IntegrityError → 500.
+    work_order: m.WorkOrder | None = None
+    for attempt in range(6):
+        count = db.scalar(select(func.count()).select_from(m.WorkOrder)) or 0
+        candidate = m.WorkOrder(
+            reference=f"WO-2026-{2000 + count + attempt}",
+            priority=payload.priority,
+            corridor_id=corridor.id,
+            owner_id=user.id,
+            due_at=_now() + timedelta(days=payload.due_in_days),
+        )
+        try:
+            with db.begin_nested():
+                db.add(candidate)
+                db.flush()
+            work_order = candidate
+            break
+        except IntegrityError:
+            continue
+    if work_order is None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "reference_conflict", "message": "Could not allocate a work-order reference; please retry."},
+        )
 
     plan = m.TreatmentPlan(
         work_order_id=work_order.id,

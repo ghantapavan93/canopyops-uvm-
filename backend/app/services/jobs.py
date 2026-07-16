@@ -94,7 +94,15 @@ def process(db: Session, job_id: str) -> None:
             if handler is None:
                 raise ValueError(f"no handler for job type {job.type!r}")
             result = handler(db, job.payload or {})
-            job = db.get(m.Job, job_id)   # re-attach (a handler may have committed)
+            # Re-attach WITH a row lock (a handler may have committed). If the
+            # reaper already declared this job failed while we ran long, the lock
+            # serialises us ahead of it and the status check stops us from
+            # resurrecting a job the system already gave up on.
+            job = db.get(m.Job, job_id, with_for_update=True)
+            if job is None or job.status != "running":
+                db.rollback()
+                logger.warning("job_finished_after_reap", extra={"job_id": job_id})
+                return
             job.status = "succeeded"
             job.result = result
             job.error = None

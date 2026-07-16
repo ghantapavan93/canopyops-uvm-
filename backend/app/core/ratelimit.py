@@ -73,10 +73,19 @@ class RateLimiter:
             return allowed, retry
 
     def _evict_full(self, now: float) -> None:
-        """Drop buckets that have fully refilled (idle clients) to bound memory."""
+        """Bound memory when the client cap is reached. First drop fully-refilled
+        (idle) buckets. If none are full — e.g. a burst of many distinct keys, as
+        a forged-header flood would produce — fall back to evicting the
+        least-recently-updated buckets so ``_buckets`` can never grow past the cap.
+        """
         stale = [k for k, b in self._buckets.items() if b.is_full(now)]
         for k in stale:
             del self._buckets[k]
+        if len(self._buckets) >= self._MAX_BUCKETS:
+            # Oldest-first eviction of ~10% to amortise the cost across insertions.
+            oldest = sorted(self._buckets.items(), key=lambda kv: kv[1].updated)
+            for k, _ in oldest[: max(1, self._MAX_BUCKETS // 10)]:
+                del self._buckets[k]
 
     def stats(self) -> dict:
         with self._lock:

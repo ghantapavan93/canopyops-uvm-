@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from geoalchemy2.shape import from_shape
 from shapely.geometry import shape
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
@@ -159,9 +160,21 @@ def submit_execution(
     if plan.status == e.TreatmentStatus.CLOSED:
         raise HTTPException(status_code=409, detail={"code": "closed", "message": "Plan is closed"})
 
+    # Validate the drawn geometry server-side (mirrors plan creation) so a
+    # malformed or non-polygon shape is a clean 422, not a 500 at insert.
+    try:
+        actual_geom = shape(payload.actual_geometry)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail={"code": "invalid_geometry", "message": "Unparseable geometry"}) from exc
+    if actual_geom.geom_type != "Polygon" or not actual_geom.is_valid or actual_geom.area == 0:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_geometry", "message": "Actual treated area must be a valid, non-self-intersecting polygon"},
+        )
+
     # 3) Create (or replace) the execution record.
     execution = plan.execution or m.TreatmentExecution(plan_id=plan.id)
-    execution.actual_geometry = from_shape(shape(payload.actual_geometry), srid=4326)
+    execution.actual_geometry = from_shape(actual_geom, srid=4326)
     execution.performed_at = payload.performed_at
     execution.crew_id = user.id
     execution.constraint_acknowledged = payload.constraint_acknowledged
@@ -199,7 +212,28 @@ def submit_execution(
         entity_id=plan.id, after={"status": plan.status.value, "coverage": execution.coverage_ratio},
         correlation_id=correlation_id,
     ))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent submission with the same Idempotency-Key won the race and
+        # inserted the SyncAttempt first (the check at step 1 read before it
+        # existed). Honour the idempotency contract: roll back our duplicate work
+        # and return the winner's result rather than a 500.
+        db.rollback()
+        prior = db.scalar(
+            select(m.SyncAttempt).where(
+                m.SyncAttempt.entity_type == "execution",
+                m.SyncAttempt.idempotency_key == idempotency_key,
+            )
+        )
+        if prior and prior.status == e.SyncStatus.ACCEPTED and prior.entity_id:
+            existing = _load_execution(db, prior.entity_id)
+            if existing:
+                return _result(existing, e.SyncStatus.DUPLICATE)
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "duplicate", "message": "This submission is already being processed."},
+        )
 
     execution = _load_execution(db, execution.id)
     return _result(execution, e.SyncStatus.ACCEPTED)

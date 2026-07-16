@@ -1,5 +1,5 @@
 import {
-  Component, ElementRef, afterNextRender, computed, inject, signal, viewChild,
+  Component, ElementRef, OnDestroy, afterNextRender, computed, inject, signal, viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -16,9 +16,17 @@ interface Layer { icon: string; name: string; detail: string; }
   templateUrl: './vision.component.html',
   styleUrl: './vision.component.scss',
 })
-export class VisionComponent {
+export class VisionComponent implements OnDestroy {
   private host = inject(ElementRef<HTMLElement>);
   private canvas = viewChild<ElementRef<HTMLCanvasElement>>('net');
+
+  // Long-lived resources spun up in afterNextRender — all released in ngOnDestroy
+  // so leaving /vision doesn't leave a resize listener, a perpetual rAF loop, or
+  // stray intervals running against a detached component.
+  private rafId: number | null = null;
+  private onResize: (() => void) | null = null;
+  private io?: IntersectionObserver;
+  private countTimers = new Set<ReturnType<typeof setInterval>>();
 
   // ---- interactive: roadmap phase ----
   readonly phase = signal<'near' | 'mid' | 'long'>('near');
@@ -108,6 +116,15 @@ export class VisionComponent {
     afterNextRender(() => { this.reveal(); this.network(); });
   }
 
+  ngOnDestroy(): void {
+    if (this.rafId != null) cancelAnimationFrame(this.rafId);
+    if (this.onResize) window.removeEventListener('resize', this.onResize);
+    if (this.typer) clearInterval(this.typer);
+    this.io?.disconnect();
+    for (const t of this.countTimers) clearInterval(t);
+    this.countTimers.clear();
+  }
+
   // ---- scroll reveal + count-up (content never hidden if JS misbehaves) ----
   private reveal(): void {
     const root = this.host.nativeElement as HTMLElement;
@@ -127,6 +144,7 @@ export class VisionComponent {
         }
       }
     }, { threshold: 0.14 });
+    this.io = io;
     els.forEach((el) => io.observe(el));
     root.querySelectorAll('[data-count]').forEach((el) => io.observe(el));
     setTimeout(() => {
@@ -141,8 +159,9 @@ export class VisionComponent {
     let i = 0; const steps = 26;
     const t = setInterval(() => {
       i++; el.textContent = String(Math.round((target * i) / steps));
-      if (i >= steps) { el.textContent = String(target); clearInterval(t); }
+      if (i >= steps) { el.textContent = String(target); clearInterval(t); this.countTimers.delete(t); }
     }, 32);
+    this.countTimers.add(t);
   }
 
   // ---- decorative canvas: a drifting grid-and-canopy network ----
@@ -155,6 +174,7 @@ export class VisionComponent {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const resize = () => { cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr; };
     resize();
+    this.onResize = resize;
     window.addEventListener('resize', resize);
     const N = 46;
     const nodes = Array.from({ length: N }, (_, i) => ({
@@ -189,7 +209,7 @@ export class VisionComponent {
         ctx.arc(n.x * w, n.y * h, 1.6 * dpr, 0, Math.PI * 2);
         ctx.fill();
       }
-      if (!reduce) requestAnimationFrame(draw);
+      if (!reduce) this.rafId = requestAnimationFrame(draw);
     };
     draw();
   }

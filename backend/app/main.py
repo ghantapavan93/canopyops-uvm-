@@ -84,11 +84,20 @@ _SHED_EXEMPT = {"/api/health", "/api/ready"}
 
 
 def _client_key(request: Request) -> str:
-    """Identify the caller for per-client limits. Trust the first X-Forwarded-For
-    hop when present (the nginx web tier sets it), else the socket peer."""
+    """Identify the caller for per-client limits.
+
+    Trust only proxy-set values the client can't forge. nginx sets ``X-Real-IP``
+    to the real socket peer (``$remote_addr``), so prefer it. The *first*
+    ``X-Forwarded-For`` hop is client-supplied — nginx *appends* the real IP with
+    ``$proxy_add_x_forwarded_for`` — so if we ever fall back to XFF we take the
+    right-most (proxy-appended) hop, never the left-most. Finally the socket peer.
+    """
+    real = request.headers.get("x-real-ip")
+    if real:
+        return real.strip()
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
