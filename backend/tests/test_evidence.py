@@ -3,16 +3,28 @@ presigned URL → finalize verifies the object exists → STORED, or FAILED (par
 upload) which is recoverable. Uploads are rate-limited."""
 from __future__ import annotations
 
+from app.core.database import AdminSessionLocal
 from app.core.ratelimit import RateLimiter
 from app.core.storage import get_storage
+from app.models import domain as m
+from app.models import enums as e
 from tests.conftest import auth
 
 
 def _evidence_id(client) -> str:
+    """An evidence id, reset to a not-yet-uploaded (PENDING) state so the upload
+    flow is exercisable — seeded evidence is STORED (immutable) by design."""
     for item in client.get("/api/audit/queue").json()["items"]:
         proof = client.get(f"/api/plans/{item['planId']}/proof").json()
         if proof.get("evidence"):
-            return proof["evidence"][0]["id"]
+            eid = proof["evidence"][0]["id"]
+            with AdminSessionLocal() as db:   # admin bypasses RLS to set up the fixture
+                obj = db.get(m.EvidenceItem, eid)
+                obj.upload_status = e.UploadStatus.PENDING
+                obj.checksum = None
+                obj.storage_key = None
+                db.commit()
+            return eid
     raise AssertionError("no evidence in the seed")
 
 
@@ -85,6 +97,43 @@ def test_upload_url_requires_crew_or_manager(client):
                          json={"content_type": "image/jpeg", "size_bytes": 10},
                          headers=auth(client, "reviewer@synthetic.test"))
     assert denied.status_code == 403
+
+
+def test_finalize_rejects_oversize_object(client):
+    ev = _evidence_id(client)
+    hdr = auth(client, "crew@synthetic.test")
+    key = client.post(f"/api/evidence/{ev}/upload-url",
+                      json={"content_type": "image/jpeg", "size_bytes": 12}, headers=hdr).json()["storageKey"]
+    # the presigned URL can't cap content-length: upload a huge object, declare nothing
+    get_storage().put(key, b"x" * 20_000_000)   # > 15 MB default limit
+    r = client.post(f"/api/evidence/{ev}/finalize", json={"checksum": "abc"}, headers=hdr).json()
+    assert r["uploadStatus"] == "failed"          # real stored size is enforced
+
+
+def test_finalize_is_idempotent_and_checksum_immutable(client):
+    ev = _evidence_id(client)
+    hdr = auth(client, "crew@synthetic.test")
+    key = client.post(f"/api/evidence/{ev}/upload-url",
+                      json={"content_type": "image/jpeg", "size_bytes": 4}, headers=hdr).json()["storageKey"]
+    get_storage().put(key, b"JPEG")
+    first = client.post(f"/api/evidence/{ev}/finalize", json={"checksum": "good"}, headers=hdr).json()
+    assert first["uploadStatus"] == "stored" and first["checksum"] == "good"
+    # a replay with a DIFFERENT checksum must not overwrite the recorded one
+    second = client.post(f"/api/evidence/{ev}/finalize", json={"checksum": "evil"}, headers=hdr).json()
+    assert second["uploadStatus"] == "stored" and second["checksum"] == "good"
+
+
+def test_cannot_reissue_upload_url_for_stored_evidence(client):
+    ev = _evidence_id(client)
+    hdr = auth(client, "crew@synthetic.test")
+    key = client.post(f"/api/evidence/{ev}/upload-url",
+                      json={"content_type": "image/jpeg", "size_bytes": 4}, headers=hdr).json()["storageKey"]
+    get_storage().put(key, b"JPEG")
+    client.post(f"/api/evidence/{ev}/finalize", json={"checksum": "good"}, headers=hdr)
+    # verified evidence is immutable — a new upload URL is refused
+    denied = client.post(f"/api/evidence/{ev}/upload-url",
+                         json={"content_type": "image/jpeg", "size_bytes": 4}, headers=hdr)
+    assert denied.status_code == 409
 
 
 def test_uploads_are_rate_limited(client, monkeypatch):

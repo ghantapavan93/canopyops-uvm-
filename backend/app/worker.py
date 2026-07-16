@@ -34,8 +34,13 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
     logger.info("worker_started")
     idle = 0
+    ticks = 0
     while _running:
         try:
+            # Periodically fail jobs a dead worker left stuck in 'running'.
+            ticks += 1
+            if ticks % 30 == 0:
+                jobs.reap_stuck()
             did_work = jobs.run_once()
         except Exception:  # noqa: BLE001 — never let the loop die
             logger.exception("worker_loop_error")

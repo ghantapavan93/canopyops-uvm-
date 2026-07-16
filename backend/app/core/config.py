@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     db_breaker_failure_threshold: int = 5
     db_breaker_reset_timeout_s: float = 10.0
 
+    # A job stuck in 'running' longer than this (a worker died mid-job) is reaped
+    # to a terminal 'failed' — never left running forever.
+    job_stuck_timeout_s: int = 300
+
     # --- Horizontal scale -----------------------------------------------------
     # Uvicorn worker processes. The API is stateless (session-per-request; all
     # shared state lives in Postgres), so this scales across cores/replicas with

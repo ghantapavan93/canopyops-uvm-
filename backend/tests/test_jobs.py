@@ -3,11 +3,43 @@ LOCKED) → runs the handler → terminal state, with retry/backoff. Proof Pack 
 GeoJSON import run off the request path."""
 from __future__ import annotations
 
-from app.core.database import SessionLocal
+from sqlalchemy import text
+
+from app.core.database import AdminSessionLocal, SessionLocal
 from app.core.tenancy import reset_current_tenant, set_current_tenant
 from app.models import domain as m
 from app.services import jobs
 from tests.conftest import auth
+
+
+def test_list_jobs_requires_auth(client):
+    assert client.get("/api/jobs").status_code == 401
+    assert client.get("/api/jobs/whatever").status_code == 401
+
+
+def test_reaper_fails_stuck_running_jobs(client):
+    token = set_current_tenant("demo")
+    try:
+        with SessionLocal() as db:
+            jid = jobs.enqueue(db, "proof_pack", {"plan_id": "x"}).id
+    finally:
+        reset_current_tenant(token)
+    # simulate a worker that claimed the job then died (old started_at, running)
+    with AdminSessionLocal() as db:
+        db.execute(text(
+            "UPDATE job SET status='running', started_at = now() - interval '1 hour' WHERE id = :i"
+        ), {"i": jid})
+        db.commit()
+    assert jobs.reap_stuck(SessionLocal, timeout_s=300) >= 1
+    got = client.get(f"/api/jobs/{jid}", headers=auth(client, "reviewer@synthetic.test")).json()
+    assert got["status"] == "failed"
+
+
+def test_geojson_import_rejects_oversize(client):
+    big = [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}}] * 10_001
+    r = client.post("/api/jobs/geojson-import", json={"features": big},
+                    headers=auth(client, "manager@synthetic.test"))
+    assert r.status_code == 422
 
 
 def _plan_id(client) -> str:
@@ -29,7 +61,7 @@ def test_worker_processes_proof_pack_to_success(client):
                          headers=auth(client, "reviewer@synthetic.test")).json()["id"]
 
     assert jobs.run_once(SessionLocal) is True          # the worker claims + runs it
-    done = client.get(f"/api/jobs/{job_id}").json()
+    done = client.get(f"/api/jobs/{job_id}", headers=auth(client, "reviewer@synthetic.test")).json()
     assert done["status"] == "succeeded"
     assert done["result"]["record"]                     # the assembled Proof Pack rode along
     assert done["startedAt"] and done["finishedAt"]
@@ -62,7 +94,7 @@ def test_geojson_import_job_creates_corridors(client):
     job_id = client.post("/api/jobs/geojson-import", json={"features": fc["features"]},
                          headers=auth(client, "manager@synthetic.test")).json()["id"]
     assert jobs.run_once(SessionLocal) is True
-    done = client.get(f"/api/jobs/{job_id}").json()
+    done = client.get(f"/api/jobs/{job_id}", headers=auth(client, "reviewer@synthetic.test")).json()
     assert done["status"] == "succeeded"
     assert done["result"]["imported"] == 1
 

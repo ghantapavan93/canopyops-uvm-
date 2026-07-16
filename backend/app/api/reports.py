@@ -70,10 +70,19 @@ def build_report(
     total = len(plans) or 1
     risk = {s.plan_id: s for s in score_spans(db)}
 
-    hftd_ids = set(db.execute(text(
+    # Raw SQL bypasses the ORM tenant filter, so scope it explicitly (matching
+    # risk.py / audit.py) — belt-and-suspenders with Postgres RLS.
+    from app.core.tenancy import get_current_tenant
+    _tid = get_current_tenant()
+    _hftd_sql = (
         "SELECT DISTINCT p.id FROM treatment_plan p, environmental_constraint c "
         "WHERE c.category = 'HFTD' AND ST_Intersects(p.planned_geometry, c.geometry)"
-    )).scalars().all())
+    )
+    _params: dict = {}
+    if _tid is not None:
+        _hftd_sql += " AND p.tenant_id = :tid"
+        _params["tid"] = _tid
+    hftd_ids = set(db.execute(text(_hftd_sql), _params).scalars().all())
 
     rows: list[ComplianceSpanRow] = []
     executed = evidence_complete = overdue = closed = hftd = 0

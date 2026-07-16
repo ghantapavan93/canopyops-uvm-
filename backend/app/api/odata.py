@@ -42,6 +42,15 @@ router = APIRouter(tags=["odata (SAP-style integration)"])
 PAGE_SIZE = 5  # server-driven paging window
 
 
+def _nonneg_int(raw: Any, default: int) -> int:
+    """Parse an OData $top/$skip value; fall back to `default` on anything
+    malformed, and never return a negative (which would corrupt slicing)."""
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return default
+
+
 # --------------------------------------------------------------------------- #
 # Projections: CanopyOps domain -> SAP-style WBS / CATS entities               #
 # --------------------------------------------------------------------------- #
@@ -56,7 +65,7 @@ def _iso(dt: datetime | None) -> str | None:
 
 def wbs_elements(db: Session) -> list[dict[str, Any]]:
     """One WBS element per treatment plan, parented to its circuit."""
-    plans = db.scalars(select(m.TreatmentPlan)).all()
+    plans = db.scalars(select(m.TreatmentPlan).order_by(m.TreatmentPlan.id)).all()
     out: list[dict[str, Any]] = []
     for p in plans:
         wo = p.work_order
@@ -86,7 +95,7 @@ def wbs_elements(db: Session) -> list[dict[str, Any]]:
 def cats_entries(db: Session) -> list[dict[str, Any]]:
     """Time confirmations derived from field executions, booked to a WBS."""
     users = {u.id: u.display_name for u in db.scalars(select(m.User)).all()}
-    plans = db.scalars(select(m.TreatmentPlan)).all()
+    plans = db.scalars(select(m.TreatmentPlan).order_by(m.TreatmentPlan.id)).all()
     out: list[dict[str, Any]] = []
     seq = 0
     for p in plans:
@@ -267,9 +276,10 @@ def _build_collection(
         rows = _apply_orderby(rows, params["$orderby"])
 
     total = len(rows)
-    skip = int(params.get("$skip", 0) or 0)
-    top = params.get("$top")
-    window = int(top) if top is not None else PAGE_SIZE
+    # $top/$skip are clamped to non-negative ints; malformed input falls back to
+    # the default instead of raising a 500.
+    skip = _nonneg_int(params.get("$skip"), 0)
+    window = _nonneg_int(params.get("$top"), PAGE_SIZE)
     page = rows[skip: skip + window]
 
     expand = {e.strip() for e in (params.get("$expand", "").split(",")) if e.strip()}
@@ -295,8 +305,9 @@ def _build_collection(
         body["@odata.count"] = total
     if skip + window < total:
         nxt = skip + window
+        top_raw = params.get("$top")
         body["@odata.nextLink"] = f"{entity_set}?$skip={nxt}" + (
-            f"&$top={top}" if top else "")
+            f"&$top={top_raw}" if top_raw else "")
     return body, _etag(body)
 
 

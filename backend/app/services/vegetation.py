@@ -122,8 +122,12 @@ def hotspots(db: Session) -> dict:
         geometry = to_geojson(corridor.centerline)
         if geometry and center_lon is None:
             coords = geometry.get("coordinates") or []
-            if coords:
-                center_lon, center_lat = coords[len(coords) // 2]
+            mid = coords[len(coords) // 2] if coords else None
+            # Only a LineString yields a flat [lon, lat] midpoint; guard against
+            # Point / MultiLineString geometries whose element isn't a pair.
+            if isinstance(mid, (list, tuple)) and len(mid) == 2 \
+                    and all(isinstance(c, (int, float)) for c in mid):
+                center_lon, center_lat = mid
 
         cells.append({
             "corridor_id": corridor.id,

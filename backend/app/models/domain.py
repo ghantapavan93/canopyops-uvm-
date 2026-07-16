@@ -80,9 +80,14 @@ class Corridor(TenantScoped, Base):
 
 class WorkOrder(TenantScoped, Base):
     __tablename__ = "work_order"
+    # References are unique PER PROGRAM — the generator counts a program's own
+    # work orders, so a global unique would collide across programs.
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "reference", name="uq_work_order_ref_per_tenant"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    reference: Mapped[str] = mapped_column(String, unique=True, index=True)  # WO-2026-0001
+    reference: Mapped[str] = mapped_column(String, index=True)  # WO-2026-0001 (per program)
     type: Mapped[str] = mapped_column(String, default="vegetation_maintenance")
     priority: Mapped[enums.WorkOrderPriority] = mapped_column(
         Enum(enums.WorkOrderPriority, name="work_order_priority"),
@@ -131,7 +136,7 @@ class TreatmentPlan(TenantScoped, Base):
         back_populates="plan", uselist=False
     )
     observations: Mapped[list[VerificationObservation]] = relationship(
-        back_populates="plan"
+        back_populates="plan", order_by="VerificationObservation.observed_at"
     )
 
 
@@ -242,8 +247,10 @@ class SyncAttempt(TenantScoped, Base):
     """Recoverable transport history for offline mobile mutations."""
 
     __tablename__ = "sync_attempt"
+    # Idempotency keys are per-program — two programs' devices could pick the
+    # same key without interfering.
     __table_args__ = (
-        UniqueConstraint("entity_type", "idempotency_key", name="uq_idempotency"),
+        UniqueConstraint("tenant_id", "entity_type", "idempotency_key", name="uq_idempotency"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)

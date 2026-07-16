@@ -109,6 +109,13 @@ def test_batch_dependency_short_circuits_on_failure(client):
     assert by_id["child"]["status"] == 424        # skipped because its dependency failed
 
 
+def test_paging_tolerates_malformed_top_skip(client):
+    # $top=abc / $skip=-3 must fall back to defaults, not 500
+    res = client.get("/api/odata/WbsElements?$top=abc&$skip=-3")
+    assert res.status_code == 200
+    assert len(res.json()["value"]) <= 5   # default page window
+
+
 def test_batch_rejects_writes_read_only_facade(client):
     res = client.post("/api/odata/$batch", json={"requests": [
         {"id": "w", "method": "POST", "url": "WbsElements"},

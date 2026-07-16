@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_roles
+from app.core.security import get_current_user, require_roles
 from app.models import domain as m
 from app.models import enums as e
 from app.schemas import GeoJSONImportJobIn, JobOut
@@ -58,7 +58,10 @@ def enqueue_geojson_import(
 
 
 @router.get("/{job_id}", response_model=JobOut)
-def get_job(job_id: str, db: Session = Depends(get_db)) -> JobOut:
+def get_job(
+    job_id: str, db: Session = Depends(get_db),
+    user: m.User = Depends(get_current_user),
+) -> JobOut:
     job = db.get(m.Job, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Job not found"})
@@ -66,7 +69,10 @@ def get_job(job_id: str, db: Session = Depends(get_db)) -> JobOut:
 
 
 @router.get("", response_model=list[JobOut])
-def list_jobs(db: Session = Depends(get_db), limit: int = 25) -> list[JobOut]:
+def list_jobs(
+    db: Session = Depends(get_db), limit: int = 25,
+    user: m.User = Depends(get_current_user),
+) -> list[JobOut]:
     rows = db.scalars(
         select(m.Job).order_by(m.Job.created_at.desc()).limit(min(limit, 100))
     ).all()

@@ -14,7 +14,7 @@ Uploads carry their own (stricter) per-client rate limit.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -40,13 +40,6 @@ _upload_limiter = RateLimiter(
 )
 
 
-def _client_key(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 def _load(db: Session, evidence_id: str) -> m.EvidenceItem:
     ev = db.get(m.EvidenceItem, evidence_id)
     if ev is None:
@@ -58,12 +51,12 @@ def _load(db: Session, evidence_id: str) -> m.EvidenceItem:
 def create_upload_url(
     evidence_id: str,
     payload: UploadUrlIn,
-    request: Request,
     db: Session = Depends(get_db),
     user: m.User = Depends(_CREW_OR_MANAGER),
 ) -> UploadUrlOut:
-    # stricter per-client upload throttle
-    allowed, retry = _upload_limiter.check(_client_key(request))
+    # Stricter per-client upload throttle — keyed on the AUTHENTICATED user, not
+    # a client-settable X-Forwarded-For header (which is trivially spoofable).
+    allowed, retry = _upload_limiter.check(f"user:{user.id}")
     if not allowed:
         raise HTTPException(status_code=429, detail={
             "code": "upload_rate_limited",
@@ -82,6 +75,14 @@ def create_upload_url(
         })
 
     ev = _load(db, evidence_id)
+    # Verified evidence is immutable — refuse to re-issue an upload URL for a
+    # STORED item (which would null its checksum and orphan the object). Only a
+    # not-yet-stored item (pending/failed) can be (re)uploaded.
+    if ev.upload_status == e.UploadStatus.STORED:
+        raise HTTPException(status_code=409, detail={
+            "code": "already_finalized",
+            "message": "This evidence is already stored and verified; it is immutable.",
+        })
     ext = _EXT.get(payload.content_type, "bin")
     key = f"evidence/{ev.execution_id}/{ev.id}.{ext}"
     url = get_storage().presigned_put_url(key, payload.content_type, _settings.storage_url_expiry_s)
@@ -112,6 +113,18 @@ def finalize_upload(
         })
 
     storage = get_storage()
+
+    # Idempotent + immutable: a replayed finalize on an already-STORED item is a
+    # no-op — it never rewrites the recorded checksum (which would let a caller
+    # overwrite verified evidence metadata).
+    if ev.upload_status == e.UploadStatus.STORED:
+        return EvidenceStatusOut(
+            id=ev.id, type=ev.type, upload_status=ev.upload_status,
+            storage_key=ev.storage_key, checksum=ev.checksum,
+            download_url=storage.presigned_get_url(ev.storage_key, _settings.storage_url_expiry_s),
+            message="Already finalized.",
+        )
+
     exists, size = storage.head(ev.storage_key)
     if not exists:
         # partial / failed upload — leave it recoverable (request a fresh URL)
@@ -126,6 +139,16 @@ def finalize_upload(
             storage_key=ev.storage_key, checksum=None,
             message="Object not found in storage — the upload did not complete. Request a new URL and retry.",
         )
+    # Enforce the size ceiling against the ACTUAL stored object — the presigned
+    # URL can't cap content-length, and the client's declared size is advisory.
+    if size > _settings.evidence_max_bytes:
+        ev.upload_status = e.UploadStatus.FAILED
+        db.commit()
+        return EvidenceStatusOut(
+            id=ev.id, type=ev.type, upload_status=ev.upload_status,
+            storage_key=ev.storage_key, checksum=None,
+            message=f"Stored object is {size} bytes, over the {_settings.evidence_max_bytes} limit — rejected.",
+        )
     if payload.size_bytes is not None and payload.size_bytes != size:
         ev.upload_status = e.UploadStatus.FAILED
         db.commit()
@@ -138,7 +161,7 @@ def finalize_upload(
     ev.upload_status = e.UploadStatus.STORED
     ev.checksum = payload.checksum
     db.add(m.AuditEvent(
-        actor_id=user.id, action="evidence.upload_recovered", entity_type="evidence_item",
+        actor_id=user.id, action="evidence.stored", entity_type="evidence_item",
         entity_id=ev.id, after={"upload_status": "stored", "bytes": size},
     ))
     db.commit()
@@ -147,5 +170,7 @@ def finalize_upload(
         id=ev.id, type=ev.type, upload_status=ev.upload_status,
         storage_key=ev.storage_key, checksum=ev.checksum,
         download_url=storage.presigned_get_url(ev.storage_key, _settings.storage_url_expiry_s),
-        message="Stored and verified.",
+        # Existence + size are server-verified; the checksum is client-supplied
+        # (content-hash verification would need a worker-side object read).
+        message="Stored — existence and size verified.",
     )

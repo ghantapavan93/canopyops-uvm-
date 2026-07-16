@@ -116,6 +116,28 @@ def process(db: Session, job_id: str) -> None:
             })
 
 
+def reap_stuck(session_factory: sessionmaker = SessionLocal, timeout_s: int | None = None) -> int:
+    """Fail jobs stuck in 'running' past the timeout (a worker died mid-job), so
+    the queue can't leak a permanently-'running' row. `job` is RLS-exempt, so
+    this reaps across all programs. Returns how many were reaped."""
+    from app.core.config import get_settings
+    timeout = timeout_s if timeout_s is not None else get_settings().job_stuck_timeout_s
+    with session_factory() as db:
+        n = db.execute(
+            text(
+                "UPDATE job SET status='failed', "
+                "error='reaped: worker did not finish before the stuck-timeout', "
+                "finished_at=now(), updated_at=now() "
+                "WHERE status='running' AND started_at < now() - interval '1 second' * :t"
+            ),
+            {"t": timeout},
+        ).rowcount
+        db.commit()
+    if n:
+        logger.warning("jobs_reaped", extra={"count": n, "timeout_s": timeout})
+    return n
+
+
 def run_once(session_factory: sessionmaker = SessionLocal) -> bool:
     """Claim and process a single job. Returns True if one was processed."""
     with session_factory() as db:

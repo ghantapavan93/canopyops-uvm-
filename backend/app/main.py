@@ -251,6 +251,22 @@ def root() -> dict:
     }
 
 
+@app.on_event("startup")
+def _warn_if_superuser() -> None:
+    """RLS is bypassed for a superuser connection — surface the misconfig loudly
+    instead of silently losing DB-level tenant isolation."""
+    try:
+        with engine.connect() as conn:
+            is_super = conn.exec_driver_sql("SELECT current_setting('is_superuser')").scalar()
+        if str(is_super).lower() == "on":
+            logger.warning(
+                "rls_ineffective: the app is connected as a SUPERUSER, which bypasses "
+                "Row-Level Security. Set DATABASE_URL to the non-superuser app role."
+            )
+    except Exception:  # noqa: BLE001 — never block startup on this probe
+        pass
+
+
 # Install tracing last, so the OTel ASGI middleware wraps the observability
 # middleware above (the server span is then active when we read the trace id).
 setup_telemetry(app, engine)

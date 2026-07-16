@@ -8,7 +8,20 @@ from sqlalchemy import text
 
 from app.core.database import AdminSessionLocal, SessionLocal
 from app.core.tenancy import reset_current_tenant, set_current_tenant
+from app.models import domain as m
 from tests.conftest import auth
+
+
+def test_work_order_reference_is_unique_per_program(client):
+    """The reference generator counts a program's OWN work orders, so the
+    reference must be unique per program, not globally — two programs must be
+    able to hold the same reference without a unique violation."""
+    with AdminSessionLocal() as db:
+        demo_cor = db.execute(text("SELECT id FROM corridor WHERE tenant_id='demo' LIMIT 1")).scalar()
+        ng_cor = db.execute(text("SELECT id FROM corridor WHERE tenant_id='northgrid' LIMIT 1")).scalar()
+        db.add(m.WorkOrder(tenant_id="demo", reference="WO-DUP-9", corridor_id=demo_cor))
+        db.add(m.WorkOrder(tenant_id="northgrid", reference="WO-DUP-9", corridor_id=ng_cor))
+        db.commit()   # must NOT raise IntegrityError (per-program uniqueness)
 
 
 def test_login_returns_tenant(client):

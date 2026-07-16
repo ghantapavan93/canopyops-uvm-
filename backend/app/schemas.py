@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.models import enums as e
@@ -160,9 +160,13 @@ class AuditOut(Schema):
     created_at: datetime
 
 
+# Cap import size to bound memory + one transaction (DoS guard).
+MAX_IMPORT_FEATURES = 10_000
+
+
 class GeoJSONImport(Schema):
     type: str = "FeatureCollection"
-    features: list[dict] = []
+    features: list[dict] = Field(default_factory=list, max_length=MAX_IMPORT_FEATURES)
 
 
 class ImportResult(Schema):
@@ -734,7 +738,7 @@ class JobOut(Schema):
 
 
 class GeoJSONImportJobIn(Schema):
-    features: list[dict]
+    features: list[dict] = Field(max_length=MAX_IMPORT_FEATURES)
 
 
 # --- evidence object-storage pipeline (presigned uploads) ---
