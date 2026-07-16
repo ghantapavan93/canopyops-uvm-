@@ -19,6 +19,7 @@ import { environment } from '../../../environments/environment';
 export class ReportComponent {
   private api = inject(ApiService);
   readonly report = signal<ComplianceReport | null>(null);
+  readonly error = signal<string | null>(null);
   readonly circuit = signal<string>('');           // '' = all circuits
   readonly circuits = signal<string[]>([]);
   readonly windowDays = signal<number>(0);         // 0 = all time
@@ -54,11 +55,16 @@ export class ReportComponent {
   constructor() { this.load(); }
 
   private load(): void {
-    this.api.getComplianceReport(this.circuit() || undefined, this.sinceIso()).subscribe((r) => {
-      this.report.set(r);
-      if (!this.circuit() && !this.windowDays() && !this.circuits().length) {
-        this.circuits.set([...new Set(r.spans.map((s) => s.circuit))].sort());
-      }
+    this.error.set(null);
+    this.api.getComplianceReport(this.circuit() || undefined, this.sinceIso()).subscribe({
+      next: (r) => {
+        this.report.set(r);
+        if (!this.circuit() && !this.windowDays() && !this.circuits().length) {
+          this.circuits.set([...new Set(r.spans.map((s) => s.circuit))].sort());
+        }
+      },
+      error: (err) =>
+        this.error.set(err?.error?.message ?? 'Could not assemble the compliance report.'),
     });
   }
   setCircuit(c: string): void { this.circuit.set(c); this.load(); }

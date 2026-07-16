@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  OnDestroy,
   afterNextRender,
   effect,
   input,
@@ -60,7 +61,12 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
     </div>
   `,
 })
-export class PolygonDrawMapComponent {
+export class PolygonDrawMapComponent implements OnDestroy {
+  ngOnDestroy(): void {
+    this.map?.remove();   // release the WebGL context + listeners on route change
+    this.map = undefined;
+  }
+
   readonly corridors = input<Corridor[]>([]);
   readonly center = input<[number, number]>([-83.14, 40.11]);
   readonly plannedGeometry = input<Geometry | null>(null);

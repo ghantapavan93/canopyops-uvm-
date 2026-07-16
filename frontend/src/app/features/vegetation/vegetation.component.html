@@ -47,8 +47,13 @@
             </thead>
             <tbody>
               @for (c of hotCells(); track c.corridorId) {
-                <tr class="cursor-pointer border-t border-border hover:bg-surface-2"
-                    [class.bg-surface-2]="selected()?.corridorId === c.corridorId" (click)="pick(c)">
+                <tr class="cursor-pointer border-t border-border hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    tabindex="0" role="button"
+                    [attr.aria-pressed]="selected()?.corridorId === c.corridorId"
+                    [attr.aria-label]="'Select ' + c.circuit + ' ' + c.spanLabel"
+                    [class.bg-surface-2]="selected()?.corridorId === c.corridorId"
+                    (click)="pick(c)"
+                    (keydown.enter)="pick(c)" (keydown.space)="pick(c); $event.preventDefault()">
                   <td class="p-2">
                     <div class="font-mono font-semibold text-ink">{{ c.circuit }}</div>
                     <div class="text-[10px] text-muted">{{ c.spanLabel }}</div>

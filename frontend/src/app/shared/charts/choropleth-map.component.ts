@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  OnDestroy,
   afterNextRender,
   effect,
   input,
@@ -54,7 +55,12 @@ const RAMP = ['#fde5e3', '#f6b0ab', '#e97b73', '#d1453f', '#a11f1a'];
     </div>
   `,
 })
-export class ChoroplethMapComponent {
+export class ChoroplethMapComponent implements OnDestroy {
+  ngOnDestroy(): void {
+    this.map?.remove();   // release the WebGL context + listeners on route change
+    this.map = undefined;
+  }
+
   readonly regions = input<RegionCell[]>([]);
   readonly maxValue = input<number>(1);
   readonly center = input<[number, number]>([-83.14, 40.13]);
@@ -80,7 +86,8 @@ export class ChoroplethMapComponent {
 
   private color(value: number): string {
     const t = this.maxValue() ? value / this.maxValue() : 0;
-    return RAMP[Math.min(RAMP.length - 1, Math.floor(t * RAMP.length))];
+    const i = Math.max(0, Math.min(RAMP.length - 1, Math.floor(t * RAMP.length)));
+    return RAMP[i];
   }
 
   private fc(regions: RegionCell[]): FC {
@@ -143,7 +150,9 @@ export class ChoroplethMapComponent {
   private fit(regions: RegionCell[]): void {
     const coords: [number, number][] = [];
     for (const r of regions) {
-      for (const ring of r.geometry.coordinates as number[][][]) {
+      const rings = r.geometry?.coordinates as number[][][] | undefined;
+      if (!rings) continue;   // skip a region with no polygon rather than throwing
+      for (const ring of rings) {
         for (const p of ring) coords.push([p[0], p[1]]);
       }
     }

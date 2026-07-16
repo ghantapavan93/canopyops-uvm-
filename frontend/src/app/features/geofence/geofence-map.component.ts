@@ -1,5 +1,5 @@
 import {
-  Component, ElementRef, afterNextRender, effect, input, output, signal, viewChild,
+  Component, ElementRef, OnDestroy, afterNextRender, effect, input, output, signal, viewChild,
 } from '@angular/core';
 import maplibregl, { GeoJSONSource, Map as MlMap, Marker } from 'maplibre-gl';
 
@@ -38,7 +38,12 @@ const LEVEL_HEX: Record<ProximityLevel, string> = {
     </div>
   </div>`,
 })
-export class GeofenceMapComponent {
+export class GeofenceMapComponent implements OnDestroy {
+  ngOnDestroy(): void {
+    this.map?.remove();   // release the WebGL context + listeners on route change
+    this.map = undefined;
+  }
+
   readonly constraints = input<EnvironmentalConstraint[]>([]);
   readonly corridors = input<Corridor[]>([]);
   readonly position = input.required<[number, number]>();

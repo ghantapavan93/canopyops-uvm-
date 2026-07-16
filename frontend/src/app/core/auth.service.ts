@@ -54,6 +54,14 @@ export class AuthService {
 
   private restoreUser(): AuthUser | null {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as AuthUser;
+    } catch {
+      // Corrupt/truncated storage must not white-screen the app on boot.
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
   }
 }

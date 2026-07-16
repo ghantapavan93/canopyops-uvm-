@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
+import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 
 /** How a result was served — surfaced as live telemetry in the UI. */
@@ -53,8 +54,16 @@ export interface OdataBatchResult {
 @Injectable({ providedIn: 'root' })
 export class OdataService {
   private http = inject(HttpClient);
+  private auth = inject(AuthService);
   private base = `${environment.apiBase}/odata/`;
   private cache = new Map<string, { etag: string; body: any }>();
+
+  /** Cache key is scoped to the active program so one tenant's ETag can never
+   *  revalidate another's rows (the app already reloads on program switch; this
+   *  makes the cache correct even without that). */
+  private key(path: string): string {
+    return `${this.auth.user()?.tenantId ?? '_'}::${path}`;
+  }
 
   /** Build an OData path with system query options, correctly encoded. */
   buildPath(entitySet: string, q: OdataQuery = {}): string {
@@ -72,7 +81,8 @@ export class OdataService {
   /** GET a collection with conditional revalidation. `path` is relative to the
    *  OData root (e.g. `WbsElements?$top=5` or `WbsElements('X')/CatsEntries`). */
   query<T = Record<string, unknown>>(path: string): Observable<OdataResult<T>> {
-    const cached = this.cache.get(path);
+    const key = this.key(path);
+    const cached = this.cache.get(key);
     const t0 = performance.now();
     const headers: Record<string, string> = cached ? { 'If-None-Match': cached.etag } : {};
     return this.http
@@ -81,7 +91,7 @@ export class OdataService {
         map((resp: HttpResponse<any>) => {
           const etag = resp.headers.get('ETag') ?? undefined;
           const body = resp.body ?? {};
-          if (etag) this.cache.set(path, { etag, body });
+          if (etag) this.cache.set(key, { etag, body });
           return this.shape<T>(body, etag, 'network', t0);
         }),
         catchError((err: HttpErrorResponse) => {

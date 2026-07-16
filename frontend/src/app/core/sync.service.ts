@@ -3,6 +3,7 @@ import { Injectable, computed, effect, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from './api.service';
+import { AuthService } from './auth.service';
 import { ConnectivityService } from './connectivity.service';
 import { ExecutionPayload, OutboxItem } from './models';
 import { OutboxService } from './outbox.service';
@@ -16,15 +17,22 @@ export class SyncService {
   private api = inject(ApiService);
   private outbox = inject(OutboxService);
   private conn = inject(ConnectivityService);
+  private auth = inject(AuthService);
 
   private draining = false;
   private readonly inFlight = new Set<string>();
   private static readonly MAX_AUTO_ATTEMPTS = 4;
 
   readonly items = this.outbox.items;
+  /** An item belongs to the current program (or is legacy/un-tagged). Prevents
+   *  replaying one program's queued mutation under another program's token. */
+  private mine(i: OutboxItem): boolean {
+    const t = this.auth.user()?.tenantId ?? null;
+    return i.tenantId == null || i.tenantId === t;
+  }
   /** Items awaiting their first successful send (drives the auto-drain). */
   readonly pending = computed(
-    () => this.items().filter((i) => i.status === 'pending').length,
+    () => this.items().filter((i) => i.status === 'pending' && this.mine(i)).length,
   );
   /** Everything still needing attention — for badges/summaries. */
   readonly outstanding = computed(
@@ -38,6 +46,9 @@ export class SyncService {
   );
 
   constructor() {
+    // An item persisted as 'syncing' means the tab closed mid-send — reconcile it
+    // back to 'pending' on startup so it isn't stuck with a spinner forever.
+    void this.reconcileDangling();
     // Auto-drain when connectivity returns. Only 'pending' items trigger this,
     // so a persistent server error can't create a retry storm — failed items
     // wait for an explicit retry.
@@ -48,10 +59,19 @@ export class SyncService {
     });
   }
 
+  private async reconcileDangling(): Promise<void> {
+    for (const item of await this.outbox.getAll()) {
+      if (item.status === 'syncing') {
+        await this.outbox.put({ ...item, status: 'pending' });
+      }
+    }
+  }
+
   async enqueue(label: string, payload: ExecutionPayload): Promise<OutboxItem> {
     const item: OutboxItem = {
       id: crypto.randomUUID(),
       idempotencyKey: crypto.randomUUID(),
+      tenantId: this.auth.user()?.tenantId ?? null,
       label,
       payload,
       status: 'pending',
@@ -70,7 +90,8 @@ export class SyncService {
       for (const item of this.items()) {
         if (
           (item.status === 'pending' || item.status === 'failed') &&
-          item.attempts < SyncService.MAX_AUTO_ATTEMPTS
+          item.attempts < SyncService.MAX_AUTO_ATTEMPTS &&
+          this.mine(item)   // never replay another program's queued mutation
         ) {
           await this.syncItem(item);
         }

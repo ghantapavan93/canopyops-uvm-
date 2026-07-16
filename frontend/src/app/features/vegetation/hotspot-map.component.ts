@@ -1,5 +1,5 @@
 import {
-  Component, ElementRef, afterNextRender, effect, input, output, signal, viewChild,
+  Component, ElementRef, OnDestroy, afterNextRender, effect, input, output, signal, viewChild,
 } from '@angular/core';
 import maplibregl, { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 
@@ -45,7 +45,14 @@ const RAMP: [number, string][] = [
     </div>
   `,
 })
-export class HotspotMapComponent {
+export class HotspotMapComponent implements OnDestroy {
+  ngOnDestroy(): void {
+    // Release the WebGL context + listeners so revisiting the route can't
+    // exhaust the browser's map-context budget.
+    this.map?.remove();
+    this.map = undefined;
+  }
+
   readonly hotspots = input<VegetationHotspot[]>([]);
   readonly center = input<[number, number]>([-83.14, 40.13]);
   readonly spanClick = output<VegetationHotspot>();
@@ -67,7 +74,10 @@ export class HotspotMapComponent {
     });
   }
 
-  private color(score: number): string {
+  private color(rawScore: number): string {
+    // Clamp to the ramp's domain so an out-of-range score can't extrapolate the
+    // interpolation past valid RGB (0–255).
+    const score = Math.max(RAMP[0][0], Math.min(RAMP[RAMP.length - 1][0], rawScore));
     let lo = RAMP[0], hi = RAMP[RAMP.length - 1];
     for (let i = 0; i < RAMP.length - 1; i++) {
       if (score >= RAMP[i][0] && score <= RAMP[i + 1][0]) { lo = RAMP[i]; hi = RAMP[i + 1]; break; }

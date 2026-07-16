@@ -1,5 +1,5 @@
 import {
-  Component, ElementRef, afterNextRender, effect, input, viewChild,
+  Component, ElementRef, OnDestroy, afterNextRender, effect, input, viewChild,
 } from '@angular/core';
 
 import { pointInGeometry } from '../../core/geofence';
@@ -21,7 +21,7 @@ type RGB = [number, number, number];
     </div>
   </div>`,
 })
-export class TerrainMeshComponent {
+export class TerrainMeshComponent implements OnDestroy {
   readonly terrain = input<TerrainGrid | null>(null);
   readonly corridors = input<Corridor[]>([]);
   readonly constraints = input<EnvironmentalConstraint[]>([]);
@@ -51,11 +51,17 @@ export class TerrainMeshComponent {
     });
   }
 
+  private _onResize = () => { this.resize(); this.render(); };
+
+  ngOnDestroy(): void {
+    window.removeEventListener('resize', this._onResize);   // no orphaned window listener per visit
+  }
+
   private setup(): void {
     const cv = this.cv().nativeElement;
     this.ctx = cv.getContext('2d') ?? undefined;
     this.resize();
-    window.addEventListener('resize', () => { this.resize(); this.render(); });
+    window.addEventListener('resize', this._onResize);
 
     cv.addEventListener('pointerdown', (e) => {
       this.dragging = true; this.lastX = e.clientX; this.lastY = e.clientY;

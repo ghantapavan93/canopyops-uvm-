@@ -65,7 +65,8 @@ export class BarChartComponent {
     const cats = this.categories();
     const max = Math.max(...this.totals(), 1);
     const plotH = 160 - this.top - this.bottom;
-    const gap = (320 - cats.length * this.barW) / (cats.length + 1);
+    // Keep a non-negative gap so a large category count can't drive bars off-canvas.
+    const gap = Math.max(2, (320 - cats.length * this.barW) / (cats.length + 1));
     return cats.map((cat, ci) => {
       const x = gap + ci * (this.barW + gap);
       let cursor = 160 - this.bottom;

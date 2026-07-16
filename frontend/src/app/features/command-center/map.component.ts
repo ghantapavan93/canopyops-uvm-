@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  OnDestroy,
   afterNextRender,
   effect,
   input,
@@ -68,7 +69,12 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
     </div>
   `,
 })
-export class MapComponent {
+export class MapComponent implements OnDestroy {
+  ngOnDestroy(): void {
+    this.map?.remove();   // release the WebGL context + listeners on route change
+    this.map = undefined;
+  }
+
   readonly records = input<TreatmentRecord[]>([]);
   readonly constraints = input<EnvironmentalConstraint[]>([]);
   readonly corridors = input<Corridor[]>([]);

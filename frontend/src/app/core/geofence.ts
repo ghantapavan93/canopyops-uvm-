@@ -43,7 +43,9 @@ export function haversineMeters(lon1: number, lat1: number, lon2: number, lat2: 
 /** Shortest distance (m) from a point to a segment, projected locally to metres. */
 function pointToSegmentMeters(lon: number, lat: number, a: number[], b: number[]): number {
   const rad = Math.PI / 180;
-  const mPerDegLat = 111320;
+  // Metres per degree: meridional (~110540) for latitude, equatorial (111320·cosφ)
+  // for longitude — matches the map's circle helper and the server's geography math.
+  const mPerDegLat = 110540;
   const mPerDegLon = 111320 * Math.cos(lat * rad);
   const px = (lon - a[0]) * mPerDegLon, py = (lat - a[1]) * mPerDegLat;
   const bx = (b[0] - a[0]) * mPerDegLon, by = (b[1] - a[1]) * mPerDegLat;

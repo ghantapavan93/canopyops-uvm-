@@ -686,6 +686,7 @@ export type OutboxStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'confli
 export interface OutboxItem {
   id: string;
   idempotencyKey: string;
+  tenantId?: string | null; // the program that queued it — never replayed under another
   label: string; // human summary e.g. "WO-2026-1001 execution"
   payload: ExecutionPayload;
   status: OutboxStatus;

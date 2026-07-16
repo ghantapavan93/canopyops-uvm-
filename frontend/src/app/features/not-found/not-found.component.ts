@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SwUpdate } from '@angular/service-worker';
 
@@ -29,18 +29,23 @@ import { SwUpdate } from '@angular/service-worker';
     </div>
   `,
 })
-export class NotFoundComponent {
+export class NotFoundComponent implements OnDestroy {
   private updates = inject(SwUpdate);
   readonly state = signal<'checking' | 'notfound'>('checking');
+  private graceId: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     if (this.updates.isEnabled) {
       // If a newer build exists, the app root's VERSION_READY handler reloads us
       // into it — this route may then resolve. Otherwise fall through to 404.
       this.updates.checkForUpdate().catch(() => {});
-      setTimeout(() => this.state.set('notfound'), 3500);
+      this.graceId = setTimeout(() => this.state.set('notfound'), 3500);
     } else {
       this.state.set('notfound');
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.graceId) clearTimeout(this.graceId);
   }
 }

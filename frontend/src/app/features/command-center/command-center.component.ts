@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -144,8 +145,9 @@ export class CommandCenterComponent implements OnDestroy {
       error: () => {},
     });
 
-    // URL is the single source of truth for filters + selection.
-    this.route.queryParamMap.subscribe((pm) => {
+    // URL is the single source of truth for filters + selection. The subscription
+    // is tied to this component's lifetime so it can't leak across navigations.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((pm) => {
       this.q.set(pm.get('q') ?? '');
       this.activePriorities.set(
         new Set((pm.get('priority')?.split(',').filter(Boolean) as WorkOrderPriority[]) ?? []),

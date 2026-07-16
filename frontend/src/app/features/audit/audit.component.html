@@ -49,8 +49,13 @@
           </thead>
           <tbody>
             @for (it of q.items; track it.planId) {
-              <tr class="cursor-pointer border-t border-border hover:bg-surface-2"
-                  [class.bg-surface-2]="expandedAudit() === it.planId" (click)="toggleAudit(it.planId)">
+              <tr class="cursor-pointer border-t border-border hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  tabindex="0" role="button"
+                  [attr.aria-expanded]="expandedAudit() === it.planId"
+                  [attr.aria-label]="'Audit ' + it.workOrderRef"
+                  [class.bg-surface-2]="expandedAudit() === it.planId"
+                  (click)="toggleAudit(it.planId)"
+                  (keydown.enter)="toggleAudit(it.planId)" (keydown.space)="toggleAudit(it.planId); $event.preventDefault()">
                 <td class="p-2">
                   <div class="font-mono font-semibold text-ink">{{ it.workOrderRef }}</div>
                   <div class="text-[10px] text-muted">{{ it.circuit }} · {{ it.span }}

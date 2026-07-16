@@ -100,6 +100,12 @@
       {{ r.note }} · CanopyOps — Treatment Assurance.
     </footer>
   </div>
+} @else if (error()) {
+  <div class="loading">
+    <p>{{ error() }}</p>
+    <button type="button" class="tbtn tbtn--primary" (click)="setCircuit(circuit())">Retry</button>
+    <a routerLink="/console/overview" class="tbtn">← Back to console</a>
+  </div>
 } @else {
   <div class="loading">Assembling compliance report…</div>
 }

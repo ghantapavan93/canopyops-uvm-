@@ -47,12 +47,15 @@ export class VegetationComponent {
     return p === 'hazard' ? 'bg-danger-soft text-danger'
       : p === 'elevated' ? 'bg-warn-soft text-warn' : 'bg-surface-2 text-muted';
   }
-  // rough calendar for the countdown (days → months, no external dep)
+  // rough calendar for the countdown (days → months, no external dep). A past-due
+  // span (negative days) reads as "now", never a negative month count.
   months(days: number): string {
+    if (days <= 0) return 'now';
     return days >= 365 ? `~${(days / 365).toFixed(1)} yr` : `~${Math.round(days / 30)} mo`;
   }
-  // fuller bar = sooner conflict (worse); scaled against a ~2yr (730d) horizon
+  // fuller bar = sooner conflict (worse); scaled against a ~2yr (730d) horizon,
+  // clamped so an overdue span can't overflow the track.
   conflictBar(days: number): number {
-    return Math.max(6, 100 - (days / 730) * 100);
+    return Math.min(100, Math.max(6, 100 - (days / 730) * 100));
   }
 }

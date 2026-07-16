@@ -161,7 +161,16 @@ export class ConsoleShellComponent {
   async switchRole(u: { role: Role; email: string }): Promise<void> {
     // Synthetic quick-switch to demonstrate role-aware UI + server RBAC.
     try {
+      const before = this.auth.user()?.tenantId;
       await this.auth.login(u.email, 'canopyops');
+      // Switching between two different PROGRAMS (tenants) must swap the whole
+      // console's data. Component signals + the OData ETag cache hold the previous
+      // program's rows, so a full reload of the current route is the reliable reset
+      // (the URL is kept). Only reload on an actual program change — not on the
+      // first sign-in (no prior tenant) or a same-program role switch.
+      if (before != null && this.auth.user()?.tenantId !== before) {
+        window.location.reload();
+      }
     } catch {
       /* API may be offline during static preview; role UI still updates on retry */
     }

@@ -109,6 +109,7 @@ export class LineChartComponent {
     this.series().map((s) => {
       const n = s.points.length;
       const pts = s.points.map((v, i) => [this.x(i, n), this.y(v)] as [number, number]);
+      if (!n) return { label: s.label, color: toneVar(s.tone), line: '', area: '', gid: chartUid('lg') };
       const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
       const area = this.fill()
         ? `M${pts[0][0].toFixed(1)},${(160 - this.padB)} ` +
