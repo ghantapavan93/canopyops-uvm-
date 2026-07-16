@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/frontend/browser",
+  "framework": null,
+  "rewrites": [
+    {
+      "comment": "Proxy the API through this origin so the SPA keeps its relative apiBase ('/api') and needs no CORS. Replace the host with your Render service URL.",
+      "source": "/api/:path*",
+      "destination": "https://canopyops-api.onrender.com/api/:path*"
+    },
+    {
+      "comment": "SPA fallback for Angular client-side routes. Declared AFTER /api so it never swallows API calls.",
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "comment": "The service worker and its manifest must never be cached aggressively, or clients pin to a stale bundle.",
+      "source": "/(ngsw-worker.js|ngsw.json|safety-worker.js|manifest.webmanifest)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}

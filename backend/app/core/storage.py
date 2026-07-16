@@ -67,11 +67,38 @@ class S3Storage:
         self._ensure_bucket()
 
     def _ensure_bucket(self) -> None:
+        """Create the bucket only when it is genuinely missing.
+
+        Deliberately tolerant: against a managed store (e.g. Cloudflare R2) the
+        app is given a SCOPED token that can read/write objects but may not be
+        allowed to head or create buckets. Such a token returns 403 — not 404 —
+        and blindly calling create_bucket then raises, taking the whole API down
+        at startup over a bucket that already exists. Only create on a definite
+        404; otherwise assume the bucket is pre-provisioned and carry on. A real
+        permission problem still surfaces on the first presign/head.
+        """
+        import logging
+
         from botocore.exceptions import ClientError
+
         try:
             self._client.head_bucket(Bucket=self.bucket)
-        except ClientError:
+            return
+        except ClientError as exc:
+            status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if status != 404:
+                logging.getLogger("canopyops").info(
+                    "storage_bucket_precheck_skipped",
+                    extra={"bucket": self.bucket, "status": status},
+                )
+                return
+        try:
             self._client.create_bucket(Bucket=self.bucket)
+        except ClientError:
+            logging.getLogger("canopyops").warning(
+                "storage_bucket_create_failed — assuming it is pre-provisioned",
+                extra={"bucket": self.bucket},
+            )
 
     def presigned_put_url(self, key: str, content_type: str, expires: int) -> str:
         return self._client.generate_presigned_url(

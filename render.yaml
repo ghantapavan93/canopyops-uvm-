@@ -1,0 +1,85 @@
+# Render Blueprint — CanopyOps API (free tier).
+#
+# HONEST NOTE ON TOPOLOGY: this deploys the API only. Render's free tier has no
+# background-service type, so the durable job queue runs INSIDE the API process
+# (RUN_WORKER_IN_PROCESS=true) rather than as its own container. That is a real
+# downgrade from the compose/VPS topology — see docs/DEPLOY.md. The database is
+# Neon (not Render Postgres, which expires 30 days after creation) and evidence
+# lives in Cloudflare R2 (Render has no object storage).
+services:
+  - type: web
+    name: canopyops-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      # --- Database: Neon (PostGIS) -------------------------------------------
+      # DATABASE_URL must be the NON-superuser app role (canopyops_app) or
+      # Row-Level Security is silently bypassed and tenant isolation dies with no
+      # error. Create it with SQL (CREATE ROLE ... WITH LOGIN PASSWORD ...) —
+      # roles created via the Neon console inherit neon_superuser, which carries
+      # BYPASSRLS and would defeat even FORCE ROW LEVEL SECURITY.
+      - key: DATABASE_URL
+        sync: false
+      # The Neon owner role — runs alembic migrations + seed.
+      - key: ADMIN_DATABASE_URL
+        sync: false
+
+      - key: JWT_SECRET
+        generateValue: true          # never ship the hardcoded dev default
+      - key: FRONTEND_ORIGIN
+        sync: false                  # the Vercel origin, for CORS
+      - key: ENVIRONMENT
+        value: render-free
+
+      # --- Free-tier fallbacks -------------------------------------------------
+      - key: RUN_WORKER_IN_PROCESS
+        value: "true"                # no background-service type on free
+      - key: WEB_CONCURRENCY
+        value: "1"                   # >1 would start a redundant poller per worker
+      - key: SEED_ON_START
+        value: "true"                # synthetic demo data
+
+      # --- Evidence storage: Cloudflare R2 (S3-compatible) ---------------------
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: STORAGE_ENDPOINT
+        sync: false                  # https://<account_id>.r2.cloudflarestorage.com
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: evidence
+      - key: STORAGE_REGION
+        value: auto                  # R2 expects "auto"
+
+      # Free instances have modest CPU; keep the pool small.
+      - key: DB_POOL_SIZE
+        value: "3"
+      - key: DB_MAX_OVERFLOW
+        value: "2"
+
+# Keep-warm: Render spins a free web service down after 15 minutes of no INBOUND
+# traffic, then takes ~1 minute to wake. This cron pings the health probe every
+# 10 minutes so a recruiter never lands on a cold start, and so the SSE stream
+# isn't reaped. Render grants 750 free instance-hours/month and a service kept
+# warm 24/7 uses ~730, so this fits — but it is the whole free allowance, so do
+# not run a second free service alongside it.
+#
+# NOTE: cron jobs are NOT free on Render. If this blueprint's cron is rejected on
+# the free plan, use any external uptime pinger (e.g. a GitHub Actions schedule)
+# against https://<service>.onrender.com/api/health instead.
+  - type: cron
+    name: canopyops-keepwarm
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    schedule: "*/10 * * * *"
+    dockerCommand: curl -fsS "$KEEPWARM_URL" || true
+    envVars:
+      - key: KEEPWARM_URL
+        sync: false

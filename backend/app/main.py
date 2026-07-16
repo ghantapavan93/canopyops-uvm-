@@ -5,6 +5,7 @@ the front end (and the Engineering Evidence route) can show real failure detail
 instead of a spinner.
 """
 import logging
+import threading
 import time
 import uuid
 
@@ -265,6 +266,28 @@ def root() -> dict:
         "docs": "/docs",
         "notice": "Synthetic prototype. Not affiliated with The Davey Tree Expert Company.",
     }
+
+
+_worker_stop = threading.Event()
+
+
+@app.on_event("startup")
+def _maybe_start_in_process_worker() -> None:
+    """Free-tier fallback: drain the job queue inside this process.
+
+    Only when RUN_WORKER_IN_PROCESS=true. The real topology is a dedicated worker
+    container; this exists so hosts with no background-service type still process
+    queued jobs rather than silently dropping them.
+    """
+    if get_settings().run_worker_in_process:
+        from app.worker import start_in_process
+
+        start_in_process(_worker_stop)
+
+
+@app.on_event("shutdown")
+def _stop_in_process_worker() -> None:
+    _worker_stop.set()
 
 
 @app.on_event("startup")

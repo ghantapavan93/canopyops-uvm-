@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     # to a terminal 'failed' — never left running forever.
     job_stuck_timeout_s: int = 300
 
+    # Drain the job queue on a daemon thread INSIDE the API process instead of a
+    # dedicated worker container. A deliberate downgrade for hosts whose free
+    # tier offers no background-service type (e.g. Render free), where the only
+    # alternative is that queued jobs never run at all. Off by default: the real
+    # topology is a separate worker. Prefer web_concurrency=1 when enabling this,
+    # or every uvicorn worker starts its own redundant poller.
+    run_worker_in_process: bool = False
+
     # --- Horizontal scale -----------------------------------------------------
     # Uvicorn worker processes. The API is stateless (session-per-request; all
     # shared state lives in Postgres), so this scales across cores/replicas with
