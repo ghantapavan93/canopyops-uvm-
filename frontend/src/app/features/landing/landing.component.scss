@@ -8,15 +8,37 @@
   --edge: rgba(120, 200, 160, 0.14);
   --canopy: #37e29a;
   --canopy-2: #22c3e6;
-  --canopy-3: #7c5cff;
+  /* Was #7c5cff (borrowed purple). Now a deep teal-cyan, so the whole spectrum
+     reads canopy-green -> water-teal -> deep-cyan — one owned world, no purple. */
+  --canopy-3: #0a6ea0;
   --panel: rgba(14, 22, 19, 0.55);
 
   display: block;
   position: relative;
   color: var(--ink);
-  background: #060b09;
+  background: #040907;
   font-feature-settings: 'ss01', 'cv01';
   overflow-x: clip;
+}
+
+/* Topographic contour field — the domain motif. Faint elevation lines drifting
+   under everything read instantly as "GIS / terrain", so a utility executive
+   feels the tool lives in their world, not on a generic SaaS landing. Pure CSS
+   layer, no DOM change, so nothing Cypress selects moves. */
+.stage::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='800' viewBox='0 0 1200 800'%3E%3Cg fill='none' stroke='%2337e29a' stroke-width='1' stroke-opacity='0.06'%3E%3Cpath d='M-100 120C200 60 420 200 640 150 900 90 1100 210 1340 150'/%3E%3Cpath d='M-100 220C220 150 440 300 660 250 920 190 1120 310 1340 250'/%3E%3Cpath d='M-100 330C240 260 460 410 680 360 940 300 1140 420 1340 360'/%3E%3Cpath d='M-100 450C260 380 480 520 700 470 960 410 1160 530 1340 470'/%3E%3Cpath d='M-100 580C280 510 500 650 720 600 980 540 1180 660 1340 600'/%3E%3Cpath d='M-100 710C300 640 520 780 740 730 1000 670 1200 790 1340 730'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 130% 130%;
+  animation: contour-drift 40s linear infinite alternate;
+}
+@keyframes contour-drift {
+  from { background-position: 0% 0%; }
+  to   { background-position: 30% 12%; }
 }
 
 /* ---- Animated aurora + mesh background ---- */
@@ -32,10 +54,11 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(45% 45% at 18% 22%, rgba(55, 226, 154, 0.55), transparent 60%),
-    radial-gradient(40% 40% at 82% 18%, rgba(34, 195, 230, 0.45), transparent 62%),
-    radial-gradient(55% 55% at 62% 78%, rgba(124, 92, 255, 0.42), transparent 60%);
-  filter: blur(36px) saturate(150%);
+    radial-gradient(42% 44% at 16% 20%, rgba(55, 226, 154, 0.58), transparent 60%),
+    radial-gradient(38% 40% at 84% 16%, rgba(34, 195, 230, 0.46), transparent 62%),
+    radial-gradient(50% 52% at 66% 80%, rgba(10, 110, 160, 0.50), transparent 60%),
+    radial-gradient(30% 30% at 50% 44%, rgba(55, 226, 154, 0.18), transparent 70%);
+  filter: blur(38px) saturate(155%);
   animation: drift 14s ease-in-out infinite alternate;
 }
 @keyframes drift {
@@ -100,10 +123,12 @@
 }
 
 .hero-title {
-  font-weight: 780;
-  line-height: 0.98;
-  letter-spacing: -0.03em;
-  font-size: clamp(2.6rem, 7vw, 5.6rem);
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.035em;
+  font-size: clamp(2.7rem, 7.2vw, 5.8rem);
+  text-wrap: balance;
 }
 
 .lead { color: var(--ink-dim); }
