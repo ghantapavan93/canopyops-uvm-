@@ -3,6 +3,7 @@ Angular TypeScript models; snake_case in Python."""
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -393,6 +394,14 @@ class KpiTile(Schema):
     spark: list[float] = []
     tone: str = "neutral"
     note: str | None = None
+    # Where this number actually comes from. The dashboard mixes figures computed
+    # from the live records with illustrative program-scale trends, and a
+    # reviewer who cannot tell them apart has to distrust all of them — so every
+    # tile states its provenance rather than leaving it to the footnote.
+    #   live      — computed from the seeded records in this demo
+    #   synthetic — an illustrative program-scale figure; nothing computes it
+    #   blended   — a live value shown against a synthetic trend line
+    source: Literal["live", "synthetic", "blended"] = "synthetic"
 
 
 class NamedSeries(Schema):

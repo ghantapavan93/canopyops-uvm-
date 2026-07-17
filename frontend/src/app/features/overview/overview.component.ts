@@ -1,10 +1,11 @@
+import { NgClass } from '@angular/common';
 import { Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
 import { BarChartComponent, BarSegmentClick } from '../../shared/charts/bar-chart.component';
 import { ApiService } from '../../core/api.service';
 import {
-  ActivityItem, EncroachmentMap, KpiTile, OverviewPayload, RegionCell,
+  ActivityItem, EncroachmentMap, KpiTile, MetricSource, OverviewPayload, RegionCell,
   StatusCount, TreatmentStatus,
 } from '../../core/models';
 import { STATUS_META, Tone } from '../../core/status';
@@ -69,18 +70,40 @@ const DRILL: Record<string, DrillMeta> = {
   },
 };
 
+/** How each metric's provenance is shown. The dashboard blends numbers computed
+ *  from the live records with illustrative program-scale trends — labelling that
+ *  is the difference between a demo a reviewer can trust and one they can't. */
+const SOURCE_META: Record<MetricSource, { label: string; chip: string; title: string }> = {
+  live: {
+    label: 'LIVE',
+    chip: 'bg-ok-soft text-ok',
+    title: 'Computed from the records in this demo database.',
+  },
+  blended: {
+    label: 'LIVE VALUE · ILLUSTRATIVE TREND',
+    chip: 'bg-info-soft text-info',
+    title: 'The number is computed from the live records; the trend line beneath it is an illustrative program-scale series, not history.',
+  },
+  synthetic: {
+    label: 'ILLUSTRATIVE',
+    chip: 'bg-warn-soft text-warn',
+    title: 'A synthetic program-scale figure. Nothing in this prototype computes it — it shows the shape a real programme would report.',
+  },
+};
+
 @Component({
   selector: 'app-overview',
   standalone: true,
   imports: [
     RouterLink, SparklineComponent, LineChartComponent, BarChartComponent, GaugeComponent,
-    DonutComponent, ChoroplethMapComponent, ReliabilityOutcomeComponent,
+    DonutComponent, ChoroplethMapComponent, ReliabilityOutcomeComponent, NgClass,
   ],
   templateUrl: './overview.component.html',
 })
 export class OverviewComponent implements OnDestroy {
   private api = inject(ApiService);
   private router = inject(Router);
+  readonly SOURCE_META = SOURCE_META;
   readonly data = signal<OverviewPayload | null>(null);
   readonly loading = signal(true);
   readonly refreshing = signal(false);

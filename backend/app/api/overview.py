@@ -143,25 +143,34 @@ def overview(period: str = "ytd", db: Session = Depends(get_db)) -> OverviewPayl
     cost = _wave(n, 1180, 90, 0.9, trend=-4)
     prod = _wave(n, 3.2, 0.5, 1.6, trend=-0.02)
 
+    # Provenance is per-tile and deliberately unflattering where it should be.
+    # Two of these show a REAL value against a synthetic trend line — that is a
+    # blend, and calling it "live" would be a small lie that costs the whole
+    # dashboard its credibility.
     tiles = [
         KpiTile(key="attainment", label="Work-plan attainment", value=str(real_attainment),
                 unit="%", delta=2.4, tone="ok", spark=[c / p * 100 for c, p in zip(completed, planned)],
-                note=f"Live: {real_completed} of {total} plans executed"),
+                source="blended",
+                note=f"Value live: {real_completed} of {total} plans executed. Trend line is illustrative."),
         KpiTile(key="mvcd", label="MVCD clearance compliance", value=str(round(mvcd[-1], 1)),
-                unit="%", delta=0.6, tone="ok", spark=mvcd,
-                note="Minimum Vegetation Clearance Distance"),
+                unit="%", delta=0.6, tone="ok", spark=mvcd, source="synthetic",
+                note="Minimum Vegetation Clearance Distance. Illustrative program-scale figure."),
         KpiTile(key="hftd", label="HFTD risk-weighted completion", value="91.2",
                 unit="%", delta=3.1, tone="warn", spark=_wave(n, 88, 3, 0.7, 0.3),
-                note="Wildfire high-threat districts prioritized"),
+                source="synthetic",
+                note="Wildfire high-threat districts prioritized. Illustrative — not computed."),
         KpiTile(key="saidi", label="Tree-caused SAIDI", value=str(round(saidi[-1], 1)),
                 unit="min", delta=-1.8, delta_good=False, tone="info", spark=saidi,
-                note="Lower is better — outage minutes"),
+                source="synthetic",
+                note="Lower is better — outage minutes. Illustrative program-scale trend."),
         KpiTile(key="evidence", label="Evidence completeness", value=str(avg_evidence),
                 unit="%", delta=None, tone="primary", spark=_wave(n, 82, 6, 1.3, 0.6),
-                note=f"Computed from {total} live records"),
+                source="blended",
+                note=f"Value computed from {total} live records. Trend line is illustrative."),
         KpiTile(key="spend", label="YTD spend vs budget", value="93.4",
                 unit="%", delta=-1.2, delta_good=False, tone="neutral", spark=_wave(n, 90, 4, 0.5, 0.3),
-                note="Under budget — synthetic"),
+                source="synthetic",
+                note="Illustrative — this prototype has no cost data."),
     ]
 
     return OverviewPayload(

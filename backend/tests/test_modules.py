@@ -220,3 +220,24 @@ def test_priority_and_search_filters_combine(client):
     )
     assert res.status_code == 200, res.text
     assert int(res.headers["X-Total-Count"]) == len(res.json())
+
+
+def test_every_overview_tile_declares_its_provenance(client):
+    """The Overview mixes numbers computed from live records with illustrative
+    program-scale trends. Unlabelled, a reviewer has to distrust all of them — so
+    every tile must say where its number came from, and the two that pair a real
+    value with a synthetic trend line must admit they are blended rather than
+    claiming to be live."""
+    tiles = client.get("/api/overview").json()["tiles"]
+    assert tiles
+    for t in tiles:
+        assert t["source"] in ("live", "synthetic", "blended"), t
+        assert t.get("note"), f"{t['key']} has no provenance note"
+
+    by_key = {t["key"]: t for t in tiles}
+    # These two show a live value against an illustrative trend — not "live".
+    assert by_key["attainment"]["source"] == "blended"
+    assert by_key["evidence"]["source"] == "blended"
+    # These are not computed from anything in this prototype.
+    for key in ("mvcd", "hftd", "saidi", "spend"):
+        assert by_key[key]["source"] == "synthetic", key

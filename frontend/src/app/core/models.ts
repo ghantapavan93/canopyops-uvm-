@@ -335,6 +335,11 @@ export interface ProofPack {
 }
 
 // --- program overview dashboard ---
+/** Where a dashboard number came from. The Overview mixes figures computed from
+ *  the live records with illustrative program-scale trends; a reviewer who can't
+ *  tell them apart has to distrust all of them. */
+export type MetricSource = 'live' | 'synthetic' | 'blended';
+
 export interface KpiTile {
   key: string;
   label: string;
@@ -345,6 +350,7 @@ export interface KpiTile {
   spark: number[];
   tone: string;
   note: string | null;
+  source: MetricSource;
 }
 
 export interface NamedSeries {

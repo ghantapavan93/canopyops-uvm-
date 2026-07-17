@@ -71,8 +71,18 @@
             <span class="text-2xl font-bold leading-none text-ink">{{ t.value }}</span>
             <span class="text-sm text-muted">{{ t.unit }}</span>
           </div>
+          <!-- Provenance. This dashboard mixes numbers computed from the live
+               records with illustrative program-scale trends; unlabelled, a
+               reviewer has to distrust all of them. -->
+          <div class="mt-1">
+            <span class="inline-block rounded-sm px-1 py-0.5 text-[10px] font-semibold"
+                  [ngClass]="SOURCE_META[t.source].chip"
+                  [title]="SOURCE_META[t.source].title">
+              {{ SOURCE_META[t.source].label }}
+            </span>
+          </div>
           <div class="mt-1.5"><app-sparkline [points]="t.spark" [tone]="t.tone" /></div>
-          @if (t.note) { <div class="mt-1 text-[10px] leading-tight text-muted">{{ t.note }}</div> }
+          @if (t.note) { <div class="mt-1 text-[11px] leading-tight text-muted">{{ t.note }}</div> }
           <div class="mt-1 text-[10px] font-medium text-primary">View details →</div>
         </button>
       }
