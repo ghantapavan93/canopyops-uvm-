@@ -54,21 +54,26 @@ Then:
 - `ADMIN_DATABASE_URL` → the Neon **owner** role (runs alembic + seed; needs `CREATE ROLE`/DDL).
 - `DATABASE_URL` → **`canopyops_app`** (the app connection).
 
-### 2. Cloudflare R2 (evidence)
+### 2. Evidence storage — you can skip it
 
-Create a bucket named `evidence` and an **API token scoped to that bucket**.
+`STORAGE_BACKEND=memory` (already set in `render.yaml`). **Three services, not
+four.**
 
-- `STORAGE_ENDPOINT` = `https://<account_id>.r2.cloudflarestorage.com`
-- `STORAGE_REGION` = `auto`
-- `STORAGE_BACKEND` = `s3`
+Nothing in the demonstration path needs a real bucket. The executions endpoint
+writes `EvidenceItem` rows with genuine `STORED` / `FAILED` states, so the golden
+record's failed after-photo, the evidence-completeness gate, and the guided sync
+recovery all behave exactly as they do locally. Only the presigned
+PUT → upload → finalize flow needs object storage, and **no screen in the demo
+drives it** — it's covered by tests, and against real MinIO in compose.
 
-Add a **CORS policy** on the bucket allowing your Vercel origin with `PUT`, `GET`,
-`HEAD` — browsers upload evidence directly to R2 via presigned URLs, so without
-CORS the upload fails in the browser while working fine from curl.
-
-R2 also *fixes* a real bug: in compose, presigned URLs point at `minio:9000`,
-which no real browser can resolve. R2's endpoint is public, so presigned URLs are
-genuinely reachable.
+If you later want that path live too, add a **Cloudflare R2** bucket (free 10GB,
+zero egress) and set `STORAGE_BACKEND=s3` plus `STORAGE_ENDPOINT`
+(`https://<account_id>.r2.cloudflarestorage.com`), `STORAGE_ACCESS_KEY`,
+`STORAGE_SECRET_KEY`, `STORAGE_BUCKET=evidence`, `STORAGE_REGION=auto`. Give the
+bucket a **CORS rule** allowing your Vercel origin with `PUT`/`GET`/`HEAD` —
+browsers upload straight to R2, so without CORS it fails in the browser while
+working fine from curl. R2 also fixes a real bug the compose setup has: presigned
+URLs there point at `minio:9000`, which no real browser can resolve.
 
 ### 3. Render (API)
 
@@ -81,11 +86,22 @@ background-service type**. The job queue drains on a daemon thread inside the AP
 Jobs still run — but this is not the architecture the repo otherwise describes, so
 do not claim a dedicated worker container for this deployment.
 
-**Keep it warm.** Render spins a free web service down after 15 minutes without
-*inbound* traffic and takes ~1 minute to wake. Ping `/api/health` every ~10 min
-(GitHub Actions schedule, or any uptime pinger). Render grants 750 free
-instance-hours/month; kept warm 24/7 a single service uses ~730 — it fits, but it
-is the *whole* allowance, so don't run a second free service beside it.
+**Keep it warm — the step that decides the demo.** Render spins a free web service
+down after 15 minutes without *inbound* traffic and takes ~1 minute to wake. A
+reviewer who opens the link cold watches a spinner for that minute and forms
+their opinion there.
+
+`.github/workflows/keepwarm.yml` already does this. To arm it, add a repository
+**variable** (Settings → Secrets and variables → Actions → **Variables**) named
+`API_URL` set to your Render service, e.g. `https://canopyops-api.onrender.com`.
+Until that variable exists the workflow no-ops rather than failing.
+
+(Render's own cron would be the natural home for it, but Render cron jobs are not
+free — a $0 deploy would either be rejected or quietly start charging.)
+
+Render grants 750 free instance-hours/month; kept warm 24/7 a single service uses
+~730 — it fits, but it is the *whole* allowance, so don't run a second free
+service beside it.
 
 ### 4. Vercel (SPA)
 

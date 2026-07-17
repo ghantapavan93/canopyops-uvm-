@@ -43,19 +43,23 @@ services:
       - key: SEED_ON_START
         value: "true"                # synthetic demo data
 
-      # --- Evidence storage: Cloudflare R2 (S3-compatible) ---------------------
+      # --- Evidence storage ----------------------------------------------------
+      # The in-process adapter, deliberately — it keeps this deploy to three
+      # services instead of four.
+      #
+      # Nothing in the demonstration path needs a real bucket: the executions
+      # endpoint writes EvidenceItem rows with genuine STORED / FAILED states, so
+      # the golden record's failed after-photo, the evidence gate, and the guided
+      # sync recovery all behave exactly as they do locally. Only the presigned
+      # PUT -> upload -> finalize flow needs object storage, and no screen in the
+      # demo drives it (it is covered by tests, and against real MinIO in compose).
+      #
+      # To make that path live too: set STORAGE_BACKEND=s3 and add
+      # STORAGE_ENDPOINT / STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY / STORAGE_BUCKET
+      # / STORAGE_REGION=auto, pointing at a Cloudflare R2 bucket (free 10GB, zero
+      # egress) with a CORS rule allowing the Vercel origin. See docs/DEPLOY.md.
       - key: STORAGE_BACKEND
-        value: s3
-      - key: STORAGE_ENDPOINT
-        sync: false                  # https://<account_id>.r2.cloudflarestorage.com
-      - key: STORAGE_ACCESS_KEY
-        sync: false
-      - key: STORAGE_SECRET_KEY
-        sync: false
-      - key: STORAGE_BUCKET
-        value: evidence
-      - key: STORAGE_REGION
-        value: auto                  # R2 expects "auto"
+        value: memory
 
       # Free instances have modest CPU; keep the pool small.
       - key: DB_POOL_SIZE
@@ -63,23 +67,15 @@ services:
       - key: DB_MAX_OVERFLOW
         value: "2"
 
-# Keep-warm: Render spins a free web service down after 15 minutes of no INBOUND
-# traffic, then takes ~1 minute to wake. This cron pings the health probe every
-# 10 minutes so a recruiter never lands on a cold start, and so the SSE stream
-# isn't reaped. Render grants 750 free instance-hours/month and a service kept
-# warm 24/7 uses ~730, so this fits — but it is the whole free allowance, so do
-# not run a second free service alongside it.
+# KEEP-WARM lives in .github/workflows/keepwarm.yml, not here.
 #
-# NOTE: cron jobs are NOT free on Render. If this blueprint's cron is rejected on
-# the free plan, use any external uptime pinger (e.g. a GitHub Actions schedule)
-# against https://<service>.onrender.com/api/health instead.
-  - type: cron
-    name: canopyops-keepwarm
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    schedule: "*/10 * * * *"
-    dockerCommand: curl -fsS "$KEEPWARM_URL" || true
-    envVars:
-      - key: KEEPWARM_URL
-        sync: false
+# Render spins a free web service down after 15 minutes without INBOUND traffic
+# and then takes ~1 minute to wake — long enough for a reviewer to form an
+# opinion while watching a spinner. It needs pinging every ~10 minutes.
+#
+# A Render cron would be the obvious place for that, except Render cron jobs are
+# NOT free, so putting one in this blueprint would either be rejected or quietly
+# start charging for a $0 deploy. A GitHub Actions schedule does the same job for
+# nothing. Render grants 750 free instance-hours/month; kept warm 24/7 a single
+# service uses ~730 — it fits, but it is the WHOLE allowance, so don't run a
+# second free service beside it.

@@ -1,0 +1,39 @@
+name: keep-warm
+
+# Render spins a free web service down after 15 minutes without inbound traffic,
+# then takes ~1 minute to wake. A reviewer who opens the demo cold watches a
+# spinner for that minute and forms their opinion there — so keep it awake.
+#
+# Render's own cron would be the natural home for this, but Render cron jobs are
+# not free; a GitHub Actions schedule costs nothing. Render allows 750 free
+# instance-hours/month and a service kept warm 24/7 uses ~730, so this fits — but
+# it is the whole allowance. Don't run a second free Render service beside it.
+#
+# SETUP: add a repository variable named API_URL (Settings → Secrets and
+# variables → Actions → Variables) set to your Render service, e.g.
+#   https://canopyops-api.onrender.com
+# Until that variable exists this workflow no-ops instead of failing.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub may delay scheduled runs under load — that is
+    # fine, the service only needs a ping inside each 15-minute idle window.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the API so Render doesn't spin it down
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "API_URL variable is not set yet — nothing to keep warm. Skipping."
+            exit 0
+          fi
+          # Never fail the workflow on a blip: a missed ping just means the next
+          # one wakes it. A red X here would be noise, not signal.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 "$API_URL/api/health" || echo "000")
+          echo "GET $API_URL/api/health -> $code"
