@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Self-hosted variable fonts — bundled into the build, so there is no external
+   request, no CSP exception, and the type renders identically offline (the PWA
+   promise stays intact). The system stack remains as a graceful fallback. */
+@import '@fontsource-variable/space-grotesk';     /* display / headlines */
+@import '@fontsource-variable/plus-jakarta-sans';  /* UI / body — deliberately not Inter */
+@import '@fontsource-variable/jetbrains-mono';     /* data / numerals / code */
+
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
 /* CanopyOps Treatment Assurance — global design tokens & base.
@@ -52,20 +59,34 @@
   --c-neutral: #4a5952;
   --c-neutral-soft: #e7ece8;
 
-  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: "Cascadia Code", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: "Plus Jakarta Sans Variable", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Space Grotesk Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "Cascadia Code", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 
   --header-h: 56px;
+
+  /* Cinematic layer — one owned accent in the canopy-green family, replacing the
+     borrowed purple gradients. These are used on DECORATIVE surfaces (hero glow,
+     gradient text, borders), never as small body text, so they carry the "wow"
+     without touching the WCAG-AA contrast the status/text tokens guarantee. */
+  --c-accent: #17a06a;             /* electric canopy */
+  --c-accent-bright: #34e39a;      /* mint highlight */
+  --c-accent-deep: #0c5c3d;        /* forest floor */
+  --grad-signature: linear-gradient(115deg, #34e39a 0%, #17a06a 42%, #0a6ea0 100%);
+  --grad-canvas: radial-gradient(120% 80% at 15% -10%, rgba(52,227,154,0.10) 0%, transparent 55%);
+  --glow-accent: 0 0 0 1px rgba(52,227,154,0.14), 0 12px 40px -12px rgba(23,160,106,0.45);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg: #0e1512;
-    --c-surface: #16201b;
-    --c-surface-2: #1d2a23;
-    --c-border: #2a3a31;
-    --c-text: #e7efe9;
-    --c-text-muted: #9db0a5;
+    /* Deeper, more filmic canvas. Every value is darker than before, so text
+       contrast can only go UP — the AA gate stays safe by construction. */
+    --c-bg: #080b0a;
+    --c-surface: #101613;
+    --c-surface-2: #17201b;
+    --c-border: #26332c;
+    --c-text: #eaf2ec;
+    --c-text-muted: #9fb2a7;
     --c-primary: #37b57e;
     --c-primary-ink: #06110b;
     --c-primary-soft: #16362a;
@@ -100,12 +121,29 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4 { margin: 0 0 var(--space-2); line-height: 1.25; font-weight: 650; }
-h1 { font-size: 1.4rem; }
+/* Headings use the display face with tightened tracking — the single strongest
+   "crafted, not generated" signal, applied once here so every screen inherits
+   it. Weight 600 in Space Grotesk reads confident without shouting. */
+h1, h2, h3, h4 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+}
+h1 { font-size: 1.45rem; letter-spacing: -0.028em; }
 h2 { font-size: 1.15rem; }
 h3 { font-size: 1rem; }
+
+/* Numerals line up in columns everywhere — the operational-instrument tell.
+   `tnum` = tabular figures, `zero` = slashed zero so 0 never reads as O. */
+[class*="metric"], [class*="stat"], [class*="count"], [class*="kpi"],
+.tabular, td, th, time, code, kbd, samp {
+  font-variant-numeric: tabular-nums slashed-zero;
+}
 
 a { color: var(--c-primary); }
 
