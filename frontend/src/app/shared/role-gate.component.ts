@@ -38,7 +38,7 @@ import { Role } from '../core/models';
       @if (error(); as e) {
         <p class="mt-3 text-xs text-danger">{{ e }}</p>
       }
-      <p class="mt-3 text-[11px] text-muted">
+      <p class="mt-3 text-xs text-muted">
         Acting as {{ currentLabel() }} · synthetic demonstration sign-in
       </p>
     </div>

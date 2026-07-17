@@ -97,6 +97,10 @@ jobs:
           python-version: '3.12'
       - name: Engineering Evidence must not lie about the Jest count
         run: python scripts/test_evidence.py --check --suite jest
+      - name: Console text must stay above the 12px floor
+        # The console drifted to 274 hand-written sub-12px sizes because nothing
+        # governed them. Raising them once wouldn't hold; this keeps it held.
+        run: python scripts/check_type_floor.py
       - name: Production build
         working-directory: frontend
         run: npm run build

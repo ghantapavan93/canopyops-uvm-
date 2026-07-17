@@ -51,7 +51,7 @@
 
     <!-- live refresh: the queue re-reads real DB state on a cadence -->
     <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
-            class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+            class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors"
             [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
             [class.border-border]="!live()" [class.text-muted]="!live()"
             [title]="!live() ? 'Paused'
@@ -62,13 +62,13 @@
             [class.bg-muted]="!live()"></span>
       {{ live() ? 'Live' : 'Paused' }}
       @if (live()) {
-        <span class="text-[9px] font-semibold uppercase tracking-wide opacity-70">
+        <span class="text-xs font-semibold uppercase tracking-wide opacity-70">
           {{ sse.connected() ? 'push' : 'poll' }}
         </span>
       }
     </button>
     <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
-            class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+            class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
             aria-label="Refresh now">
       <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
       <span class="tabular-nums text-muted">{{ agoSeconds() }}s</span>
@@ -78,17 +78,17 @@
   <!-- Status filter chips (only statuses present in the data) -->
   @if (statusOptions().length > 1) {
     <div class="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface px-4 py-1.5">
-      <span class="text-[11px] font-medium uppercase tracking-wide text-muted">Status</span>
+      <span class="text-xs font-medium uppercase tracking-wide text-muted">Status</span>
       @for (s of statusOptions(); track s) {
         <button type="button" (click)="toggleStatus(s)" [attr.aria-pressed]="activeStatuses().has(s)"
-                class="rounded-md border px-1.5 py-0.5 text-[11px] transition-colors"
+                class="rounded-md border px-1.5 py-0.5 text-xs transition-colors"
                 [class.border-primary]="activeStatuses().has(s)" [class.bg-primary-soft]="activeStatuses().has(s)" [class.text-primary]="activeStatuses().has(s)"
                 [class.border-border]="!activeStatuses().has(s)" [class.text-muted]="!activeStatuses().has(s)">
           <span aria-hidden="true">{{ STATUS_META[s].glyph }}</span> {{ STATUS_META[s].label }}
         </button>
       }
       @if (activeStatuses().size) {
-        <button type="button" (click)="clearFilters()" class="text-[11px] text-primary underline">clear</button>
+        <button type="button" (click)="clearFilters()" class="text-xs text-primary underline">clear</button>
       }
     </div>
   }
@@ -98,27 +98,29 @@
     <div class="flex flex-wrap items-stretch gap-2 border-b border-border bg-bg px-4 py-2">
       <div class="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5">
         <span class="text-lg font-semibold text-ink">{{ summary().total }}</span>
-        <span class="text-[11px] leading-tight text-muted">active<br />records</span>
+        <span class="text-xs leading-tight text-muted">active<br />records</span>
       </div>
       <div class="flex items-center gap-2 rounded-md border px-3 py-1.5"
            [class.border-danger]="summary().overdue > 0" [class.bg-danger-soft]="summary().overdue > 0"
            [class.live-dot--danger]="summary().overdue > 0"
            [class.border-border]="summary().overdue === 0" [class.bg-surface]="summary().overdue === 0">
         <span class="text-lg font-semibold" [class.text-danger]="summary().overdue > 0" [class.text-ink]="summary().overdue === 0">{{ summary().overdue }}</span>
-        <span class="text-[11px] leading-tight text-muted">⏳ verification<br />overdue</span>
+        <span class="text-xs leading-tight text-muted">⏳ verification<br />overdue</span>
       </div>
       <div class="flex items-center gap-2 rounded-md border px-3 py-1.5"
            [class.border-warn]="summary().incomplete > 0" [class.bg-warn-soft]="summary().incomplete > 0"
            [class.border-border]="summary().incomplete === 0" [class.bg-surface]="summary().incomplete === 0">
         <span class="text-lg font-semibold" [class.text-warn]="summary().incomplete > 0" [class.text-ink]="summary().incomplete === 0">{{ summary().incomplete }}</span>
-        <span class="text-[11px] leading-tight text-muted">◇ evidence<br />incomplete</span>
+        <span class="text-xs leading-tight text-muted">◇ evidence<br />incomplete</span>
       </div>
       <div class="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5">
         <span class="text-lg font-semibold text-info">{{ summary().constrained }}</span>
-        <span class="text-[11px] leading-tight text-muted">≈ constraint<br />intersects</span>
+        <span class="text-xs leading-tight text-muted">≈ constraint<br />intersects</span>
       </div>
-      <div class="ml-auto flex min-w-[140px] flex-col justify-center rounded-md border border-border bg-surface px-3 py-1.5">
-        <div class="flex items-center justify-between text-[11px] text-muted">
+      <!-- min-w sized for the 12px floor: at the old 10px the label and value fit
+           in 140px, and raising the type made them collide. -->
+      <div class="ml-auto flex min-w-[176px] flex-col justify-center rounded-md border border-border bg-surface px-3 py-1.5">
+        <div class="flex items-center justify-between gap-2 text-xs text-muted">
           <span>Program evidence</span><span class="font-semibold text-ink">{{ summary().avgEvidence }}%</span>
         </div>
         <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
@@ -155,25 +157,25 @@
       <!-- Sort + count + keyboard hint (sticky) -->
       @if (!loading() && !error() && visible().length) {
         <div class="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-1.5 backdrop-blur">
-          <span class="text-[11px] font-semibold tabular-nums text-ink">{{ visible().length }}</span>
-          <span class="text-[11px] text-muted">in queue</span>
+          <span class="text-xs font-semibold tabular-nums text-ink">{{ visible().length }}</span>
+          <span class="text-xs text-muted">in queue</span>
           @if (total() > records().length) {
-            <span class="rounded-sm bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn"
+            <span class="rounded-sm bg-warn-soft px-1.5 py-0.5 text-xs font-medium text-warn"
                   title="More records match on the server than are loaded here — refine filters or page.">
               of {{ total() }} · showing first {{ records().length }}
             </span>
           }
-          <label class="ml-auto flex items-center gap-1 text-[11px] text-muted">
+          <label class="ml-auto flex items-center gap-1 text-xs text-muted">
             <span class="sr-only">Sort queue</span>
             Sort
             <select [ngModel]="sortKey()" (ngModelChange)="setSort($event)"
-                    class="rounded border border-border bg-bg px-1.5 py-0.5 text-[11px] text-ink focus:border-primary">
+                    class="rounded border border-border bg-bg px-1.5 py-0.5 text-xs text-ink focus:border-primary">
               @for (s of sorts; track s.key) {
                 <option [value]="s.key">{{ s.label }}</option>
               }
             </select>
           </label>
-          <span class="hidden text-[10px] text-muted lg:inline" aria-hidden="true"
+          <span class="hidden text-xs text-muted lg:inline" aria-hidden="true"
                 title="Arrow keys or J/K to navigate, Enter to open, Esc to close">⌨ ↑↓ / J K</span>
         </div>
       }
@@ -213,19 +215,19 @@
                 <div class="flex items-center gap-2">
                   <span class="font-mono text-xs font-semibold text-ink">{{ r.workOrderRef }}</span>
                   <app-status-badge [meta]="PRIORITY_META[r.priority]" />
-                  <span class="ml-auto text-[11px] text-muted">{{ r.corridor.circuitId }} · {{ r.corridor.spanLabel }}</span>
+                  <span class="ml-auto text-xs text-muted">{{ r.corridor.circuitId }} · {{ r.corridor.spanLabel }}</span>
                 </div>
 
                 <div class="mt-1.5 flex items-center gap-2">
                   <app-status-badge [meta]="STATUS_META[r.status]" />
                   @if (r.verificationOverdue) {
-                    <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger">⏳ Overdue</span>
+                    <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-xs font-semibold text-danger">⏳ Overdue</span>
                   }
                 </div>
 
                 <!-- Evidence completeness meter -->
                 <div class="mt-2">
-                  <div class="flex items-center justify-between text-[11px] text-muted">
+                  <div class="flex items-center justify-between text-xs text-muted">
                     <span>Evidence</span>
                     <span [class.text-ok]="r.evidenceComplete" [class.text-warn]="!r.evidenceComplete">
                       {{ r.evidenceComplete ? 'Complete' : 'Incomplete' }} · {{ pct(r.evidenceScore) }}
@@ -242,7 +244,7 @@
                 @if (r.constraintFlags.length) {
                   <div class="mt-1.5 flex flex-wrap gap-1">
                     @for (c of r.constraintFlags; track c) {
-                      <span class="rounded-sm bg-info-soft px-1.5 py-0.5 text-[10px] text-info">
+                      <span class="rounded-sm bg-info-soft px-1.5 py-0.5 text-xs text-info">
                         {{ CONSTRAINT_META[c].glyph }} {{ CONSTRAINT_META[c].label }}
                       </span>
                     }
@@ -282,7 +284,7 @@
             <app-status-badge [meta]="STATUS_META[r.status]" />
             <app-status-badge [meta]="PRIORITY_META[r.priority]" />
             @if (r.verificationOverdue) {
-              <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger">⏳ Verification overdue</span>
+              <span class="rounded-sm bg-danger-soft px-1.5 py-0.5 text-xs font-semibold text-danger">⏳ Verification overdue</span>
             }
           </div>
 
@@ -307,7 +309,7 @@
                 </div>
                 <ul class="mt-1.5 flex flex-wrap gap-1">
                   @for (e of r.requiredEvidence; track e) {
-                    <li class="rounded-sm bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">{{ e.replaceAll('_', ' ') }}</li>
+                    <li class="rounded-sm bg-surface-2 px-1.5 py-0.5 text-xs text-muted">{{ e.replaceAll('_', ' ') }}</li>
                   }
                 </ul>
               </dd>
@@ -329,7 +331,7 @@
                 <dt class="text-xs font-semibold uppercase tracking-wide text-muted">Environmental constraints</dt>
                 <dd class="mt-1 flex flex-wrap gap-1">
                   @for (c of r.constraintFlags; track c) {
-                    <span class="rounded-sm bg-info-soft px-1.5 py-0.5 text-[11px] text-info">{{ CONSTRAINT_META[c].glyph }} {{ CONSTRAINT_META[c].label }}</span>
+                    <span class="rounded-sm bg-info-soft px-1.5 py-0.5 text-xs text-info">{{ CONSTRAINT_META[c].glyph }} {{ CONSTRAINT_META[c].label }}</span>
                   }
                 </dd>
               </div>
@@ -350,10 +352,10 @@
 
               @if (pp.evidence.length) {
                 <div class="mb-2.5">
-                  <div class="text-[11px] font-semibold text-muted">Evidence</div>
+                  <div class="text-xs font-semibold text-muted">Evidence</div>
                   <ul class="mt-1 flex flex-wrap gap-1">
                     @for (ev of pp.evidence; track ev.id) {
-                      <li class="rounded-sm px-1.5 py-0.5 text-[11px]"
+                      <li class="rounded-sm px-1.5 py-0.5 text-xs"
                           [class.bg-ok-soft]="ev.uploadStatus==='stored'" [class.text-ok]="ev.uploadStatus==='stored'"
                           [class.bg-danger-soft]="ev.uploadStatus==='failed'" [class.text-danger]="ev.uploadStatus==='failed'"
                           [class.bg-surface-2]="ev.uploadStatus!=='stored' && ev.uploadStatus!=='failed'"
@@ -367,33 +369,33 @@
 
               @if (pp.observations.length) {
                 <div class="mb-2.5">
-                  <div class="text-[11px] font-semibold text-muted">Verification</div>
+                  <div class="text-xs font-semibold text-muted">Verification</div>
                   @for (o of pp.observations; track o.id) {
                     <div class="mt-1 rounded-md bg-surface-2 p-2 text-xs">
                       <span class="font-medium capitalize">{{ o.conclusion ? o.conclusion.replaceAll('_',' ') : '—' }}</span>
                       @if (o.condition) { <span class="text-muted"> — {{ o.condition }}</span> }
-                      @if (o.followupGeometry) { <span class="ml-1 rounded-sm bg-danger-soft px-1 text-[10px] text-danger">targeted follow-up</span> }
+                      @if (o.followupGeometry) { <span class="ml-1 rounded-sm bg-danger-soft px-1 text-xs text-danger">targeted follow-up</span> }
                     </div>
                   }
                 </div>
               }
 
-              <div class="text-[11px] font-semibold text-muted">Audit trail</div>
+              <div class="text-xs font-semibold text-muted">Audit trail</div>
               <ol class="mt-1 space-y-1">
                 @for (a of pp.auditTrail; track $index) {
-                  <li class="flex items-center gap-2 text-[11px]">
+                  <li class="flex items-center gap-2 text-xs">
                     <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary"></span>
                     <span class="font-mono text-primary">{{ a.action }}</span>
                     <span class="ml-auto text-muted">{{ a.createdAt | date: 'short' }}</span>
                   </li>
                 }
                 @if (!pp.auditTrail.length) {
-                  <li class="text-[11px] text-muted">No audit events recorded yet (seeded record).</li>
+                  <li class="text-xs text-muted">No audit events recorded yet (seeded record).</li>
                 }
               </ol>
             </div>
           } @else {
-            <p class="mt-4 border-t border-border pt-3 text-[11px] text-muted">Loading record history…</p>
+            <p class="mt-4 border-t border-border pt-3 text-xs text-muted">Loading record history…</p>
           }
         </aside>
       }

@@ -16,7 +16,7 @@ type RGB = [number, number, number];
   standalone: true,
   template: `<div #host class="relative h-full w-full touch-none">
     <canvas #cv class="h-full w-full cursor-grab active:cursor-grabbing"></canvas>
-    <div class="pointer-events-none absolute bottom-2 left-2 rounded-md border border-border bg-surface/85 px-2 py-1 text-[10px] text-muted shadow-card backdrop-blur">
+    <div class="pointer-events-none absolute bottom-2 left-2 rounded-md border border-border bg-surface/85 px-2 py-1 text-xs text-muted shadow-card backdrop-blur">
       Drag to orbit · {{ exaggeration() }}× vertical exaggeration
     </div>
   </div>`,

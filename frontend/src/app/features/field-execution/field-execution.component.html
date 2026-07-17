@@ -20,7 +20,7 @@
     @if (!selected()) {
       <div class="ml-auto flex items-center gap-2">
         <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
-                class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+                class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors"
                 [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
                 [class.border-border]="!live()" [class.text-muted]="!live()"
                 [title]="live() ? 'Live — new plans appear automatically' : 'Paused'">
@@ -28,7 +28,7 @@
           {{ live() ? 'Live' : 'Paused' }}
         </button>
         <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
-                class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+                class="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
                 aria-label="Refresh plan list">
           <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
           <span class="tabular-nums text-muted">{{ agoSeconds() }}s</span>
@@ -55,9 +55,9 @@
   @if (!selected()) {
     @if (plans().length) {
       <div class="mb-1.5 flex items-center gap-2 px-1">
-        <span class="text-[11px] font-semibold tabular-nums text-ink">{{ plans().length }}</span>
-        <span class="text-[11px] text-muted">plans ready to record</span>
-        <span class="ml-auto hidden text-[10px] text-muted sm:inline" aria-hidden="true"
+        <span class="text-xs font-semibold tabular-nums text-ink">{{ plans().length }}</span>
+        <span class="text-xs text-muted">plans ready to record</span>
+        <span class="ml-auto hidden text-xs text-muted sm:inline" aria-hidden="true"
               title="Arrow keys or J/K to move, Enter to open">⌨ ↑↓ / J K · Enter</span>
       </div>
     }
@@ -106,7 +106,7 @@
             <div class="ml-auto flex gap-1">
               @for (p of coveragePresets; track p) {
                 <button type="button" (click)="setCoverage(p)" [attr.aria-pressed]="coverage() === p"
-                        class="rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors"
+                        class="rounded border px-1.5 py-0.5 text-xs font-medium transition-colors"
                         [class.border-primary]="coverage() === p" [class.bg-primary-soft]="coverage() === p" [class.text-primary]="coverage() === p"
                         [class.border-border]="coverage() !== p" [class.text-muted]="coverage() !== p">{{ p }}%</button>
               }
@@ -156,7 +156,7 @@
                  [style.width]="pct(evidenceScore())"></div>
           </div>
           @if (!evidenceComplete()) {
-            <p class="mt-1 text-[11px] text-warn">A missing or failed upload keeps this record incomplete — verification stays blocked until it's recovered.</p>
+            <p class="mt-1 text-xs text-warn">A missing or failed upload keeps this record incomplete — verification stays blocked until it's recovered.</p>
           }
         </div>
       </div>
@@ -174,18 +174,18 @@
 
       <!-- Live submission summary — what will actually happen on save -->
       <div class="mt-4 rounded-md border border-border bg-bg p-2.5 text-xs">
-        <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">On record</div>
+        <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">On record</div>
         <ul class="space-y-1">
           @for (item of checklist(); track item.label) {
             <li class="flex items-center gap-2" [class.text-ink]="item.done" [class.text-muted]="!item.done">
-              <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]"
+              <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-xs"
                     [class.bg-ok]="item.done" [class.text-primary-ink]="item.done"
                     [class.bg-warn-soft]="!item.done" [class.text-warn]="!item.done" aria-hidden="true">{{ item.done ? '✓' : '!' }}</span>
               {{ item.label }}
             </li>
           }
         </ul>
-        <p class="mt-1.5 border-t border-border pt-1.5 text-[11px] text-muted">
+        <p class="mt-1.5 border-t border-border pt-1.5 text-xs text-muted">
           Submits as <strong class="text-ink">applied</strong> ·
           <span [class.text-ok]="evidenceComplete()" [class.text-warn]="!evidenceComplete()">
             {{ evidenceComplete() ? 'ready for verification' : 'verification blocked until evidence recovered' }}</span>.
@@ -196,7 +196,7 @@
         class="mt-3 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-50">
         {{ conn.online() ? 'Record & sync execution' : 'Record execution (save offline)' }}
       </button>
-      <p class="mt-1 text-center text-[11px] text-muted">
+      <p class="mt-1 text-center text-xs text-muted">
         <kbd class="rounded border border-border px-1">Ctrl</kbd>+<kbd class="rounded border border-border px-1">Enter</kbd> to record ·
         <kbd class="rounded border border-border px-1">Esc</kbd> to go back
       </p>

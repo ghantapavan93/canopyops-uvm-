@@ -25,7 +25,7 @@ const LEVEL_HEX: Record<ProximityLevel, string> = {
   template: `<div class="relative h-full w-full">
     <div #mapEl class="h-full w-full" role="application"
          aria-label="Field-safety map. Drag the crew marker or click to move it."></div>
-    <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-[11px] shadow-card backdrop-blur">
+    <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-xs shadow-card backdrop-blur">
       @for (b of basemaps; track b.key) {
         <button type="button" (click)="basemap.set(b.key)" [attr.aria-pressed]="basemap() === b.key"
                 class="px-2 py-1 font-medium transition-colors"
@@ -33,7 +33,7 @@ const LEVEL_HEX: Record<ProximityLevel, string> = {
                 [class.text-muted]="basemap() !== b.key">{{ b.label }}</button>
       }
     </div>
-    <div class="pointer-events-none absolute bottom-2 left-2 z-10 rounded-md border border-border bg-surface/90 px-2 py-1 text-[11px] text-muted shadow-card backdrop-blur">
+    <div class="pointer-events-none absolute bottom-2 left-2 z-10 rounded-md border border-border bg-surface/90 px-2 py-1 text-xs text-muted shadow-card backdrop-blur">
       Drag the crew marker — or click the map — to move. Detection radius {{ warningMeters() }} m.
     </div>
   </div>`,

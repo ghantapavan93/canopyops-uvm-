@@ -84,7 +84,7 @@
       </div>
       <div class="mt-2.5 flex flex-wrap gap-1.5">
         <button type="button" (click)="setFilter('all')" [attr.aria-pressed]="filter() === 'all'"
-                class="rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors"
+                class="rounded-md border px-2 py-0.5 text-xs font-medium transition-colors"
                 [class.border-primary]="filter() === 'all'" [class.bg-primary-soft]="filter() === 'all'" [class.text-primary]="filter() === 'all'"
                 [class.border-border]="filter() !== 'all'" [class.text-muted]="filter() !== 'all'">
           All · {{ items().length }}
@@ -92,7 +92,7 @@
         @for (s of statusOrder; track s) {
           @if (counts()[s] > 0) {
             <button type="button" (click)="setFilter(s)" [attr.aria-pressed]="filter() === s"
-                    class="flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors"
+                    class="flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors"
                     [class.border-primary]="filter() === s" [class.bg-primary-soft]="filter() === s"
                     [class.border-border]="filter() !== s">
               <span aria-hidden="true" [style.color]="'var(--c-' + meta[s].tone + ')'">{{ meta[s].glyph }}</span>
@@ -113,12 +113,12 @@
           [class.live-dot--danger]="item.status === 'conflict'"
           [class.border-border]="item.status !== 'conflict'">
         <div class="flex items-center gap-2">
-          <span class="rounded-sm px-1.5 py-0.5 text-[11px] font-semibold" [class]="chip(item.status)">
+          <span class="rounded-sm px-1.5 py-0.5 text-xs font-semibold" [class]="chip(item.status)">
             {{ meta[item.status].glyph }} {{ meta[item.status].label }}
           </span>
           <span class="text-sm font-medium">{{ item.label }}</span>
           @if (item.attempts > 0) {
-            <span class="text-[11px] text-muted">· {{ item.attempts }} attempt(s)</span>
+            <span class="text-xs text-muted">· {{ item.attempts }} attempt(s)</span>
           }
         </div>
 
@@ -127,20 +127,20 @@
           {{ item.payload.evidence.length }} evidence item(s) captured · plan revision seen: {{ item.payload.planRevision }}
           @if (item.payload.constraintAcknowledged) { · constraints acknowledged }
         </div>
-        <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+        <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
           <span class="font-mono" title="Idempotency-Key — replays under this key never duplicate">🔑 {{ keyShort(item.idempotencyKey) }}…</span>
           @if (item.createdAt) { <span>· queued {{ ago(item.createdAt) }}</span> }
           <button type="button" (click)="toggleExpand(item.id)" [attr.aria-expanded]="isExpanded(item.id)"
-                  class="ml-auto rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted hover:bg-surface-2">
+                  class="ml-auto rounded border border-border px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-surface-2">
             {{ isExpanded(item.id) ? 'Hide payload' : 'Inspect payload' }}
           </button>
         </div>
         @if (isExpanded(item.id)) {
           <div class="mt-1.5 rounded-md border border-border bg-bg p-2">
-            <div class="mb-1 flex items-center justify-between text-[10px] text-muted">
+            <div class="mb-1 flex items-center justify-between text-xs text-muted">
               <span>POST /api/executions · header <span class="font-mono">Idempotency-Key: {{ item.idempotencyKey }}</span></span>
             </div>
-            <pre class="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-surface-2 p-2 text-[10px] leading-relaxed text-ink"><code>{{ payloadJson(item) }}</code></pre>
+            <pre class="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-surface-2 p-2 text-xs leading-relaxed text-ink"><code>{{ payloadJson(item) }}</code></pre>
           </div>
         }
 
@@ -158,7 +158,7 @@
               <div class="mt-1 flex flex-wrap gap-1">
                 @for (ev of r.evidence; track ev.id) {
                   <button (click)="sync.retryEvidence(item, ev.id)"
-                    class="rounded border px-1.5 py-0.5 text-[11px]"
+                    class="rounded border px-1.5 py-0.5 text-xs"
                     [class.border-warn]="ev.uploadStatus==='failed'" [class.text-warn]="ev.uploadStatus==='failed'"
                     [class.border-border]="ev.uploadStatus!=='failed'" [class.text-muted]="ev.uploadStatus!=='failed'"
                     [disabled]="ev.uploadStatus!=='failed'">
@@ -175,12 +175,12 @@
           <div class="mt-2 rounded-md border border-danger/40 bg-danger-soft p-2 text-xs text-danger">
             <div class="font-semibold">{{ c.message }}</div>
             <div class="mt-1 grid grid-cols-2 gap-2">
-              <div class="rounded bg-surface p-1.5 text-center"><div class="text-[10px] text-muted">Your revision</div><div class="text-base font-bold">{{ c.yourRevision }}</div></div>
-              <div class="rounded bg-surface p-1.5 text-center"><div class="text-[10px] text-muted">Server revision</div><div class="text-base font-bold">{{ c.serverRevision }}</div></div>
+              <div class="rounded bg-surface p-1.5 text-center"><div class="text-xs text-muted">Your revision</div><div class="text-base font-bold">{{ c.yourRevision }}</div></div>
+              <div class="rounded bg-surface p-1.5 text-center"><div class="text-xs text-muted">Server revision</div><div class="text-base font-bold">{{ c.serverRevision }}</div></div>
             </div>
             <div class="mt-2 flex gap-2">
-              <button (click)="sync.resolveWithServer(item)" class="rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-ink">Adopt server revision &amp; re-apply</button>
-              <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted">Discard</button>
+              <button (click)="sync.resolveWithServer(item)" class="rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-ink">Adopt server revision &amp; re-apply</button>
+              <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-xs text-muted">Discard</button>
             </div>
           </div>
         }
@@ -193,9 +193,9 @@
         <!-- actions for pending/failed -->
         @if (item.status === 'pending' || item.status === 'failed') {
           <div class="mt-2 flex flex-wrap gap-2">
-            <button (click)="sync.retry(item)" [disabled]="!conn.online()" class="rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-ink disabled:opacity-50">Retry now</button>
-            <button (click)="simulateEdit(item)" class="rounded-md border border-warn/50 px-2.5 py-1 text-[11px] font-medium text-warn">⚡ Simulate concurrent edit</button>
-            <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted">Discard</button>
+            <button (click)="sync.retry(item)" [disabled]="!conn.online()" class="rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-ink disabled:opacity-50">Retry now</button>
+            <button (click)="simulateEdit(item)" class="rounded-md border border-warn/50 px-2.5 py-1 text-xs font-medium text-warn">⚡ Simulate concurrent edit</button>
+            <button (click)="sync.discard(item)" class="rounded-md border border-border px-2.5 py-1 text-xs text-muted">Discard</button>
           </div>
         }
       </li>

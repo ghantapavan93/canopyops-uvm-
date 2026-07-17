@@ -21,40 +21,40 @@ import { ReliabilityBoard, ReliabilityCircuit, ReliabilityClass } from '../../co
           <div>
             <h2 class="flex items-center gap-2 text-sm font-semibold text-ink">
               Reliability outcome
-              <span class="rounded bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">closed ≠ effective</span>
+              <span class="rounded bg-primary-soft px-1.5 py-0.5 text-xs font-semibold text-primary">closed ≠ effective</span>
             </h2>
-            <p class="text-[11px] text-muted">Did closed work actually move the indices UVM is judged by? Movement is synthetic but driven by real coverage, evidence &amp; verified status.</p>
+            <p class="text-xs text-muted">Did closed work actually move the indices UVM is judged by? Movement is synthetic but driven by real coverage, evidence &amp; verified status.</p>
           </div>
-          <a routerLink="/console/verification" class="text-[11px] font-medium text-primary no-underline hover:underline">Open verification →</a>
+          <a routerLink="/console/verification" class="text-xs font-medium text-primary no-underline hover:underline">Open verification →</a>
         </header>
 
         <!-- program rollup -->
         <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
           <div class="rounded-md bg-surface-2 p-2.5">
-            <div class="text-[10px] uppercase tracking-wide text-muted">SAIDI (min/cust)</div>
+            <div class="text-xs uppercase tracking-wide text-muted">SAIDI (min/cust)</div>
             <div class="flex items-baseline gap-1.5">
               <span class="text-lg font-bold text-ink">{{ b.rollup.saidiAfter }}</span>
-              <span class="text-[11px]" [class]="deltaClass(b.rollup.saidiDelta)">{{ deltaArrow(b.rollup.saidiDelta) }} {{ absDelta(b.rollup.saidiDelta) }}</span>
+              <span class="text-xs" [class]="deltaClass(b.rollup.saidiDelta)">{{ deltaArrow(b.rollup.saidiDelta) }} {{ absDelta(b.rollup.saidiDelta) }}</span>
             </div>
-            <div class="text-[10px] text-muted">was {{ b.rollup.saidiBefore }}</div>
+            <div class="text-xs text-muted">was {{ b.rollup.saidiBefore }}</div>
           </div>
           <div class="rounded-md bg-surface-2 p-2.5">
-            <div class="text-[10px] uppercase tracking-wide text-muted">SAIFI (int/cust)</div>
+            <div class="text-xs uppercase tracking-wide text-muted">SAIFI (int/cust)</div>
             <div class="flex items-baseline gap-1.5">
               <span class="text-lg font-bold text-ink">{{ b.rollup.saifiAfter }}</span>
-              <span class="text-[11px]" [class]="deltaClass(b.rollup.saifiAfter - b.rollup.saifiBefore)">{{ deltaArrow(b.rollup.saifiAfter - b.rollup.saifiBefore) }}</span>
+              <span class="text-xs" [class]="deltaClass(b.rollup.saifiAfter - b.rollup.saifiBefore)">{{ deltaArrow(b.rollup.saifiAfter - b.rollup.saifiBefore) }}</span>
             </div>
-            <div class="text-[10px] text-muted">was {{ b.rollup.saifiBefore }}</div>
+            <div class="text-xs text-muted">was {{ b.rollup.saifiBefore }}</div>
           </div>
           <div class="rounded-md bg-surface-2 p-2.5">
-            <div class="text-[10px] uppercase tracking-wide text-muted">Closed → effective</div>
-            <div class="text-lg font-bold text-ink">{{ b.rollup.effectiveTotal }}<span class="text-[11px] font-normal text-muted"> / {{ b.rollup.closedTotal }}</span></div>
-            <div class="text-[10px] text-muted">{{ b.rollup.customers | number }} customers</div>
+            <div class="text-xs uppercase tracking-wide text-muted">Closed → effective</div>
+            <div class="text-lg font-bold text-ink">{{ b.rollup.effectiveTotal }}<span class="text-xs font-normal text-muted"> / {{ b.rollup.closedTotal }}</span></div>
+            <div class="text-xs text-muted">{{ b.rollup.customers | number }} customers</div>
           </div>
           <div class="rounded-md p-2.5" [class.bg-danger-soft]="b.rollup.closedNotEffectiveCircuits > 0" [class.bg-surface-2]="b.rollup.closedNotEffectiveCircuits === 0">
-            <div class="text-[10px] uppercase tracking-wide text-muted">Closed, not effective</div>
+            <div class="text-xs uppercase tracking-wide text-muted">Closed, not effective</div>
             <div class="text-lg font-bold" [class.text-danger]="b.rollup.closedNotEffectiveCircuits > 0" [class.text-ink]="b.rollup.closedNotEffectiveCircuits === 0">{{ b.rollup.closedNotEffectiveCircuits }}</div>
-            <div class="text-[10px] text-muted">circuit(s) need review</div>
+            <div class="text-xs text-muted">circuit(s) need review</div>
           </div>
         </div>
 
@@ -81,20 +81,20 @@ import { ReliabilityBoard, ReliabilityCircuit, ReliabilityClass } from '../../co
                       <div class="h-1.5 w-16 overflow-hidden rounded-full bg-surface-2">
                         <div class="h-full rounded-full" [style.width.%]="c.effectivenessPct" [style.background]="effColor(c)"></div>
                       </div>
-                      <span class="text-[10px] text-muted">{{ c.effectivenessPct }}%</span>
+                      <span class="text-xs text-muted">{{ c.effectivenessPct }}%</span>
                     </div>
                   </td>
                   <td class="py-1.5 pr-2 text-muted">{{ c.saidiBefore }} <span class="text-ink">→ {{ c.saidiAfter }}</span></td>
                   <td class="py-1.5 pr-2 text-right font-semibold" [class]="deltaClass(c.saidiDelta)">{{ deltaArrow(c.saidiDelta) }} {{ absDelta(c.saidiDelta) }}</td>
                   <td class="py-1.5">
-                    <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="badgeClass(c.classification)">{{ label(c.classification) }}</span>
+                    <span class="rounded px-1.5 py-0.5 text-xs font-semibold" [class]="badgeClass(c.classification)">{{ label(c.classification) }}</span>
                   </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
-        <p class="mt-2 text-[10px] text-muted">SAIDI/SAIFI/CAIDI/CMI are synthetic &amp; illustrative — but a circuit that closed work with weak evidence or low coverage shows little movement. {{ b.note }}</p>
+        <p class="mt-2 text-xs text-muted">SAIDI/SAIFI/CAIDI/CMI are synthetic &amp; illustrative — but a circuit that closed work with weak evidence or low coverage shows little movement. {{ b.note }}</p>
       </section>
     }
   `,

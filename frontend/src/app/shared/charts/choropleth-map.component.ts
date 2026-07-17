@@ -34,7 +34,7 @@ const RAMP = ['#fde5e3', '#f6b0ab', '#e97b73', '#d1453f', '#a11f1a'];
 
       <!-- hover tooltip -->
       @if (hover(); as h) {
-        <div class="pointer-events-none absolute z-10 rounded-md border border-border bg-surface px-2 py-1 text-[11px] shadow-pop"
+        <div class="pointer-events-none absolute z-10 rounded-md border border-border bg-surface px-2 py-1 text-xs shadow-pop"
              [style.left.px]="h.x + 10" [style.top.px]="h.y + 10">
           <div class="font-semibold text-ink">{{ h.name }}</div>
           <div class="text-muted">{{ h.enc }} encroachments · {{ h.circuit }}</div>
@@ -42,7 +42,7 @@ const RAMP = ['#fde5e3', '#f6b0ab', '#e97b73', '#d1453f', '#a11f1a'];
       }
 
       <!-- legend -->
-      <div class="pointer-events-none absolute bottom-2 left-2 rounded-md border border-border bg-surface/90 p-2 text-[10px] shadow-card backdrop-blur">
+      <div class="pointer-events-none absolute bottom-2 left-2 rounded-md border border-border bg-surface/90 p-2 text-xs shadow-card backdrop-blur">
         <div class="mb-1 font-semibold text-ink">Encroachments</div>
         <div class="flex items-center gap-1">
           <span class="text-muted">low</span>

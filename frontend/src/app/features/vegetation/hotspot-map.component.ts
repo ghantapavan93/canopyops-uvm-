@@ -26,14 +26,14 @@ const RAMP: [number, string][] = [
            aria-label="Hot-spotting intensity by corridor span. A ranked list of the same data is shown beside the map."></div>
 
       @if (hover(); as h) {
-        <div class="pointer-events-none absolute z-10 rounded-md border border-border bg-surface px-2 py-1 text-[11px] shadow-pop"
+        <div class="pointer-events-none absolute z-10 rounded-md border border-border bg-surface px-2 py-1 text-xs shadow-pop"
              [style.left.px]="h.x + 10" [style.top.px]="h.y + 10">
           <div class="font-semibold text-ink">{{ h.circuit }} · {{ h.span }}</div>
           <div class="text-muted">hot-spot score {{ h.score }} · {{ h.tier }}</div>
         </div>
       }
 
-      <div class="pointer-events-none absolute bottom-2 left-2 rounded-md border border-border bg-surface/90 p-2 text-[10px] shadow-card backdrop-blur">
+      <div class="pointer-events-none absolute bottom-2 left-2 rounded-md border border-border bg-surface/90 p-2 text-xs shadow-card backdrop-blur">
         <div class="mb-1 font-semibold text-ink">Hot-spotting intensity</div>
         <div class="flex items-center gap-1">
           <span class="text-muted">stable</span>

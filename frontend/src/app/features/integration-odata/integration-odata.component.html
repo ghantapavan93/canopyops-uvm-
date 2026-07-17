@@ -8,7 +8,7 @@
       <code>$filter</code>/<code>$select</code>/<code>$orderby</code>, deferred
       navigation, and ETag caching.
     </p>
-    <p class="mt-1 text-[11px] text-muted">
+    <p class="mt-1 text-xs text-muted">
       Synthetic, OData-compatible facade — not a real SAP connection.
       <a [href]="metadataUrl" target="_blank" rel="noopener" class="font-semibold text-primary underline">Open $metadata →</a>
     </p>
@@ -16,30 +16,30 @@
 
   <!-- controls -->
   <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-2.5">
-    <span class="text-[11px] font-semibold uppercase tracking-wide text-muted">$filter</span>
+    <span class="text-xs font-semibold uppercase tracking-wide text-muted">$filter</span>
     @for (f of filters; track f.key) {
       <button type="button" (click)="setFilter(f.key)" [attr.aria-pressed]="filterKey() === f.key"
-              class="rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors"
+              class="rounded-md border px-2 py-0.5 font-mono text-xs transition-colors"
               [class.border-primary]="filterKey() === f.key" [class.bg-primary-soft]="filterKey() === f.key" [class.text-primary]="filterKey() === f.key"
               [class.border-border]="filterKey() !== f.key" [class.text-muted]="filterKey() !== f.key">
         {{ f.label }}
       </button>
     }
-    <label class="ml-auto flex items-center gap-1 text-[11px] text-muted">
+    <label class="ml-auto flex items-center gap-1 text-xs text-muted">
       $orderby
       <select [value]="orderbyKey()" (change)="setOrderby($any($event.target).value)"
-              class="rounded border border-border bg-bg px-1.5 py-0.5 text-[11px] text-ink">
+              class="rounded border border-border bg-bg px-1.5 py-0.5 text-xs text-ink">
         @for (o of orderbys; track o.key) { <option [value]="o.key">{{ o.label }}</option> }
       </select>
     </label>
     <button type="button" (click)="refetch()"
-            class="rounded-md border border-border px-2 py-0.5 text-[11px] font-medium text-ink hover:bg-surface-2"
+            class="rounded-md border border-border px-2 py-0.5 text-xs font-medium text-ink hover:bg-surface-2"
             title="Re-run the same query — with the ETag cached, the server answers 304 Not Modified">↻ Refetch</button>
   </div>
 
   <!-- live request telemetry -->
   @if (result(); as r) {
-    <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg p-2.5 text-[11px]">
+    <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg p-2.5 text-xs">
       <span class="font-semibold uppercase tracking-wide text-muted">Last request</span>
       <span class="rounded-sm px-1.5 py-0.5 font-semibold"
             [class.bg-info-soft]="r.source === 'network'" [class.text-info]="r.source === 'network'"
@@ -61,8 +61,8 @@
     </div>
     @if (rawOpen()) {
       <div class="mb-3 rounded-lg border border-border bg-bg p-2">
-        <div class="mb-1 text-[10px] text-muted">GET <span class="font-mono">{{ rawUrl() }}</span></div>
-        <pre class="max-h-64 overflow-auto rounded bg-surface-2 p-2 text-[10px] leading-relaxed text-ink"><code>{{ result() | json }}</code></pre>
+        <div class="mb-1 text-xs text-muted">GET <span class="font-mono">{{ rawUrl() }}</span></div>
+        <pre class="max-h-64 overflow-auto rounded bg-surface-2 p-2 text-xs leading-relaxed text-ink"><code>{{ result() | json }}</code></pre>
       </div>
     }
   }
@@ -96,7 +96,7 @@
             <td class="p-2 text-right">{{ pct(row.CoverageRatio) }}</td>
             <td class="p-2">
               <button type="button" (click)="expandCats(row)"
-                      class="rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-surface-2"
+                      class="rounded border border-border px-1.5 py-0.5 text-xs font-medium text-primary hover:bg-surface-2"
                       [attr.aria-expanded]="expandedKey() === row.Wbs">
                 {{ expandedKey() === row.Wbs ? '▾ hide' : '▸ $expand' }}
               </button>
@@ -105,17 +105,17 @@
           @if (expandedKey() === row.Wbs) {
             <tr class="border-t border-border bg-bg">
               <td colspan="7" class="p-2">
-                <div class="mb-1 text-[10px] text-muted">
+                <div class="mb-1 text-xs text-muted">
                   Deferred load · GET <span class="font-mono">WbsElements('{{ row.Wbs }}')/CatsEntries</span>
                   @if (cats(); as c) { · <span [class.text-ok]="c.source === 'revalidated-304'">{{ c.source }}</span> · {{ c.ms }} ms }
                 </div>
                 @if (cats(); as c) {
                   @if (c.value.length) {
                     <table class="w-full">
-                      <thead><tr class="text-left text-[10px] text-muted"><th class="py-0.5">CATS ID</th><th>Personnel</th><th>Date</th><th class="text-right">Hours</th><th>Activity</th></tr></thead>
+                      <thead><tr class="text-left text-xs text-muted"><th class="py-0.5">CATS ID</th><th>Personnel</th><th>Date</th><th class="text-right">Hours</th><th>Activity</th></tr></thead>
                       <tbody>
                         @for (e of c.value; track e.CatsId) {
-                          <tr class="text-[11px]">
+                          <tr class="text-xs">
                             <td class="py-0.5 font-mono">{{ e.CatsId }}</td>
                             <td>{{ e.PersonnelName }}</td>
                             <td class="text-muted">{{ e.WorkDate?.slice(0, 10) }}</td>
@@ -126,10 +126,10 @@
                       </tbody>
                     </table>
                   } @else {
-                    <div class="text-[11px] text-muted">No CATS confirmations booked to this WBS element yet.</div>
+                    <div class="text-xs text-muted">No CATS confirmations booked to this WBS element yet.</div>
                   }
                 } @else {
-                  <div class="text-[11px] text-muted">Loading CATS…</div>
+                  <div class="text-xs text-muted">Loading CATS…</div>
                 }
               </td>
             </tr>
@@ -145,7 +145,7 @@
   <div class="mt-3 flex items-center gap-2">
     <button type="button" (click)="prevPage()" [disabled]="skip() <= 0"
             class="rounded-md border border-border px-3 py-1.5 text-xs disabled:opacity-40">← Prev</button>
-    <span class="text-[11px] text-muted">rows {{ skip() + 1 }}–{{ skip() + rows().length }} of {{ result()?.count ?? 0 }}</span>
+    <span class="text-xs text-muted">rows {{ skip() + 1 }}–{{ skip() + rows().length }} of {{ result()?.count ?? 0 }}</span>
     <button type="button" (click)="nextPage()" [disabled]="!result()?.nextLink"
             class="rounded-md border border-border px-3 py-1.5 text-xs disabled:opacity-40">
       Next (&#64;odata.nextLink) →
@@ -156,7 +156,7 @@
   <section class="mt-4 rounded-lg border border-border bg-surface p-3">
     <div class="flex flex-wrap items-center gap-2">
       <h2 class="text-sm font-semibold text-ink">$batch</h2>
-      <span class="text-[11px] text-muted">
+      <span class="text-xs text-muted">
         Bundle several reads into <strong>one</strong> round-trip — the pattern SAP front ends lean on to
         paint a screen without a request waterfall. Ordered, each response echoes its <code>id</code>,
         and a request whose <code>dependsOn</code> predecessor failed comes back <code>424</code>.
@@ -170,19 +170,19 @@
     <!-- the request envelope we'll POST -->
     <ol class="mt-2 space-y-0.5">
       @for (req of batchRequests(); track req.id) {
-        <li class="font-mono text-[10px] text-muted">
+        <li class="font-mono text-xs text-muted">
           <span class="text-ink">{{ req.id }}</span> · {{ req.method }} <span class="font-mono">{{ req.url }}</span>
         </li>
       }
     </ol>
 
     @if (batchResult(); as br) {
-      <div class="mt-2 flex items-center gap-2 text-[11px]">
+      <div class="mt-2 flex items-center gap-2 text-xs">
         <span class="rounded-sm bg-ok-soft px-1.5 py-0.5 font-semibold text-ok">200 · 1 round-trip</span>
         <span class="text-muted">{{ br.responses.length }} sub-responses · {{ br.ms }} ms total</span>
       </div>
       <div class="mt-2 overflow-hidden rounded-md border border-border">
-        <table class="w-full text-[11px]">
+        <table class="w-full text-xs">
           <thead><tr class="border-b border-border text-left text-muted"><th class="p-1.5 font-medium">id</th><th class="p-1.5 font-medium">status</th><th class="p-1.5 font-medium">result</th></tr></thead>
           <tbody>
             @for (r of br.responses; track r.id) {

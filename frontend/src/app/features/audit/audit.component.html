@@ -13,7 +13,7 @@
     <div class="mb-2 flex items-baseline justify-between">
       <h2 class="text-sm font-semibold text-ink">Work-plan audit (QA)</h2>
       @if (!canAudit()) {
-        <span class="rounded bg-surface-2 px-2 py-0.5 text-[11px] text-muted">Sign in as a Reviewer or Compliance role to record a verdict</span>
+        <span class="rounded bg-surface-2 px-2 py-0.5 text-xs text-muted">Sign in as a Reviewer or Compliance role to record a verdict</span>
       }
     </div>
 
@@ -21,19 +21,19 @@
       <div class="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
         <div class="rounded-md bg-surface-2 p-2.5 text-center">
           <div class="text-lg font-bold text-ink">{{ q.summary.auditCoveragePct }}%</div>
-          <div class="text-[10px] text-muted">audit coverage</div>
+          <div class="text-xs text-muted">audit coverage</div>
         </div>
         <div class="rounded-md bg-surface-2 p-2.5 text-center">
           <div class="text-lg font-bold text-ink">{{ q.summary.sampled }}</div>
-          <div class="text-[10px] text-muted">in QA sample</div>
+          <div class="text-xs text-muted">in QA sample</div>
         </div>
         <div class="rounded-md bg-surface-2 p-2.5 text-center">
           <div class="text-lg font-bold text-ok">{{ q.summary.passed }}</div>
-          <div class="text-[10px] text-muted">passed</div>
+          <div class="text-xs text-muted">passed</div>
         </div>
         <div class="rounded-md p-2.5 text-center" [class.bg-danger-soft]="q.summary.failed > 0" [class.bg-surface-2]="q.summary.failed === 0">
           <div class="text-lg font-bold" [class.text-danger]="q.summary.failed > 0" [class.text-ink]="q.summary.failed === 0">{{ q.summary.failed }}</div>
-          <div class="text-[10px] text-muted">failed</div>
+          <div class="text-xs text-muted">failed</div>
         </div>
       </div>
 
@@ -58,14 +58,14 @@
                   (keydown.enter)="toggleAudit(it.planId)" (keydown.space)="toggleAudit(it.planId); $event.preventDefault()">
                 <td class="p-2">
                   <div class="font-mono font-semibold text-ink">{{ it.workOrderRef }}</div>
-                  <div class="text-[10px] text-muted">{{ it.circuit }} · {{ it.span }}
-                    @if (it.sampled) { <span class="ml-1 rounded bg-primary-soft px-1 py-0.5 text-[9px] font-semibold text-primary">sampled</span> }
+                  <div class="text-xs text-muted">{{ it.circuit }} · {{ it.span }}
+                    @if (it.sampled) { <span class="ml-1 rounded bg-primary-soft px-1 py-0.5 text-xs font-semibold text-primary">sampled</span> }
                   </div>
                 </td>
                 <td class="p-2">
                   <div class="flex gap-1">
                     @for (c of it.checks; track c.key) {
-                      <span class="grid h-4 w-4 place-items-center rounded text-[9px] font-bold"
+                      <span class="grid h-4 w-4 place-items-center rounded text-xs font-bold"
                             [class.bg-ok-soft]="c.passed" [class.text-ok]="c.passed"
                             [class.bg-danger-soft]="!c.passed" [class.text-danger]="!c.passed"
                             [title]="c.label + ' — ' + c.detail">{{ c.passed ? '✓' : '✕' }}</span>
@@ -77,9 +77,9 @@
                 </td>
                 <td class="p-2">
                   @if (it.audited) {
-                    <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="outcomeClass(it.lastOutcome)">{{ it.lastOutcome }}</span>
+                    <span class="rounded px-1.5 py-0.5 text-xs font-semibold" [class]="outcomeClass(it.lastOutcome)">{{ it.lastOutcome }}</span>
                   } @else {
-                    <span class="text-[10px] text-muted">unaudited · suggests
+                    <span class="text-xs text-muted">unaudited · suggests
                       <span class="font-semibold" [class]="outcomeClass(it.suggestedOutcome)">{{ it.suggestedOutcome }}</span>
                     </span>
                   }
@@ -95,7 +95,7 @@
                         <div class="flex items-start gap-2">
                           <span class="mt-0.5 flex-shrink-0" [class.text-ok]="c.passed" [class.text-danger]="!c.passed">{{ c.passed ? '✓' : '✕' }}</span>
                           <span><span class="font-medium text-ink">{{ c.label }}</span>
-                            @if (c.critical) { <span class="ml-1 rounded bg-surface-2 px-1 text-[9px] text-muted">critical</span> }
+                            @if (c.critical) { <span class="ml-1 rounded bg-surface-2 px-1 text-xs text-muted">critical</span> }
                             <span class="text-muted"> — {{ c.detail }}</span></span>
                         </div>
                       }
@@ -118,10 +118,10 @@
                     <!-- append-only history -->
                     @if (history().length) {
                       <div class="mt-2">
-                        <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Audit history (append-only)</div>
+                        <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Audit history (append-only)</div>
                         @for (h of history(); track h.id) {
-                          <div class="flex items-center gap-2 border-t border-border py-1 text-[11px]">
-                            <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="outcomeClass(h.outcome)">{{ h.outcome }}</span>
+                          <div class="flex items-center gap-2 border-t border-border py-1 text-xs">
+                            <span class="rounded px-1.5 py-0.5 text-xs font-semibold" [class]="outcomeClass(h.outcome)">{{ h.outcome }}</span>
                             <span class="text-muted">{{ (h.score * 100).toFixed(0) }}% checks</span>
                             <span class="text-ink">{{ h.auditorName || 'reviewer' }}</span>
                             @if (h.note) { <span class="text-muted">· “{{ h.note }}”</span> }
@@ -139,7 +139,7 @@
           </tbody>
         </table>
       </div>
-      <p class="mt-2 text-[10px] text-muted">{{ q.note }}</p>
+      <p class="mt-2 text-xs text-muted">{{ q.note }}</p>
     } @else {
       <div class="text-sm text-muted">Loading audit queue…</div>
     }
@@ -150,7 +150,7 @@
     <div class="mb-2 flex items-baseline justify-between">
       <h2 class="text-sm font-semibold text-ink">Compliance evidence vault</h2>
       @if (vault(); as v) {
-        <div class="flex items-center gap-2 text-[11px] text-muted">
+        <div class="flex items-center gap-2 text-xs text-muted">
           <span><strong class="text-ink">{{ v.summary.avgCompletenessPct }}%</strong> avg completeness</span>
           <span>· <strong class="text-ink">{{ v.summary.fullyCompliant }}</strong> / {{ v.summary.plans }} fully documented</span>
         </div>
@@ -164,12 +164,12 @@
             <button type="button" (click)="toggleVault(d.planId)" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface-2">
               <div class="min-w-[9rem]">
                 <div class="font-mono text-xs font-semibold text-ink">{{ d.workOrderRef }}</div>
-                <div class="text-[10px] text-muted">{{ d.circuit }} · {{ d.span }}</div>
+                <div class="text-xs text-muted">{{ d.circuit }} · {{ d.span }}</div>
               </div>
               <!-- framework chips -->
               <div class="flex flex-1 flex-wrap gap-1">
                 @for (f of d.frameworks; track f.code) {
-                  <span class="rounded px-1.5 py-0.5 text-[9px] font-semibold"
+                  <span class="rounded px-1.5 py-0.5 text-xs font-semibold"
                         [class.bg-ok-soft]="f.satisfied" [class.text-ok]="f.satisfied"
                         [class.bg-danger-soft]="!f.satisfied" [class.text-danger]="!f.satisfied"
                         [title]="f.requirement + ' — ' + f.detail">{{ f.satisfied ? '✓' : '✕' }} {{ f.code }}</span>
@@ -180,14 +180,14 @@
                   <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                     <div class="h-full rounded-full" [style.width.%]="d.completenessPct" [style.background]="completeColor(d.completenessPct)"></div>
                   </div>
-                  <span class="w-8 text-right text-[11px] font-semibold" [style.color]="completeColor(d.completenessPct)">{{ d.completenessPct }}%</span>
+                  <span class="w-8 text-right text-xs font-semibold" [style.color]="completeColor(d.completenessPct)">{{ d.completenessPct }}%</span>
                 </div>
               </div>
               <span class="text-muted">{{ expandedVault() === d.planId ? '▾' : '▸' }}</span>
             </button>
 
             @if (expandedVault() === d.planId) {
-              <div class="border-t border-border p-3 text-[11px]">
+              <div class="border-t border-border p-3 text-xs">
                 <div class="grid gap-3 md:grid-cols-2">
                   <!-- the assembled chain -->
                   <div>
@@ -206,7 +206,7 @@
                     @if (d.components.evidence.length) {
                       <div class="mt-2">
                         @for (e of d.components.evidence; track e.type) {
-                          <div class="flex items-center gap-2 text-[10px]">
+                          <div class="flex items-center gap-2 text-xs">
                             <span [class.text-ok]="e.stored" [class.text-danger]="!e.stored">{{ e.stored ? '✓' : '✕' }}</span>
                             <span class="text-ink">{{ e.type }}</span>
                             <span class="text-muted">{{ e.uploadStatus }}</span>
@@ -225,7 +225,7 @@
                         <div class="flex items-start gap-2">
                           <span class="mt-0.5" [class.text-ok]="f.satisfied" [class.text-danger]="!f.satisfied">{{ f.satisfied ? '✓' : '✕' }}</span>
                           <span><span class="font-medium text-ink">{{ f.code }}</span> — {{ f.requirement }}
-                            <span class="block text-[10px] text-muted">{{ f.detail }}</span></span>
+                            <span class="block text-xs text-muted">{{ f.detail }}</span></span>
                         </div>
                       }
                     </div>
@@ -236,7 +236,7 @@
           </div>
         }
       </div>
-      <p class="mt-2 text-[10px] text-muted">{{ v.note }}</p>
+      <p class="mt-2 text-xs text-muted">{{ v.note }}</p>
     } @else {
       <div class="text-sm text-muted">Assembling evidence vault…</div>
     }

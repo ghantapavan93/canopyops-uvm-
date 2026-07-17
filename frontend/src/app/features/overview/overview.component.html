@@ -19,7 +19,7 @@
       <div class="flex items-center gap-2">
         <!-- live refresh: the dashboard re-reads real DB state on a cadence -->
         <button type="button" (click)="toggleLive()" [attr.aria-pressed]="live()"
-                class="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors"
+                class="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors"
                 [class.border-ok]="live()" [class.bg-ok-soft]="live()" [class.text-ok]="live()"
                 [class.border-border]="!live()" [class.text-muted]="!live()"
                 [title]="live() ? 'Live — auto-refreshing every 12s' : 'Paused'">
@@ -28,7 +28,7 @@
           {{ live() ? 'Live' : 'Paused' }}
         </button>
         <button type="button" (click)="refreshNow()" [disabled]="refreshing()"
-                class="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[11px] font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
+                class="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-surface-2 disabled:opacity-50"
                 aria-label="Refresh now">
           <span [class.animate-spin]="refreshing()" class="inline-block">↻</span>
           <span class="tabular-nums text-muted">updated {{ agoSeconds() }}s ago</span>
@@ -43,7 +43,7 @@
             </button>
           }
         </div>
-        <span class="rounded-full bg-warn-soft px-2 py-1 text-[11px] font-medium text-warn">⚠ Synthetic</span>
+        <span class="rounded-full bg-warn-soft px-2 py-1 text-xs font-medium text-warn">⚠ Synthetic</span>
       </div>
     </header>
 
@@ -57,9 +57,9 @@
                 class="stagger-in lift w-full rounded-lg border border-border bg-surface p-3 text-left focus:border-primary"
                 [style.--i]="i">
           <div class="flex items-start justify-between gap-1">
-            <span class="text-[11px] leading-tight text-muted">{{ t.label }}</span>
+            <span class="text-xs leading-tight text-muted">{{ t.label }}</span>
             @if (t.delta !== null) {
-              <span class="flex-shrink-0 rounded-sm px-1 text-[10px] font-semibold"
+              <span class="flex-shrink-0 rounded-sm px-1 text-xs font-semibold"
                     [class.text-ok]="deltaTone(t) === 'ok'" [class.bg-ok-soft]="deltaTone(t) === 'ok'"
                     [class.text-danger]="deltaTone(t) === 'danger'" [class.bg-danger-soft]="deltaTone(t) === 'danger'"
                     [class.text-muted]="deltaTone(t) === 'muted'">
@@ -75,15 +75,15 @@
                records with illustrative program-scale trends; unlabelled, a
                reviewer has to distrust all of them. -->
           <div class="mt-1">
-            <span class="inline-block rounded-sm px-1 py-0.5 text-[10px] font-semibold"
+            <span class="inline-block rounded-sm px-1 py-0.5 text-xs font-semibold"
                   [ngClass]="SOURCE_META[t.source].chip"
                   [title]="SOURCE_META[t.source].title">
               {{ SOURCE_META[t.source].label }}
             </span>
           </div>
           <div class="mt-1.5"><app-sparkline [points]="t.spark" [tone]="t.tone" /></div>
-          @if (t.note) { <div class="mt-1 text-[11px] leading-tight text-muted">{{ t.note }}</div> }
-          <div class="mt-1 text-[10px] font-medium text-primary">View details →</div>
+          @if (t.note) { <div class="mt-1 text-xs leading-tight text-muted">{{ t.note }}</div> }
+          <div class="mt-1 text-xs font-medium text-primary">View details →</div>
         </button>
       }
     </section>
@@ -95,7 +95,7 @@
         <div class="mb-2 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-ink">
             Treatment lifecycle
-            <span class="ml-1 rounded-full bg-ok-soft px-1.5 py-0.5 text-[10px] font-medium text-ok">live</span>
+            <span class="ml-1 rounded-full bg-ok-soft px-1.5 py-0.5 text-xs font-medium text-ok">live</span>
           </h3>
           <span class="text-xs text-muted">{{ lifecycleTotal() }} plans in flight</span>
         </div>
@@ -121,7 +121,7 @@
               </li>
             }
           </ul>
-          <p class="mt-2 text-[10px] text-muted">Real state from <code>GET /api/overview</code> → <code>SELECT status, count(*) GROUP BY status</code>. Click a segment to open that slice in the Command Center.</p>
+          <p class="mt-2 text-xs text-muted">Real state from <code>GET /api/overview</code> → <code>SELECT status, count(*) GROUP BY status</code>. Click a segment to open that slice in the Command Center.</p>
         } @else {
           <p class="py-4 text-center text-xs text-muted">No plans yet.</p>
         }
@@ -144,7 +144,7 @@
               </li>
             }
           </ol>
-          <p class="mt-2 text-[10px] text-muted">From the immutable audit trail — newest first.</p>
+          <p class="mt-2 text-xs text-muted">From the immutable audit trail — newest first.</p>
         } @else {
           <p class="py-4 text-center text-xs text-muted">No activity recorded yet.</p>
         }
@@ -170,7 +170,7 @@
       <div class="rounded-lg border border-border bg-surface p-3 lg:col-span-3">
         <div class="mb-1 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-ink">Cycle vs. mid-cycle mix by region</h3>
-          <span class="text-[10px] text-muted">click a segment to filter →</span>
+          <span class="text-xs text-muted">click a segment to filter →</span>
         </div>
         <app-bar-chart [series]="d.cycleMix" [categories]="d.cycleRegions" (segmentClick)="onSegment($event)" />
       </div>
@@ -190,7 +190,7 @@
       <div class="rounded-lg border border-border bg-surface p-3">
         <h3 class="mb-1 text-sm font-semibold text-ink">Tree-caused SAIDI</h3>
         <app-line-chart [series]="saidiSeries()" [labels]="d.weeks" [showLegend]="false" suffix="" />
-        <p class="mt-1 text-[11px] text-muted">Outage minutes — trending down is good.</p>
+        <p class="mt-1 text-xs text-muted">Outage minutes — trending down is good.</p>
       </div>
     </section>
 
@@ -207,7 +207,7 @@
             <app-choropleth-map [regions]="em.regions" [maxValue]="em.maxEncroachments"
                                 [center]="em.center" (regionClick)="onRegionClick($event)" />
           </div>
-          <p class="mt-1 text-[10px] text-muted">{{ em.note }} Darker = more conductor conflicts.</p>
+          <p class="mt-1 text-xs text-muted">{{ em.note }} Darker = more conductor conflicts.</p>
         </div>
         <div class="rounded-lg border border-border bg-surface p-3">
           <h3 class="mb-2 text-sm font-semibold text-ink">Highest-risk districts</h3>
@@ -218,7 +218,7 @@
                         class="lift flex w-full items-center gap-2 rounded-md border border-border p-2 text-left hover:border-primary">
                   <span class="inline-block h-3 w-3 flex-shrink-0 rounded-sm" [style.background]="regionColor(r)"></span>
                   <span class="truncate text-sm font-medium text-ink">{{ r.name }}</span>
-                  <span class="hidden text-[11px] text-muted sm:inline">{{ r.circuit }} · T{{ r.hftdTier }}</span>
+                  <span class="hidden text-xs text-muted sm:inline">{{ r.circuit }} · T{{ r.hftdTier }}</span>
                   <span class="ml-auto text-sm font-bold"
                         [class.text-danger]="r.tone === 'danger'" [class.text-warn]="r.tone === 'warn'" [class.text-ok]="r.tone === 'ok'">
                     {{ r.encroachments }}
@@ -245,7 +245,7 @@
       <div class="rounded-lg border border-border bg-surface p-3">
         <h3 class="mb-1 text-sm font-semibold text-ink">Regrowth / re-treatment</h3>
         <app-line-chart [series]="regrowthSeries()" [labels]="d.weeks" [showLegend]="false" suffix="%" />
-        <p class="mt-1 text-[11px] text-muted">“Cycle busters” — refusals/non-access {{ d.refusalsPct }}%.</p>
+        <p class="mt-1 text-xs text-muted">“Cycle busters” — refusals/non-access {{ d.refusalsPct }}%.</p>
       </div>
     </section>
 
@@ -257,12 +257,12 @@
           <div class="rounded-lg border border-border bg-surface p-3">
             <h3 class="mb-1 text-sm font-semibold text-ink">Cost per span</h3>
             <app-line-chart [series]="costSeries()" [labels]="d.weeks" [showLegend]="false" />
-            <p class="mt-1 text-[11px] text-muted">Internal trend only — a poor cross-utility benchmark.</p>
+            <p class="mt-1 text-xs text-muted">Internal trend only — a poor cross-utility benchmark.</p>
           </div>
           <div class="rounded-lg border border-border bg-surface p-3">
             <h3 class="mb-1 text-sm font-semibold text-ink">Production rate</h3>
             <app-line-chart [series]="prodSeries()" [labels]="d.weeks" [showLegend]="false" />
-            <p class="mt-1 text-[11px] text-muted">Man-hours per span — lower is more efficient.</p>
+            <p class="mt-1 text-xs text-muted">Man-hours per span — lower is more efficient.</p>
           </div>
         </div>
       </div>
@@ -271,12 +271,12 @@
         <ul class="space-y-2">
           @for (ins of d.insights; track ins.title) {
             <li class="rounded-lg border border-border bg-surface p-2.5 lift">
-              <span class="rounded-sm bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">{{ ins.tag }}</span>
+              <span class="rounded-sm bg-primary-soft px-1.5 py-0.5 text-xs font-semibold text-primary">{{ ins.tag }}</span>
               <p class="mt-1 text-sm leading-snug text-ink">{{ ins.title }}</p>
             </li>
           }
         </ul>
-        <p class="mt-2 text-[10px] text-muted">Illustrative UVM topics; not affiliated with or endorsed by The Davey Tree Expert Company.</p>
+        <p class="mt-2 text-xs text-muted">Illustrative UVM topics; not affiliated with or endorsed by The Davey Tree Expert Company.</p>
       </div>
     </div>
 

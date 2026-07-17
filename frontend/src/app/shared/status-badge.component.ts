@@ -9,7 +9,7 @@ import { Meta, TONE_CHIP } from '../core/status';
   standalone: true,
   template: `
     <span
-      class="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none"
+      class="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium leading-none"
       [class]="chip()"
     >
       <span aria-hidden="true">{{ meta().glyph }}</span>

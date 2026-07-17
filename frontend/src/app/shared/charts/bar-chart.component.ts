@@ -33,7 +33,7 @@ export interface BarSegmentClick {
       </svg>
       <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
         @for (s of series(); track s.label) {
-          <span class="flex items-center gap-1.5 text-[11px] text-muted">
+          <span class="flex items-center gap-1.5 text-xs text-muted">
             <span class="inline-block h-2 w-2 rounded-sm" [style.background]="color(s.tone)"></span>
             {{ s.label }}
           </span>

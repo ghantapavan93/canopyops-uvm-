@@ -8,7 +8,7 @@
         PostGIS — the alert logic never lives only on the device.
       </p>
     </div>
-    <span class="ml-auto rounded-full bg-warn-soft px-2 py-1 text-[11px] font-medium text-warn">⚠ Synthetic zones</span>
+    <span class="ml-auto rounded-full bg-warn-soft px-2 py-1 text-xs font-medium text-warn">⚠ Synthetic zones</span>
   </header>
 
   <!-- ALERT BANNER -->
@@ -37,7 +37,7 @@
       </div>
       <div class="ml-auto text-right">
         <div class="text-lg font-bold tabular-nums text-ink">{{ meters(r.nearestDistanceM) }}</div>
-        <div class="text-[10px] text-muted">to nearest zone</div>
+        <div class="text-xs text-muted">to nearest zone</div>
       </div>
     </div>
   }
@@ -60,7 +60,7 @@
       }
     </div>
     <button type="button" (click)="toggleOffline()"
-            class="ml-auto flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+            class="ml-auto flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors"
             [class.border-ok]="conn.online()" [class.text-ok]="conn.online()"
             [class.border-danger]="!conn.online()" [class.bg-danger-soft]="!conn.online()" [class.text-danger]="!conn.online()"
             [title]="conn.online() ? 'Online — click to simulate losing signal' : 'Offline — alerts computed on-device'">
@@ -70,7 +70,7 @@
   </div>
 
   <!-- compute-source telemetry: makes the offline story concrete -->
-  <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg p-2 text-[11px]">
+  <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg p-2 text-xs">
     <span class="font-semibold uppercase tracking-wide text-muted">Computed by</span>
     <span class="rounded-sm px-1.5 py-0.5 font-semibold"
           [class.bg-info-soft]="source() === 'server'" [class.text-info]="source() === 'server'"
@@ -109,7 +109,7 @@
           @for (z of zones(); track z.id) {
             <li>
               <div class="flex items-center gap-2 text-xs">
-                <span class="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                <span class="rounded-sm px-1.5 py-0.5 text-xs font-semibold"
                       [class.bg-danger-soft]="z.level === 'breach' || z.level === 'entered'" [class.text-danger]="z.level === 'breach' || z.level === 'entered'"
                       [class.bg-warn-soft]="z.level === 'warning'" [class.text-warn]="z.level === 'warning'"
                       [class.bg-ok-soft]="z.level === 'clear'" [class.text-ok]="z.level === 'clear'">
@@ -117,7 +117,7 @@
                 </span>
                 <span class="ml-auto tabular-nums text-muted">{{ meters(z.distanceM) }}</span>
               </div>
-              <div class="mt-0.5 truncate text-[11px] text-ink" [title]="z.name">{{ z.name }}</div>
+              <div class="mt-0.5 truncate text-xs text-ink" [title]="z.name">{{ z.name }}</div>
               <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
                 <div class="h-full rounded-full transition-all duration-300"
                      [class.bg-danger]="z.level === 'breach' || z.level === 'entered'"
@@ -137,12 +137,12 @@
           <h3 class="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <span class="live-dot inline-block h-2 w-2 rounded-full bg-danger"></span> Alert log
           </h3>
-          @if (log().length) { <button (click)="resetLog()" class="text-[11px] text-primary underline">clear</button> }
+          @if (log().length) { <button (click)="resetLog()" class="text-xs text-primary underline">clear</button> }
         </div>
         @if (log().length) {
           <ol class="space-y-1.5">
             @for (e of log(); track e.at) {
-              <li class="flex items-start gap-2 text-[11px]">
+              <li class="flex items-start gap-2 text-xs">
                 <span class="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full"
                       [class.bg-danger]="e.level === 'breach' || e.level === 'entered'" [class.bg-warn]="e.level === 'warning'"></span>
                 <span class="min-w-0">
@@ -155,7 +155,7 @@
             }
           </ol>
         } @else {
-          <p class="text-[11px] text-muted">No alerts yet. Drag the crew marker toward a zone, or run a patrol.</p>
+          <p class="text-xs text-muted">No alerts yet. Drag the crew marker toward a zone, or run a patrol.</p>
         }
       </div>
     </div>

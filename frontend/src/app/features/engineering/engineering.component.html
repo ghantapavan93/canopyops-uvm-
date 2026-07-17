@@ -18,7 +18,7 @@
           {{ s.passed }}
         </div>
         <div class="text-xs text-muted">{{ s.label }}</div>
-        <code class="mt-1 block text-[10px] text-muted">{{ s.command }}</code>
+        <code class="mt-1 block text-xs text-muted">{{ s.command }}</code>
       </div>
     }
   </div>
@@ -40,43 +40,43 @@
     <section class="mb-4 rounded-lg border border-border bg-surface p-4">
       <h2 class="flex items-center gap-2 text-sm font-semibold text-ink">
         <span class="live-dot inline-block h-2 w-2 rounded-full bg-ok"></span> Live system health
-        <span class="ml-auto text-[11px] font-normal text-muted">uptime {{ h.uptime_s }}s · refreshes every 5s</span>
+        <span class="ml-auto text-xs font-normal text-muted">uptime {{ h.uptime_s }}s · refreshes every 5s</span>
       </h2>
       <div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
         <div class="rounded-md bg-surface-2 p-2 text-center">
           <div class="text-lg font-bold text-ink">{{ h.total_requests }}</div>
-          <div class="text-[10px] text-muted">requests</div>
+          <div class="text-xs text-muted">requests</div>
         </div>
         <div class="rounded-md bg-surface-2 p-2 text-center">
           <div class="text-lg font-bold" [class.text-ok]="h.error_rate === 0" [class.text-danger]="h.error_rate > 0">{{ (h.error_rate * 100).toFixed(1) }}%</div>
-          <div class="text-[10px] text-muted">error rate</div>
+          <div class="text-xs text-muted">error rate</div>
         </div>
-        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p50 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p50</div></div>
-        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p95 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p95</div></div>
-        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p99 }}<span class="text-[10px]">ms</span></div><div class="text-[10px] text-muted">p99</div></div>
+        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p50 }}<span class="text-xs">ms</span></div><div class="text-xs text-muted">p50</div></div>
+        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p95 }}<span class="text-xs">ms</span></div><div class="text-xs text-muted">p95</div></div>
+        <div class="rounded-md bg-surface-2 p-2 text-center"><div class="text-lg font-bold text-ink">{{ h.latency_ms.p99 }}<span class="text-xs">ms</span></div><div class="text-xs text-muted">p99</div></div>
       </div>
 
       <!-- reliability surface: limiter + rate-limit + pool + circuit breaker -->
       @if (h.concurrency || h.database) {
-        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-[11px]">
+        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-xs">
           @if (h.concurrency; as c) {
-            <span class="text-muted">in-flight <strong class="text-ink">{{ c.in_flight }}</strong> / {{ c.limit }} <span class="text-[10px]">(peak {{ c.peak }})</span></span>
+            <span class="text-muted">in-flight <strong class="text-ink">{{ c.in_flight }}</strong> / {{ c.limit }} <span class="text-xs">(peak {{ c.peak }})</span></span>
             <span [class.text-ok]="c.shed_total === 0" [class.text-warn]="c.shed_total > 0">load-shed <strong>{{ c.shed_total }}</strong></span>
           }
           @if (h.rate_limit; as rl) {
-            <span class="text-muted">rate-limit <strong class="text-ink">{{ rl.refill_per_min }}</strong>/min <span class="text-[10px]">(burst {{ rl.capacity }})</span></span>
+            <span class="text-muted">rate-limit <strong class="text-ink">{{ rl.refill_per_min }}</strong>/min <span class="text-xs">(burst {{ rl.capacity }})</span></span>
             <span [class.text-ok]="rl.rejected_total === 0" [class.text-warn]="rl.rejected_total > 0">429s <strong>{{ rl.rejected_total }}</strong></span>
           }
           @if (h.database; as d) {
-            <span class="text-muted">pool <strong class="text-ink">{{ d.checkedout }}</strong> out / {{ d.size }} <span class="text-[10px]">(+{{ d.overflow }} overflow)</span></span>
+            <span class="text-muted">pool <strong class="text-ink">{{ d.checkedout }}</strong> out / {{ d.size }} <span class="text-xs">(+{{ d.overflow }} overflow)</span></span>
             <span class="text-muted">stmt timeout <strong class="text-ink">{{ d.statement_timeout_ms }}</strong>ms</span>
           }
           @if (h.db_circuit; as cb) {
             <span [class.text-ok]="cb.state === 'closed'" [class.text-danger]="cb.state === 'open'" [class.text-warn]="cb.state === 'half_open'">
-              DB circuit <strong>{{ cb.state }}</strong>@if (cb.trips_total > 0) { <span class="text-[10px]">({{ cb.trips_total }} trips)</span> }
+              DB circuit <strong>{{ cb.state }}</strong>@if (cb.trips_total > 0) { <span class="text-xs">({{ cb.trips_total }} trips)</span> }
             </span>
           }
-          <span class="ml-auto text-[10px] text-muted">load-shed · rate-limit · bounded queries · circuit breaker</span>
+          <span class="ml-auto text-xs text-muted">load-shed · rate-limit · bounded queries · circuit breaker</span>
         </div>
       }
       @if (h.endpoints.length) {
@@ -92,7 +92,7 @@
             <tbody>
               @for (e of h.endpoints; track e.endpoint) {
                 <tr class="border-t border-border">
-                  <td class="py-1 pr-2 font-mono text-[11px]">{{ e.endpoint }}</td>
+                  <td class="py-1 pr-2 font-mono text-xs">{{ e.endpoint }}</td>
                   <td class="py-1 text-right">{{ e.count }}</td>
                   <td class="py-1 text-right" [class.text-danger]="e.errors > 0">{{ e.errors }}</td>
                   <td class="py-1 text-right">{{ e.p50_ms }}ms</td>
@@ -106,14 +106,14 @@
       <!-- durable background-job queue (processed by the worker container) -->
       @if (jobs().length) {
         <div class="mt-2 rounded-md bg-surface-2 p-2.5">
-          <div class="mb-1 flex items-center gap-2 text-[11px]">
+          <div class="mb-1 flex items-center gap-2 text-xs">
             <span class="font-semibold uppercase tracking-wide text-muted">Background jobs</span>
-            <span class="text-[10px] text-muted">durable queue · off-request-path worker</span>
+            <span class="text-xs text-muted">durable queue · off-request-path worker</span>
           </div>
           <div class="space-y-0.5">
             @for (j of jobs(); track j.id) {
-              <div class="flex items-center gap-2 text-[11px]">
-                <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold" [class]="jobClass(j.status)">{{ j.status }}</span>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="rounded px-1.5 py-0.5 text-xs font-semibold" [class]="jobClass(j.status)">{{ j.status }}</span>
                 <span class="font-mono text-ink">{{ j.type }}</span>
                 <span class="text-muted">attempt {{ j.attempts }}/{{ j.maxAttempts }}</span>
                 @if (j.finishedAt) { <span class="ml-auto text-muted">{{ j.finishedAt | date: 'HH:mm:ss' }}</span> }
@@ -123,7 +123,7 @@
         </div>
       }
 
-      <p class="mt-2 text-[10px] text-muted">Structured JSON access logs (correlation-id + <strong>trace-id</strong> + latency) stream to stdout; this feed is the API's in-process metrics registry at <code>GET /api/metrics</code> — also exposed in <strong>Prometheus</strong> text format at <code>/api/metrics/prometheus</code> (scrapeable by Grafana). <strong>OpenTelemetry</strong> traces every request → DB call chain with W3C context propagation (the <code>X-Trace-Id</code> rides on every response + error envelope; OTLP-exportable to a collector). Readiness probe at <code>/api/ready</code> checks the DB + PostGIS.</p>
+      <p class="mt-2 text-xs text-muted">Structured JSON access logs (correlation-id + <strong>trace-id</strong> + latency) stream to stdout; this feed is the API's in-process metrics registry at <code>GET /api/metrics</code> — also exposed in <strong>Prometheus</strong> text format at <code>/api/metrics/prometheus</code> (scrapeable by Grafana). <strong>OpenTelemetry</strong> traces every request → DB call chain with W3C context propagation (the <code>X-Trace-Id</code> rides on every response + error envelope; OTLP-exportable to a collector). Readiness probe at <code>/api/ready</code> checks the DB + PostGIS.</p>
     </section>
   }
 

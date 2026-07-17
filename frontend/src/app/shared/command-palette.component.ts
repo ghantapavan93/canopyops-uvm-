@@ -51,14 +51,14 @@ const COMMANDS: Cmd[] = [
                         [class.bg-primary-soft]="i === active()">
                   <span class="w-5 text-center" aria-hidden="true">{{ c.icon }}</span>
                   <span class="text-ink">{{ c.label }}</span>
-                  @if (c.hint) { <span class="ml-auto truncate text-[11px] text-muted">{{ c.hint }}</span> }
+                  @if (c.hint) { <span class="ml-auto truncate text-xs text-muted">{{ c.hint }}</span> }
                 </button>
               </li>
             } @empty {
               <li class="px-4 py-6 text-center text-sm text-muted">No matches.</li>
             }
           </ul>
-          <div class="flex items-center gap-3 border-t border-border px-4 py-1.5 text-[10px] text-muted">
+          <div class="flex items-center gap-3 border-t border-border px-4 py-1.5 text-xs text-muted">
             <span><kbd class="rounded border border-border px-1">↑↓</kbd> navigate</span>
             <span><kbd class="rounded border border-border px-1">↵</kbd> open</span>
             <span><kbd class="rounded border border-border px-1">esc</kbd> close</span>

@@ -37,7 +37,7 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
                 class="rounded border border-border px-1.5 py-0.5 text-muted hover:bg-surface-2 disabled:opacity-40">Clear</button>
       </div>
 
-      <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-[10px] shadow-card backdrop-blur">
+      <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-xs shadow-card backdrop-blur">
         @for (b of basemaps; track b.key) {
           <button (click)="basemap.set(b.key)" [attr.aria-pressed]="basemap() === b.key"
                   class="px-1.5 py-0.5 font-medium transition-colors"
@@ -47,14 +47,14 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
       </div>
 
       @if (plannedGeometry() || actualGeometry()) {
-        <div class="pointer-events-none absolute right-2 top-9 z-10 rounded-md border border-border bg-surface/90 p-1.5 text-[10px] shadow-card backdrop-blur">
+        <div class="pointer-events-none absolute right-2 top-9 z-10 rounded-md border border-border bg-surface/90 p-1.5 text-xs shadow-card backdrop-blur">
           @if (plannedGeometry()) { <div class="flex items-center gap-1"><span class="inline-block h-0 w-3 border-t-2 border-dashed" style="border-color:#1f5fa8"></span>Planned</div> }
           @if (actualGeometry()) { <div class="flex items-center gap-1"><span class="inline-block h-2.5 w-3" style="background:rgba(31,138,84,.35)"></span>Completed</div> }
           <div class="flex items-center gap-1"><span class="inline-block h-2.5 w-3" [style.background]="drawFillRgba()"></span>Your draw</div>
         </div>
       }
 
-      <div class="pointer-events-none absolute bottom-2 left-2 z-10 rounded-md border border-border bg-surface/90 px-2 py-1 text-[11px] text-muted shadow-card backdrop-blur">
+      <div class="pointer-events-none absolute bottom-2 left-2 z-10 rounded-md border border-border bg-surface/90 px-2 py-1 text-xs text-muted shadow-card backdrop-blur">
         @if (points().length < 3) { Click the map to place at least 3 corners. }
         @else { {{ points().length }}-sided area drawn. }
       </div>

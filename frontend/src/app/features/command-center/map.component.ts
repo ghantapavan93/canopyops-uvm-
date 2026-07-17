@@ -40,7 +40,7 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
       ></div>
 
       <!-- Basemap switcher -->
-      <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-[11px] shadow-card backdrop-blur">
+      <div class="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-surface/95 text-xs shadow-card backdrop-blur">
         @for (b of basemaps; track b.key) {
           <button type="button" (click)="basemap.set(b.key)" [attr.aria-pressed]="basemap() === b.key"
                   class="px-2 py-1 font-medium transition-colors"
@@ -51,7 +51,7 @@ const EMPTY: FC = { type: 'FeatureCollection', features: [] };
 
       <!-- Legend (also serves as non-map status key) -->
       <div
-        class="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border bg-surface/90 p-2 text-[11px] shadow-card backdrop-blur"
+        class="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border bg-surface/90 p-2 text-xs shadow-card backdrop-blur"
       >
         <div class="mb-1 font-semibold text-ink">Legend</div>
         <div class="flex items-center gap-1.5 text-muted">

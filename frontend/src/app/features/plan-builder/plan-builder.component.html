@@ -63,7 +63,7 @@
                     placeholder="e.g. Restore MVCD clearance; establish low-growing compatible cover in the wire zone."
                     class="mt-1 w-full rounded-md border border-border bg-bg p-2 text-sm"></textarea>
           @if (form.controls.targetCondition.touched && form.controls.targetCondition.invalid) {
-            <span class="text-[11px] text-danger">Describe the intended outcome (at least 12 characters).</span>
+            <span class="text-xs text-danger">Describe the intended outcome (at least 12 characters).</span>
           }
         </label>
 
@@ -72,7 +72,7 @@
           <select formControlName="methodCategory" class="mt-1 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm capitalize">
             @for (mth of methods; track mth) { <option [value]="mth" class="capitalize">{{ mth }}</option> }
           </select>
-          <span class="text-[11px] text-muted">Category only — no product, rate, or mixing guidance.</span>
+          <span class="text-xs text-muted">Category only — no product, rate, or mixing guidance.</span>
         </label>
 
         <div>
@@ -80,7 +80,7 @@
           <div class="mt-1 flex flex-wrap gap-1.5">
             @for (ev of evidenceTypes; track ev) {
               <button type="button" (click)="toggleEvidence(ev)" [attr.aria-pressed]="requiredEvidence().has(ev)"
-                      class="rounded-md border px-2 py-1 text-[11px] capitalize"
+                      class="rounded-md border px-2 py-1 text-xs capitalize"
                       [class.border-primary]="requiredEvidence().has(ev)" [class.bg-primary-soft]="requiredEvidence().has(ev)" [class.text-primary]="requiredEvidence().has(ev)"
                       [class.border-border]="!requiredEvidence().has(ev)" [class.text-muted]="!requiredEvidence().has(ev)">
                 {{ ev.replaceAll('_',' ') }}
@@ -108,15 +108,15 @@
         <!-- Live readiness checklist -->
         <div class="rounded-md border border-border bg-bg p-2.5">
           <div class="mb-1.5 flex items-center justify-between">
-            <span class="text-[11px] font-semibold uppercase tracking-wide text-muted">Readiness</span>
-            <span class="text-[11px] font-medium" [class.text-ok]="remaining() === 0" [class.text-muted]="remaining() > 0">
+            <span class="text-xs font-semibold uppercase tracking-wide text-muted">Readiness</span>
+            <span class="text-xs font-medium" [class.text-ok]="remaining() === 0" [class.text-muted]="remaining() > 0">
               {{ remaining() === 0 ? 'Ready to create' : remaining() + ' left' }}
             </span>
           </div>
           <ul class="space-y-1">
             @for (item of checklist(); track item.label) {
               <li class="flex items-center gap-2 text-xs" [class.text-ink]="item.done" [class.text-muted]="!item.done">
-                <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]"
+                <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-xs"
                       [class.bg-ok]="item.done" [class.text-primary-ink]="item.done"
                       [class.bg-surface-2]="!item.done" aria-hidden="true">{{ item.done ? '✓' : '' }}</span>
                 {{ item.label }}
@@ -129,7 +129,7 @@
                 class="w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-50">
           {{ busy() ? 'Creating…' : 'Create treatment plan' }}
         </button>
-        <p class="text-center text-[11px] text-muted">
+        <p class="text-center text-xs text-muted">
           @if (remaining() > 0) { {{ remaining() }} item(s) remaining to enable creation }
           @else { Ready — press <kbd class="rounded border border-border px-1">Ctrl</kbd>+<kbd class="rounded border border-border px-1">Enter</kbd> or click Create }
         </p>
@@ -159,7 +159,7 @@
                   {{ a.blocking ? '⛔ Intersects a BLOCKING constraint' : '⚠ Intersects constraint(s)' }}
                 </div>
                 @for (c of a.intersectingConstraints; track c.id) {
-                  <div class="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[11px]"
+                  <div class="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs"
                        [class.bg-danger-soft]="c.severity==='blocking'" [class.text-danger]="c.severity==='blocking'"
                        [class.bg-warn-soft]="c.severity!=='blocking'" [class.text-warn]="c.severity!=='blocking'">
                     <span aria-hidden="true">{{ CONSTRAINT_META[c.category].glyph }}</span>
@@ -167,7 +167,7 @@
                   </div>
                 }
                 @if (a.blocking) {
-                  <label class="mt-1 flex items-start gap-2 rounded-md bg-danger-soft p-2 text-[11px] text-danger">
+                  <label class="mt-1 flex items-start gap-2 rounded-md bg-danger-soft p-2 text-xs text-danger">
                     <input type="checkbox" [checked]="ackBlocking()" (change)="ackBlocking.set(!ackBlocking())" class="mt-0.5" />
                     <span>I acknowledge this area intersects a blocking constraint and has been routed for authorized review.</span>
                   </label>
@@ -181,7 +181,7 @@
         <div class="rounded-md border border-border bg-bg p-2.5">
           <div class="mb-1.5 flex items-center gap-1.5">
             <span class="live-dot inline-block h-2 w-2 rounded-full bg-primary"></span>
-            <span class="text-[11px] font-semibold uppercase tracking-wide text-muted">Prescription preview</span>
+            <span class="text-xs font-semibold uppercase tracking-wide text-muted">Prescription preview</span>
           </div>
           <dl class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
             <div class="col-span-2">
@@ -217,9 +217,9 @@
               <dt class="text-muted">Required evidence</dt>
               <dd class="mt-0.5 flex flex-wrap gap-1">
                 @for (ev of requiredEvidence(); track ev) {
-                  <span class="rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] capitalize text-muted">{{ ev.replaceAll('_',' ') }}</span>
+                  <span class="rounded-sm bg-surface-2 px-1.5 py-0.5 text-xs capitalize text-muted">{{ ev.replaceAll('_',' ') }}</span>
                 } @empty {
-                  <span class="text-[11px] text-warn">none selected</span>
+                  <span class="text-xs text-warn">none selected</span>
                 }
               </dd>
             </div>

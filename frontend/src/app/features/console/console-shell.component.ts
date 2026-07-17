@@ -111,11 +111,11 @@ const NAV_GROUPS: NavGroup[] = [
                 class="ml-3 hidden items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted hover:bg-surface-2 sm:flex"
                 aria-label="Open command palette">
           <span aria-hidden="true">⌕</span> Jump to…
-          <kbd class="rounded border border-border px-1 text-[10px]">⌘K</kbd>
+          <kbd class="rounded border border-border px-1 text-xs">⌘K</kbd>
         </button>
 
         <div class="ml-auto flex items-center gap-2">
-          <span class="flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-[11px] font-medium"
+          <span class="flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs font-medium"
                 [class.text-ok]="conn.online()" [class.text-danger]="!conn.online()"
                 [title]="conn.online() ? 'Connectivity: online' : 'Connectivity: offline (simulated)'">
             <span class="inline-block h-2 w-2 rounded-full" [class.bg-ok]="conn.online()" [class.bg-danger]="!conn.online()"
@@ -123,7 +123,7 @@ const NAV_GROUPS: NavGroup[] = [
             {{ conn.online() ? 'Online' : 'Offline' }}
           </span>
           @if (auth.user()?.tenantName; as tenant) {
-            <span class="hidden items-center gap-1 rounded-full border border-primary/40 bg-primary-soft px-2 py-1 text-[11px] font-semibold text-primary md:inline-flex"
+            <span class="hidden items-center gap-1 rounded-full border border-primary/40 bg-primary-soft px-2 py-1 text-xs font-semibold text-primary md:inline-flex"
                   title="Current program (tenant) — data is isolated per program">⧉ {{ tenant }}</span>
           }
           <span class="hidden text-xs text-muted md:inline">Acting as</span>
@@ -150,7 +150,7 @@ const NAV_GROUPS: NavGroup[] = [
           aria-label="Modules"
         >
           @for (group of navGroups; track group.title) {
-            <div class="mb-0.5 mt-3 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted first:mt-0">
+            <div class="mb-0.5 mt-3 px-3 text-xs font-semibold uppercase tracking-wide text-muted first:mt-0">
               {{ group.title }}
             </div>
             @for (item of group.items; track item.label) {
@@ -162,7 +162,7 @@ const NAV_GROUPS: NavGroup[] = [
                 <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
                 {{ item.label }}
                 @if (item.route === '/console/sync' && (sync.outstanding() + sync.conflicts()) > 0) {
-                  <span class="ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-bold"
+                  <span class="ml-auto rounded-full px-1.5 py-0.5 text-xs font-bold"
                         [class.bg-danger]="sync.conflicts() > 0" [class.text-white]="sync.conflicts() > 0"
                         [class.bg-warn-soft]="sync.conflicts() === 0" [class.text-warn]="sync.conflicts() === 0">
                     {{ sync.outstanding() + sync.conflicts() }}
@@ -196,7 +196,7 @@ const NAV_GROUPS: NavGroup[] = [
 
             <!-- Role/program switch (synthetic) also lives here on mobile, where
                  the header switcher is hidden to avoid overflow. -->
-            <div class="mb-1 text-[11px] uppercase tracking-wide text-muted">Acting as</div>
+            <div class="mb-1 text-xs uppercase tracking-wide text-muted">Acting as</div>
             <div class="mb-3 grid grid-cols-2 gap-1" role="group" aria-label="Switch synthetic role / program">
               @for (u of demoUsers; track u.key) {
                 <button type="button" (click)="switchRole(u); mobileNav.set(false)"
@@ -210,7 +210,7 @@ const NAV_GROUPS: NavGroup[] = [
             </div>
 
             @for (group of navGroups; track group.title) {
-              <div class="mb-0.5 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted first:mt-0">
+              <div class="mb-0.5 mt-3 text-xs font-semibold uppercase tracking-wide text-muted first:mt-0">
                 {{ group.title }}
               </div>
               @for (item of group.items; track item.label) {
