@@ -35,11 +35,9 @@ reading step 1 carefully — and the first real deploy died on it with
 mechanism that no managed Postgres has.)
 
 **Do NOT create the app role by hand.** Migration `f7a1c2d8e934` creates it, with
-SQL, and explicitly as `NOSUPERUSER NOCREATEDB NOCREATEROLE`:
-
-```sql
-CREATE ROLE canopyops_app LOGIN PASSWORD 'canopyops_app' NOSUPERUSER NOCREATEDB NOCREATEROLE;
-```
+SQL, and explicitly as `NOSUPERUSER NOCREATEDB NOCREATEROLE` — reading the role
+name and password **out of `DATABASE_URL`**, which is the only place either is
+declared. Set that URL and the role follows from it.
 
 Why that matters: Postgres bypasses row security **unconditionally** for roles
 with `SUPERUSER` or `BYPASSRLS` — *even `FORCE ROW LEVEL SECURITY` cannot stop
@@ -60,21 +58,29 @@ SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'canopyops_app';
 - `ADMIN_DATABASE_URL` → the **owner** role, **Connection pooling OFF** (the
   direct endpoint, no `-pooler` in the host). Alembic runs DDL, `CREATE ROLE` and
   lock-taking here; that belongs on a direct connection, not through PgBouncer.
-- `DATABASE_URL` → **`canopyops_app` / `canopyops_app`**, **pooling ON** (the
-  `-pooler` host). Same host/database as the owner string, different credentials.
-  Pooling is right for the app: Neon's free tier is connection-limited, and the
-  tenant GUC is set with `set_config(..., true)` — *transaction*-local, which is
-  exactly what survives PgBouncer's transaction mode.
+- `DATABASE_URL` → user **`canopyops_app`** and **a password you invent**,
+  **pooling ON** (the `-pooler` host). Same host/database as the owner string,
+  different credentials. The migration creates the role from these, so whatever
+  you put here *becomes* the role's password — there is nothing else to keep in
+  sync. Pooling is right for the app: Neon's free tier is connection-limited, and
+  the tenant GUC is set with `set_config(..., true)` — *transaction*-local, which
+  is exactly what survives PgBouncer's transaction mode.
+
+**The password must be strong.** Neon's control plane rejects weak ones, and it
+does so at **commit** — every migration appears to run, then the whole
+transaction rolls back with `"insecure password, try including more special
+characters…"`. Use mixed case, digits and a symbol. **Percent-encode it** for the
+URL (`@` → `%40`, `:` → `%3A`, `%` → `%25`); the migration decodes it before
+creating the role, so the role gets the real password, not the encoded form.
 
 Rewrite the scheme for SQLAlchemy: `postgresql://` → **`postgresql+psycopg2://`**.
 Keep `sslmode=require`. If a connection ever fails on `channel_binding`, drop that
 parameter — TLS is already enforced by `sslmode`.
 
-The app-role password is the synthetic `canopyops_app` and is public in this repo.
-That is acceptable here because the data is synthetic and RLS is fail-closed (with
-no `app.tenant_id` set, a direct connection reads **zero** rows). For hygiene you
-can rotate it after the first deploy — `ALTER ROLE canopyops_app PASSWORD '…'` —
-and update `DATABASE_URL`.
+To rotate later: change the password in `DATABASE_URL` and redeploy. The
+migration `ALTER`s the existing role to match, so the two cannot drift apart.
+(This is why the role and password aren't constants in the migration any more —
+they were, and a copy of them being wrong is what broke the first Neon deploy.)
 
 ### 2. Evidence storage — you can skip it
 
