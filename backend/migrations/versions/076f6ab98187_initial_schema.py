@@ -1,7 +1,7 @@
 """initial schema
 
 Revision ID: 076f6ab98187
-Revises: 
+Revises: a1e0d2c93b57
 Create Date: 2026-07-11 20:18:47.533389
 """
 from typing import Sequence, Union
@@ -12,7 +12,10 @@ import geoalchemy2
 from geoalchemy2 import Geometry
 
 revision: str = '076f6ab98187'
-down_revision: Union[str, None] = None
+# The Geometry columns below need the postgis extension, which a1e0d2c93b57
+# creates. This used to be None and the extension came from a Docker-only init
+# hook, so the chain was not self-sufficient on managed Postgres.
+down_revision: Union[str, None] = 'a1e0d2c93b57'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

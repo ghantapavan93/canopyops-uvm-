@@ -23,11 +23,16 @@ summarised at the bottom.
 
 ### 1. Neon (PostGIS + the two-role RLS setup)
 
-Create a Neon project, then in the SQL Editor:
+Create a Neon project. **That is the whole step — run no SQL by hand.**
 
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
+Migration `a1e0d2c93b57` creates the postgis extension and `f7a1c2d8e934` creates
+the app role, so `alembic upgrade head` against an empty database is sufficient.
+(This used to say "first, run `CREATE EXTENSION postgis` in the SQL Editor". It
+was a schema dependency living outside the schema chain, held together by someone
+reading step 1 carefully — and the first real deploy died on it with
+`type "geometry" does not exist`. Locally the extension came from
+`db/init/01-postgis.sql` via the postgres image's init hook, which is a *Docker*
+mechanism that no managed Postgres has.)
 
 **Do NOT create the app role by hand.** Migration `f7a1c2d8e934` creates it, with
 SQL, and explicitly as `NOSUPERUSER NOCREATEDB NOCREATEROLE`:
