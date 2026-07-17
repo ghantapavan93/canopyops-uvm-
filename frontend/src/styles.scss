@@ -101,9 +101,20 @@
     --c-info-soft: #10233a;
     --c-neutral: #9db0a5;
     --c-neutral-soft: #1e2a24;
-    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+    /* Richer, layered elevation on the filmic canvas — a hairline top highlight
+       (light from above) over a soft ambient drop. Reads as crafted depth, not
+       a flat outline. */
+    --shadow-1: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-2: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 32px -8px rgba(0, 0, 0, 0.66);
   }
+}
+
+/* Every surface card gets a whisper-thin top highlight so it catches light like
+   a real panel instead of reading as a flat rectangle. One shared rule, so all
+   ~20 console screens lift together without touching a single component. */
+.bg-surface,
+[class*="bg-surface"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 * { box-sizing: border-box; }
@@ -217,9 +228,15 @@ button { font-family: inherit; }
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
-/* Hover lift for cards/rows. */
-.lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+/* Hover lift for cards/rows — now with an accent-tinted edge on lift, so
+   interacting with the console feels alive and owned (the same canopy accent as
+   the landing), not just a shadow nudge. */
+.lift { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2), var(--glow-accent);
+  border-color: color-mix(in srgb, var(--c-accent) 40%, var(--c-border));
+}
 
 /* Live pulsing dot. */
 .live-dot { animation: pulse-ring 2s ease-out infinite; }
