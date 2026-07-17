@@ -26,7 +26,7 @@ import json
 import re
 from datetime import datetime
 from typing import Any
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, quote, urlsplit
 
 from fastapi import APIRouter, Body, Depends, Header, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -304,10 +304,16 @@ def _build_collection(
     if params.get("$count", "").lower() == "true":
         body["@odata.count"] = total
     if skip + window < total:
-        nxt = skip + window
-        top_raw = params.get("$top")
-        body["@odata.nextLink"] = f"{entity_set}?$skip={nxt}" + (
-            f"&$top={top_raw}" if top_raw else "")
+        # Carry EVERY active system query option into the next link, not just the
+        # paging ones. A spec-compliant client follows @odata.nextLink verbatim,
+        # so dropping $filter/$orderby/$select here would silently hand it the
+        # next page of a DIFFERENT (unfiltered, unsorted) result set — the kind of
+        # bug that only shows up as "the totals don't reconcile" three screens
+        # later. Only $skip is recomputed; everything else is preserved as sent.
+        carried = {k: v for k, v in params.items() if k.startswith("$") and k != "$skip"}
+        carried["$skip"] = str(skip + window)
+        query = "&".join(f"{k}={quote(v, safe='')}" for k, v in carried.items())
+        body["@odata.nextLink"] = f"{entity_set}?{query}"
     return body, _etag(body)
 
 

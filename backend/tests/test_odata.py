@@ -24,7 +24,11 @@ def test_paging_count_and_select(client):
     body = res.json()
     assert body["@odata.count"] == seeded
     assert len(body["value"]) == 2            # server-driven page window
-    assert body["@odata.nextLink"].startswith("WbsElements?$skip=2")
+    # The next link points at this entity set and advances the window. Its exact
+    # parameter ORDER is not the contract (it now carries every active option —
+    # see test_next_link_is_actually_followable), so don't assert a prefix.
+    nxt = body["@odata.nextLink"]
+    assert nxt.startswith("WbsElements?") and "$skip=2" in nxt, nxt
     # $select is honoured (plus the deferred nav link), nothing else leaks.
     keys = set(body["value"][0]) - {"CatsEntries@odata.navigationLink"}
     assert keys == {"Wbs", "Status"}
@@ -138,3 +142,31 @@ def test_batch_rejects_writes_read_only_facade(client):
         {"id": "w", "method": "POST", "url": "WbsElements"},
     ]})
     assert res.json()["responses"][0]["status"] == 501
+
+
+def test_next_link_is_actually_followable(client):
+    """@odata.nextLink must carry the whole query, not just the paging.
+
+    A spec-compliant client follows the link VERBATIM. If it only carries
+    $skip/$top, page 2 comes back from a different (unfiltered, unsorted) result
+    set than page 1 — which surfaces much later as "the totals don't reconcile".
+    """
+    q = ("WbsElements?$filter=Priority eq 'routine'&$orderby=Wbs asc"
+         "&$select=Wbs,Priority&$top=2&$count=true")
+    first = client.get(f"/api/odata/{q}").json()
+    nxt = first.get("@odata.nextLink")
+    assert nxt, "expected a next link — seed should have >2 routine spans"
+
+    # Every option survives the round trip.
+    for opt in ("$filter=", "$orderby=", "$select=", "$top=", "$count="):
+        assert opt in nxt, f"{opt} was dropped from the next link: {nxt}"
+
+    # Follow it verbatim, exactly as a client would.
+    second = client.get(f"/api/odata/{nxt}").json()
+    assert second["@odata.count"] == first["@odata.count"], "paging changed the result set"
+    # The filter still holds, and $select is still honoured.
+    for row in second["value"]:
+        assert row["Priority"] == "routine"
+        assert set(row) - {"CatsEntries@odata.navigationLink"} == {"Wbs", "Priority"}
+    # It is genuinely the NEXT page, not the same one.
+    assert {r["Wbs"] for r in second["value"]}.isdisjoint({r["Wbs"] for r in first["value"]})
