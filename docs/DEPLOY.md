@@ -147,12 +147,37 @@ service beside it.
 
 ### 4. Vercel (SPA)
 
-Import the repo with **root directory `frontend/`**. `vercel.json` already sets the
-build, output dir (`dist/frontend/browser`), SPA fallback, and a `/api/*` rewrite
-to Render — the rewrite is why the SPA keeps its relative `apiBase` and needs no
-CORS for normal calls.
+Import the repo, then set two things in the import screen and nothing else:
+
+- **Root Directory → `frontend`**. Left at the repo root, Vercel never finds
+  `vercel.json`, so every rewrite is ignored: the build goes green and each API
+  call 404s.
+- **Application Preset → `Other`**. Vercel auto-detects Angular and the preset
+  imposes its own output directory. `vercel.json` declares `"framework": null`
+  and should override it, but when it doesn't you get `404: NOT_FOUND` on a
+  successful build, which reads like a routing bug rather than a config clash.
+
+Leave Build/Output Settings and Environment Variables empty — `vercel.json`
+supplies the build, and the SPA needs no env vars.
 
 **Edit the rewrite destination** in `frontend/vercel.json` to your real Render URL.
+
+**What `vercel.json` does, and why** (the file itself carries no comments — Vercel
+validates it against a strict schema with `additionalProperties: false`, so a
+`"comment"` key is rejected outright with *"should NOT have additional property
+`comment`"*. JSON has no comments; faking them with a key breaks the deploy):
+
+- **`/api/:path*` → Render.** The SPA's `apiBase` is the relative `/api`, so the
+  browser only ever talks to the Vercel origin and **no CORS is involved** in
+  normal calls. This rewrite is declared *first*.
+- **`/((?!api/).*)` → `/index.html`.** SPA fallback for Angular's client-side
+  routes. The negative lookahead and the ordering both matter: without them this
+  rule swallows the API calls.
+- **`Cache-Control: no-cache` on `ngsw-worker.js` / `ngsw.json` / the manifest.**
+  The service worker and its manifest must never be cached aggressively or
+  clients pin themselves to a stale bundle — a browser can then keep serving an
+  old build long after a deploy, which looks exactly like the deploy failing.
+- **`nosniff` / `DENY` / `strict-origin-when-cross-origin`** on everything.
 
 ### Known degradations (say these out loud, don't discover them)
 
