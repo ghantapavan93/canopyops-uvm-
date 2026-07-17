@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-16T23:16:32+00:00",
-  "commit": "f0e7f05",
+  "generatedAt": "2026-07-17T04:50:48+00:00",
+  "commit": "a1c9886",
   "suites": [
     {
       "key": "cypress",
@@ -21,7 +21,7 @@
     {
       "key": "pytest",
       "label": "backend pytest",
-      "passed": 145,
+      "passed": 150,
       "failed": 0,
       "command": "cd backend && pytest",
       "exitCode": 0

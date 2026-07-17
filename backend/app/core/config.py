@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # or every uvicorn worker starts its own redundant poller.
     run_worker_in_process: bool = False
 
+    # Allows POST /api/demo/reset to re-seed the synthetic demonstration data so
+    # a reviewer can restore the golden record after clicking around. Guarded by
+    # a flag so it can never become a "wipe the database" button on real data.
+    demo_reset_enabled: bool = True
+
     # --- Horizontal scale -----------------------------------------------------
     # Uvicorn worker processes. The API is stateless (session-per-request; all
     # shared state lives in Postgres), so this scales across cores/replicas with

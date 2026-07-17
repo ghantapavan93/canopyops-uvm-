@@ -17,9 +17,12 @@ def test_metadata_and_service_document(client):
 
 
 def test_paging_count_and_select(client):
+    # One WBS element per seeded plan — derived so the invariant survives the
+    # demo data growing (a literal here broke when the golden record landed).
+    seeded = len(client.get("/api/treatments", params={"limit": 500}).json())
     res = client.get("/api/odata/WbsElements?$top=2&$count=true&$select=Wbs,Status")
     body = res.json()
-    assert body["@odata.count"] == 6          # six seeded plans -> six WBS elements
+    assert body["@odata.count"] == seeded
     assert len(body["value"]) == 2            # server-driven page window
     assert body["@odata.nextLink"].startswith("WbsElements?$skip=2")
     # $select is honoured (plus the deferred nav link), nothing else leaks.
@@ -74,6 +77,7 @@ def test_etag_conditional_request_returns_304(client):
 
 
 def test_batch_bundles_reads_in_one_round_trip(client):
+    seeded = len(client.get("/api/treatments", params={"limit": 500}).json())
     res = client.post("/api/odata/$batch", json={"requests": [
         {"id": "wbs", "method": "GET", "url": "WbsElements?$top=2&$count=true"},
         {"id": "cats", "method": "GET", "url": "CatsEntries?$filter=Confirmed eq true"},
@@ -81,7 +85,7 @@ def test_batch_bundles_reads_in_one_round_trip(client):
     assert res.status_code == 200
     responses = {r["id"]: r for r in res.json()["responses"]}
     assert responses["wbs"]["status"] == 200
-    assert responses["wbs"]["body"]["@odata.count"] == 6
+    assert responses["wbs"]["body"]["@odata.count"] == seeded
     assert len(responses["wbs"]["body"]["value"]) == 2
     assert responses["cats"]["status"] == 200
     assert all(c["Confirmed"] for c in responses["cats"]["body"]["value"])

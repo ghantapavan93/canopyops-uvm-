@@ -28,6 +28,7 @@ from app.core.telemetry import current_trace_id, setup_telemetry
 from app.api import (
     audit,
     auth,
+    demo,
     events,
     evidence,
     executions,
@@ -256,6 +257,7 @@ app.include_router(vault.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
+app.include_router(demo.router, prefix="/api")
 
 
 @app.get("/api")

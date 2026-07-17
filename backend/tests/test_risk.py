@@ -7,7 +7,10 @@ from tests.conftest import auth
 def test_risk_board_is_ranked_and_bounded(client):
     board = client.get("/api/risk/spans").json()
     spans = board["spans"]
-    assert len(spans) == 6                         # one per seeded plan
+    # One per seeded plan — derived, not a literal, so growing the demo data
+    # doesn't break the invariant this test is actually about.
+    seeded = len(client.get("/api/treatments", params={"limit": 500}).json())
+    assert len(spans) == seeded
     scores = [s["score"] for s in spans]
     assert scores == sorted(scores, reverse=True)  # highest risk first
     for s in spans:

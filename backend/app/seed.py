@@ -46,7 +46,115 @@ def clear(db) -> None:
     db.commit()
 
 
-def seed() -> None:
+# --- The golden record ----------------------------------------------------
+# WO-2026-0142 is the demonstration's anchor: ONE record that every module can
+# tell its own chapter of, instead of fifteen screens showing fifteen unrelated
+# rows. It is deliberately parked at the most interesting moment in the
+# lifecycle — executed, evidence INCOMPLETE (a photo upload failed), awaiting a
+# human verdict — because that is where the product's actual claim lives:
+# the work is recorded, and it is still not verified.
+#
+# Nothing here is faked into a "done" state: the coverage number is computed
+# from real geometry by the same PostGIS/shapely path the app uses, and the
+# failed photo is a real FAILED upload_status that the evidence gate reads.
+GOLDEN_REF = "WO-2026-0142"
+
+
+def _seed_golden_record(db, users, corridors, events) -> None:
+    """Seed the demo's anchor record. See GOLDEN_REF above for why it exists."""
+    corridor = corridors[2]  # CKT-8842 — the water-buffer corridor
+
+    # Planned area was reduced after the riparian buffer was detected. The plan
+    # is at revision 3 because of that adjustment — the Treatment Plan and
+    # Verification screens both surface the revision, and the audit trail below
+    # explains WHY it moved rather than just that it did.
+    planned = box(LON0 + 0.030, LAT0 + 0.0065, 0.0040, 0.0026)
+    # What the crew actually treated: full width, but short of plan along the
+    # south edge. Sized so the REAL computed coverage lands at ~86.8% — the
+    # number is derived from this geometry, never written into the record.
+    actual = box(LON0 + 0.030, LAT0 + 0.0065 + 0.000343, 0.0040, 0.002257)
+    coverage = round(planned.intersection(actual).area / planned.area, 4)
+
+    wo = m.WorkOrder(
+        reference=GOLDEN_REF,
+        priority=e.WorkOrderPriority.HAZARD,
+        corridor_id=corridor.id,
+        owner_id=users["manager"].id,
+        due_at=_now() + timedelta(days=3),
+    )
+    db.add(wo)
+    db.flush()
+
+    plan = m.TreatmentPlan(
+        work_order_id=wo.id,
+        status=e.TreatmentStatus.AWAITING_VERIFICATION,
+        planned_geometry=geom(planned),
+        target_condition=(
+            "Restore MVCD clearance and establish low-growing compatible cover; "
+            "planned area reduced from 7.4 to 6.8 acres to hold the riparian buffer."
+        ),
+        method_category=e.MethodCategory.MECHANICAL,
+        required_evidence=[
+            e.EvidenceType.PHOTO_BEFORE.value,
+            e.EvidenceType.PHOTO_AFTER.value,
+            e.EvidenceType.CLEARANCE_MEASUREMENT.value,
+        ],
+        verification_policy={"window_days": 30, "cycle": "mid_cycle"},
+        owner_id=users["manager"].id,
+        revision=3,
+    )
+    db.add(plan)
+    db.flush()
+
+    execution = m.TreatmentExecution(
+        plan_id=plan.id,
+        actual_geometry=geom(actual),
+        performed_at=_now() - timedelta(days=2),
+        crew_id=users["crew"].id,
+        constraint_acknowledged=True,
+        coverage_ratio=coverage,
+        notes="Recorded offline at the span; synced on return to coverage.",
+    )
+    db.add(execution)
+    db.flush()
+
+    # THE POINT OF THE WHOLE PRODUCT: the after-photo never made it to storage,
+    # so this record is "worked" but NOT verifiable. The evidence gate reads this
+    # FAILED status and refuses to call the outcome complete.
+    for et, status in (
+        (e.EvidenceType.PHOTO_BEFORE, e.UploadStatus.STORED),
+        (e.EvidenceType.PHOTO_AFTER, e.UploadStatus.FAILED),
+        (e.EvidenceType.CLEARANCE_MEASUREMENT, e.UploadStatus.STORED),
+    ):
+        stored = status is e.UploadStatus.STORED
+        db.add(m.EvidenceItem(
+            execution_id=execution.id, type=et, upload_status=status,
+            storage_key=f"synthetic/golden/{plan.id}/{et.value}" if stored else None,
+            captured_at=execution.performed_at,
+        ))
+
+    events["created"].append(("plan.created", plan.id, users["manager"].id))
+    events["approved"].append(("plan.approved", plan.id, users["manager"].id))
+    events["executed"].append(("execution.recorded", plan.id, users["crew"].id))
+
+    # A trail a reviewer can actually read the story from.
+    for action, reason in (
+        ("plan.constraint_detected",
+         "Riparian water buffer (Mill Branch) intersects the planned area — PostGIS ST_Intersects."),
+        ("plan.revised",
+         "Planned area reduced 7.4 → 6.8 acres to hold the riparian buffer. Revision 2 → 3."),
+        ("evidence.failed",
+         "photo_after upload failed on sync; outcome cannot be verified until it is recovered."),
+    ):
+        db.add(m.AuditEvent(
+            actor_id=users["manager"].id if action.startswith("plan") else users["crew"].id,
+            action=action, entity_type="treatment_plan", entity_id=plan.id,
+            reason=reason, created_at=_now() - timedelta(days=2),
+        ))
+
+
+def seed() -> dict:
+    """Rebuild the synthetic demonstration data. Returns the row counts."""
     Base.metadata.create_all(admin_engine)  # safety net if migrations skipped
     db = AdminSessionLocal()
     tenant_token = None
@@ -198,6 +306,8 @@ def seed() -> None:
                         captured_at=execution.performed_at,
                     ))
 
+        _seed_golden_record(db, users, corridors, events)
+
         # Flatten in chronological phase order and stamp with recent, spaced
         # timestamps so the feed reads naturally (oldest ~4h ago → newest ~now).
         ordered = (
@@ -256,6 +366,7 @@ def seed() -> None:
             "plans": db.query(m.TreatmentPlan).count(),
         }
         print(f"[seed] done: {counts}")
+        return counts
     finally:
         if tenant_token is not None:
             reset_current_tenant(tenant_token)

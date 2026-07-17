@@ -7,13 +7,17 @@ from tests.conftest import auth
 
 
 def test_compliance_report_shape_and_totals(client):
+    # Derive the expected count from the seed rather than hardcoding it — the
+    # invariant is "the report covers every plan in the program", not "there are
+    # six of them". A literal here breaks every time the demo data grows.
+    seeded = len(client.get("/api/treatments", params={"limit": 500}).json())
     r = client.get("/api/reports/compliance").json()
-    assert r["totalPlans"] == 6
-    assert len(r["spans"]) == 6
+    assert r["totalPlans"] == seeded
+    assert len(r["spans"]) == seeded
     assert 0 <= r["attainmentPct"] <= 100
     assert 0 <= r["evidenceCompletePct"] <= 100
     # risk distribution covers every span
-    assert sum(r["riskDistribution"].values()) == 6
+    assert sum(r["riskDistribution"].values()) == seeded
     # spans are ranked by risk, highest first
     scores = [s["riskScore"] for s in r["spans"]]
     assert scores == sorted(scores, reverse=True)
