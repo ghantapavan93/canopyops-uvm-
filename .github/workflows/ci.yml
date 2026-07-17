@@ -67,14 +67,13 @@ jobs:
           assert row == (False, False), f"app role must not be SUPERUSER/BYPASSRLS, got {row}"
           print("app role is a plain non-superuser — RLS will apply")
           PY
-      - name: Run pytest
-        working-directory: backend
-        run: pytest
-
-      - name: Engineering Evidence must not lie about the test count
-        # The screen's whole claim is "these numbers are real". They used to be
-        # hand-typed and drifted (it showed 136 while the suite was at 144). This
-        # re-runs the suite and fails if the number the app displays disagrees.
+      # Runs pytest AND checks the count the Engineering Evidence screen shows,
+      # in one pass. The screen's whole claim is "these numbers are real" — they
+      # used to be hand-typed and drifted (136 shown while the suite was at 144).
+      # --check fails on a failing suite or on any drift, and prints the suite's
+      # own output when it breaks, so this replaces a separate `pytest` step
+      # rather than duplicating it.
+      - name: Backend tests (pytest) + evidence check
         run: python scripts/test_evidence.py --check --suite pytest
 
   frontend:
@@ -89,13 +88,11 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
-      - name: Unit tests (Jest)
-        working-directory: frontend
-        run: npm test -- --ci
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Engineering Evidence must not lie about the Jest count
+      # Runs Jest and verifies the count the app displays, in one pass.
+      - name: Unit tests (Jest) + evidence check
         run: python scripts/test_evidence.py --check --suite jest
       - name: Console text must stay above the 12px floor
         # The console drifted to 274 hand-written sub-12px sizes because nothing
@@ -139,18 +136,15 @@ jobs:
       - name: Install frontend deps (incl. Cypress binary)
         working-directory: frontend
         run: npm ci
-      - name: Run Cypress critical journey (headless)
-        working-directory: frontend
-        run: npx cypress run --browser electron
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Engineering Evidence must not lie about the Cypress count
-        # Re-seed first: the critical journey consumes its fixture record, so a
-        # second run against the same DB would fail for state, not for code.
-        run: |
-          docker compose exec -T api python -m app.seed
-          python scripts/test_evidence.py --check --suite cypress
+      # Runs the e2e suite ONCE and verifies the count the app displays. This
+      # used to be two steps — a plain `cypress run` followed by a check that ran
+      # it all over again — which doubled the slowest job in CI and doubled the
+      # chance of a flake turning it red for no added signal.
+      - name: End-to-end (Cypress) + evidence check
+        run: python scripts/test_evidence.py --check --suite cypress
       - name: Stack logs on failure
         if: failure()
         run: docker compose logs --tail 120

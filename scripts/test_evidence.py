@@ -58,7 +58,7 @@ def _pytest() -> dict:
         raise SystemExit(f"could not parse pytest output:\n{out[-2000:]}")
     return {
         "key": "pytest", "label": "backend pytest", "passed": passed, "failed": failed,
-        "command": "cd backend && pytest", "exitCode": code,
+        "command": "cd backend && pytest", "exitCode": code, "output": out[-6000:],
     }
 
 
@@ -75,6 +75,7 @@ def _jest() -> dict:
     return {
         "key": "jest", "label": "frontend Jest", "passed": data["numPassedTests"],
         "failed": data["numFailedTests"], "command": "cd frontend && npm test", "exitCode": code,
+        "output": out[-6000:],
     }
 
 
@@ -98,7 +99,7 @@ def _cypress() -> dict:
     return {
         "key": "cypress", "label": "Cypress e2e", "passed": passed,
         "failed": failed if failed else max(0, total - passed),
-        "command": "cd frontend && npx cypress run", "exitCode": code,
+        "command": "cd frontend && npx cypress run", "exitCode": code, "output": out[-8000:],
     }
 
 
@@ -133,8 +134,16 @@ def main() -> int:
     for key in suites:
         print(f"[test-evidence] running {key} ...", flush=True)
         fresh = RUNNERS[key]()
-        if fresh["failed"]:
-            failures.append(f"{key}: suite itself is failing ({fresh['failed']} failed)")
+        if fresh["failed"] or fresh["exitCode"] != 0:
+            # This IS the CI run for that suite, so its output has to reach the
+            # log — otherwise a real failure would be reported as nothing more
+            # than a count mismatch, and nobody could tell what broke.
+            print(f"\n[test-evidence] {key} FAILED — output follows:\n")
+            print(fresh.pop("output", "(no output captured)"))
+            failures.append(
+                f"{key}: the suite is failing ({fresh['failed']} failed, exit {fresh['exitCode']})"
+            )
+        fresh.pop("output", None)
         if args.check:
             claimed = by_key.get(key)
             if claimed is None:
@@ -148,6 +157,7 @@ def main() -> int:
             else:
                 print(f"[test-evidence] {key}: {fresh['passed']} passing — matches the screen")
         else:
+            fresh.pop("output", None)
             by_key[key] = fresh
             print(f"[test-evidence] {key}: {fresh['passed']} passing")
 
