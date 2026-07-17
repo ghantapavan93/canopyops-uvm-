@@ -53,18 +53,32 @@ Verify after the first deploy (must return `f | f`):
 SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'canopyops_app';
 ```
 
-**The two URLs.** Both come from Neon's *Connect* dialog; note the pooling toggle:
+**The two URLs.** Both come from Neon's *Connect* dialog. **Turn Connection
+pooling OFF for both** — you want the direct host, with no `-pooler` in it.
 
-- `ADMIN_DATABASE_URL` → the **owner** role, **Connection pooling OFF** (the
-  direct endpoint, no `-pooler` in the host). Alembic runs DDL, `CREATE ROLE` and
+- `ADMIN_DATABASE_URL` → the **owner** role. Alembic runs DDL, `CREATE ROLE` and
   lock-taking here; that belongs on a direct connection, not through PgBouncer.
-- `DATABASE_URL` → user **`canopyops_app`** and **a password you invent**,
-  **pooling ON** (the `-pooler` host). Same host/database as the owner string,
-  different credentials. The migration creates the role from these, so whatever
-  you put here *becomes* the role's password — there is nothing else to keep in
-  sync. Pooling is right for the app: Neon's free tier is connection-limited, and
-  the tenant GUC is set with `set_config(..., true)` — *transaction*-local, which
-  is exactly what survives PgBouncer's transaction mode.
+- `DATABASE_URL` → user **`canopyops_app`** and **a password you invent**. Same
+  host/database as the owner string, different credentials. The migration creates
+  the role from these, so whatever you put here *becomes* the role's password —
+  there is nothing else to keep in sync.
+
+**Why not the pooler for the app.** The engine sets a server-side
+`statement_timeout` through the `options` startup parameter, and Neon's PgBouncer
+**rejects `options` outright**: *"unsupported startup parameter in options:
+statement_timeout. Please use unpooled connection or remove this parameter."*
+Every request 500s while the service still reports healthy.
+
+This doc previously said to use the pooler, reasoning that Neon's free tier is
+connection-limited. That was overcautious arithmetic: `DB_POOL_SIZE=3` +
+`DB_MAX_OVERFLOW=2` + `WEB_CONCURRENCY=1` is **at most 5 connections**, and
+Neon's direct endpoint handles far more. The pooler was solving a problem this
+deployment does not have, and the price was `statement_timeout` — a real guard
+that stops one runaway query pinning the single free instance.
+
+(The tenant GUC is set with `set_config(..., true)`, i.e. *transaction*-local, so
+it *would* survive PgBouncer transaction mode. That part was true — it just
+wasn't the constraint that mattered.)
 
 **The password must be strong.** Neon's control plane rejects weak ones, and it
 does so at **commit** — every migration appears to run, then the whole

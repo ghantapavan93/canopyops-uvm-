@@ -29,6 +29,40 @@ if [ "${SEED_ON_START:-false}" = "true" ]; then
   python -m app.seed
 fi
 
+# Prove the APP can connect — not just the admin role.
+#
+# The wait above uses ADMIN_DATABASE_URL, because the app role does not exist
+# until migrations run. That means it proves the database is reachable by a role
+# the app never uses, and everything below it can be perfectly healthy while the
+# app itself cannot read a single row. That is exactly what happened on the first
+# Neon deploy: migrations applied, seed succeeded, Render reported "live", and
+# every request 500'd because the pooled endpoint rejected the engine's
+# `options=-c statement_timeout=...` startup parameter.
+#
+# So: connect through build_engine() — the same factory the app uses, with the
+# same connect_args — and fail the deploy loudly rather than going live broken.
+echo "[entrypoint] verifying the app role can connect..."
+python - <<'PY'
+import sys
+from sqlalchemy import text
+from app.core.database import build_engine
+from app.core.config import get_settings
+
+url = get_settings().database_url
+try:
+    with build_engine().connect() as conn:
+        who = conn.execute(text("SELECT current_user")).scalar()
+    print(f"[entrypoint] app role connected as {who}")
+except Exception as exc:  # noqa: BLE001
+    host = url.rsplit("@", 1)[-1].split("/")[0]  # never print the password
+    print(f"[entrypoint] APP ROLE CANNOT CONNECT to {host}\n  {exc}")
+    print("[entrypoint] Refusing to start: the API would report healthy and 500 "
+          "every request. If this says 'unsupported startup parameter in "
+          "options', DATABASE_URL is a POOLED endpoint — use the direct host "
+          "(no '-pooler'). See docs/DEPLOY.md.")
+    sys.exit(1)
+PY
+
 WORKERS="${WEB_CONCURRENCY:-1}"
 # Bind the port the platform assigns (Render/Railway/Fly inject $PORT); fall back
 # to 8000 for docker-compose, where the port is fixed by the compose file.
