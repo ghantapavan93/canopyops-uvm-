@@ -8,6 +8,7 @@ Run:  python -m app.seed        (idempotent-ish: clears domain tables first)
 """
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
 from geoalchemy2.shape import from_shape
@@ -24,6 +25,21 @@ from app.models.domain import _now
 
 # Synthetic sandbox origin (NOT a real location).
 LON0, LAT0 = -83.20, 40.10
+
+# Namespace for deterministic synthetic user ids.
+_USER_NS = uuid.UUID("7f9a1c2e-5b3d-4a6f-8e21-0c4d5b6a7e88")
+
+
+def user_id(email: str) -> str:
+    """A STABLE id for a synthetic user, derived from their email.
+
+    Re-seeding must not change who anyone is. Ids used to be random per seed, so
+    every re-seed silently invalidated every issued JWT: the token still decoded,
+    but its subject pointed at a user row that no longer existed, and the whole
+    console answered 401. That is almost certainly what a reviewer hit — and the
+    'Reset demonstration' button would have caused it every single time.
+    """
+    return str(uuid.uuid5(_USER_NS, email))
 
 
 def box(cx: float, cy: float, w: float, h: float) -> Polygon:
@@ -174,10 +190,10 @@ def seed() -> dict:
         # --- Users (one per RBAC role) ---
         pw = hash_password("canopyops")
         users = {
-            "manager": m.User(tenant_id=DEFAULT_TENANT, email="manager@synthetic.test", display_name="Morgan Reyes (Program Manager)", role=e.Role.PROGRAM_MANAGER, password_hash=pw),
-            "crew": m.User(tenant_id=DEFAULT_TENANT, email="crew@synthetic.test", display_name="Casey Lin (Field Crew)", role=e.Role.FIELD_CREW, password_hash=pw),
-            "reviewer": m.User(tenant_id=DEFAULT_TENANT, email="reviewer@synthetic.test", display_name="Avery Stone (ISA Arborist / QA)", role=e.Role.QUALITY_REVIEWER, password_hash=pw),
-            "compliance": m.User(tenant_id=DEFAULT_TENANT, email="compliance@synthetic.test", display_name="Jordan Diaz (Compliance)", role=e.Role.COMPLIANCE_REVIEWER, password_hash=pw),
+            "manager": m.User(id=user_id("manager@synthetic.test"), tenant_id=DEFAULT_TENANT, email="manager@synthetic.test", display_name="Morgan Reyes (Program Manager)", role=e.Role.PROGRAM_MANAGER, password_hash=pw),
+            "crew": m.User(id=user_id("crew@synthetic.test"), tenant_id=DEFAULT_TENANT, email="crew@synthetic.test", display_name="Casey Lin (Field Crew)", role=e.Role.FIELD_CREW, password_hash=pw),
+            "reviewer": m.User(id=user_id("reviewer@synthetic.test"), tenant_id=DEFAULT_TENANT, email="reviewer@synthetic.test", display_name="Avery Stone (ISA Arborist / QA)", role=e.Role.QUALITY_REVIEWER, password_hash=pw),
+            "compliance": m.User(id=user_id("compliance@synthetic.test"), tenant_id=DEFAULT_TENANT, email="compliance@synthetic.test", display_name="Jordan Diaz (Compliance)", role=e.Role.COMPLIANCE_REVIEWER, password_hash=pw),
         }
         db.add_all(users.values())
         db.flush()
@@ -332,7 +348,7 @@ def seed() -> dict:
         #     users/corridors/plans must never surface for the demo program. ---
         reset_current_tenant(tenant_token)
         tenant_token = set_current_tenant("northgrid")
-        ng_mgr = m.User(tenant_id="northgrid", email="ng.manager@synthetic.test",
+        ng_mgr = m.User(id=user_id("ng.manager@synthetic.test"), tenant_id="northgrid", email="ng.manager@synthetic.test",
                         display_name="Riley Fox (NorthGrid PM)", role=e.Role.PROGRAM_MANAGER, password_hash=pw)
         db.add(ng_mgr)
         db.flush()

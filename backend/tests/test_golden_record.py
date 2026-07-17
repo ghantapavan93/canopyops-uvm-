@@ -61,3 +61,26 @@ def test_demo_reset_restores_the_golden_record(client):
     assert body["goldenRecord"] == GOLDEN_REF
     assert body["counts"]["plans"] > 0
     _golden(client)  # still there, still the anchor
+
+
+def test_reset_does_not_invalidate_a_signed_in_session(client):
+    """Reset must not sign everyone out.
+
+    Seeded user ids used to be random, so re-seeding minted new identities: an
+    already-issued JWT still decoded, but its subject pointed at a row that no
+    longer existed and the whole console answered 401. That made 'Reset
+    demonstration' a trap — the reviewer's next click would fail, and the
+    failures would look like the app was broken.
+    """
+    headers = auth(client, "crew@synthetic.test")
+
+    res = client.post("/api/demo/reset")
+    assert res.status_code == 200, res.text
+
+    # The SAME token, issued before the reset, must still work afterwards.
+    plan_id = client.get("/api/treatments").json()[0]["planId"]
+    after = client.post(f"/api/plans/{plan_id}/bump-revision", headers=headers)
+    assert after.status_code == 200, (
+        f"a pre-reset token stopped working ({after.status_code}) — re-seeding "
+        f"changed the user's identity"
+    )

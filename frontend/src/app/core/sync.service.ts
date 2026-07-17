@@ -67,10 +67,17 @@ export class SyncService {
     }
   }
 
-  async enqueue(label: string, payload: ExecutionPayload): Promise<OutboxItem> {
+  /** Queue a mutation. `idempotencyKey` is normally generated per item; pass one
+   *  only to REPLAY an existing key on purpose (the guided demo does this to
+   *  prove the server de-duplicates a retry rather than double-recording it). */
+  async enqueue(
+    label: string,
+    payload: ExecutionPayload,
+    idempotencyKey?: string,
+  ): Promise<OutboxItem> {
     const item: OutboxItem = {
       id: crypto.randomUUID(),
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
       tenantId: this.auth.user()?.tenantId ?? null,
       label,
       payload,

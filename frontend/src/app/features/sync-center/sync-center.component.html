@@ -32,12 +32,45 @@
   </div>
 
   @if (items().length === 0) {
-    <div class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">
+    <div class="rounded-lg border border-dashed border-border p-8 text-center">
       <div class="mb-1 text-2xl" aria-hidden="true">⇅</div>
-      Outbox is empty. Record a field execution — try it with connectivity <strong>Off</strong> —
-      and watch it queue here, then sync safely when you go back online.
+      <p class="text-sm text-muted">
+        Nothing is queued — which is the boring case. This module exists for the
+        <strong class="text-ink">interesting</strong> ones: work recorded out of coverage, a
+        retry that must not double-record, an upload that fails, and a plan that moved while
+        the crew was offline.
+      </p>
+      <button type="button" (click)="loadGuided()" [disabled]="guided.running()"
+              class="mt-4 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-ink hover:opacity-90 disabled:opacity-60">
+        {{ guided.running() ? 'Staging…' : 'Load the guided scenario →' }}
+      </button>
+      <p class="mt-3 text-xs text-muted">
+        Signs in as the crew, really moves a plan revision on the server, really goes offline,
+        and queues real executions. Nothing here is a mock row.
+      </p>
+      @if (guided.error(); as e) {
+        <p class="mt-3 text-xs text-danger">{{ e }}</p>
+      }
+      <p class="mt-2 text-xs text-muted">
+        Or record one yourself in <a routerLink="/console/execution" class="text-primary underline">Field Execution</a>
+        with connectivity <strong>Off</strong>.
+      </p>
     </div>
   } @else {
+    @if (guided.staged().length && !conn.online()) {
+      <div class="mb-3 rounded-lg border border-warn/40 bg-warn-soft p-3">
+        <div class="text-sm font-semibold text-warn">
+          You are offline — {{ sync.pending() }} items are held on the device.
+        </div>
+        <ul class="mt-1.5 space-y-0.5 text-xs text-warn">
+          @for (s of guided.staged(); track s) { <li>· {{ s }}</li> }
+        </ul>
+        <button type="button" (click)="goOnline()"
+                class="mt-2.5 rounded-md bg-warn px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90">
+          Go back online and watch them sync →
+        </button>
+      </div>
+    }
     <!-- Live composition bar + clickable status filters -->
     <div class="mb-3 rounded-lg border border-border bg-surface p-3">
       <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2">

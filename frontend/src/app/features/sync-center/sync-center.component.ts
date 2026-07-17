@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
 import { ConnectivityService } from '../../core/connectivity.service';
+import { GuidedDemoService } from '../../core/guided-demo.service';
 import { OutboxItem, OutboxStatus } from '../../core/models';
 import { TONE_CHIP, Tone } from '../../core/status';
 import { SyncService } from '../../core/sync.service';
@@ -29,7 +30,19 @@ type Filter = OutboxStatus | 'all';
 export class SyncCenterComponent implements OnDestroy {
   sync = inject(SyncService);
   conn = inject(ConnectivityService);
+  readonly guided = inject(GuidedDemoService);
   private api = inject(ApiService);
+
+  /** Stage the four situations this module exists for — by performing them. */
+  async loadGuided(): Promise<void> {
+    await this.guided.loadScenario();
+  }
+
+  /** Hand the last move to the reviewer: they restore connectivity and watch the
+   *  queue drain, recover, and surface the conflict. */
+  goOnline(): void {
+    this.conn.setForced(true);
+  }
 
   readonly meta = OUTBOX_META;
   readonly statusOrder = STATUS_ORDER;
