@@ -169,6 +169,115 @@ def _seed_golden_record(db, users, corridors, events) -> None:
         ))
 
 
+# Territory fill. Six live records made the Command Center read as a technical
+# placeholder: one polygon on an empty canvas tells a reviewer nothing about
+# whether this could run a real program. These add enough work across the
+# corridors that the map and the queue look like an operating territory — a
+# spread of statuses, priorities, coverage and evidence, so the exception queue
+# has something to actually rank.
+#
+# Everything is index-derived, never random: the demo must look identical on
+# every reload and every reseed, or screenshots and walkthroughs stop matching.
+_FILL_LIFECYCLE = [
+    (e.TreatmentStatus.SCHEDULED, e.WorkOrderPriority.ROUTINE),
+    (e.TreatmentStatus.AWAITING_VERIFICATION, e.WorkOrderPriority.HAZARD),
+    (e.TreatmentStatus.CLOSED, e.WorkOrderPriority.ROUTINE),
+    (e.TreatmentStatus.EFFECTIVE, e.WorkOrderPriority.ELEVATED),
+    (e.TreatmentStatus.IN_PROGRESS, e.WorkOrderPriority.ELEVATED),
+    (e.TreatmentStatus.PARTIALLY_EFFECTIVE, e.WorkOrderPriority.HAZARD),
+    (e.TreatmentStatus.APPLIED, e.WorkOrderPriority.ROUTINE),
+    (e.TreatmentStatus.FOLLOW_UP_PLANNED, e.WorkOrderPriority.ELEVATED),
+    (e.TreatmentStatus.DRAFT, e.WorkOrderPriority.ROUTINE),
+]
+
+_EXECUTED_STATES = {
+    e.TreatmentStatus.AWAITING_VERIFICATION,
+    e.TreatmentStatus.EFFECTIVE,
+    e.TreatmentStatus.PARTIALLY_EFFECTIVE,
+    e.TreatmentStatus.FOLLOW_UP_PLANNED,
+    e.TreatmentStatus.CLOSED,
+}
+
+
+def _seed_territory(db, users, corridors, events) -> None:
+    """Populate the territory so the map/queue read as a real program."""
+    n = 0
+    for ci in range(6):
+        corridor = corridors[ci]
+        cx = LON0 + ci * 0.014
+        for step in range(3):
+            status, priority = _FILL_LIFECYCLE[(ci * 3 + step) % len(_FILL_LIFECYCLE)]
+            t = 0.25 + step * 0.25          # along the corridor centerline
+            px = cx + 0.010 * t
+            py = LAT0 + 0.006 * t
+            planned = box(px, py, 0.0022, 0.0015)
+
+            wo = m.WorkOrder(
+                reference=f"WO-2026-{2001 + n}",
+                priority=priority,
+                corridor_id=corridor.id,
+                owner_id=users["manager"].id,
+                due_at=_now() + timedelta(days=2 + (n % 21)),
+            )
+            db.add(wo)
+            db.flush()
+            plan = m.TreatmentPlan(
+                work_order_id=wo.id,
+                status=status,
+                planned_geometry=geom(planned),
+                target_condition="Restore MVCD clearance; establish low-growing compatible cover in wire zone.",
+                method_category=e.MethodCategory.MECHANICAL if n % 3 else e.MethodCategory.HERBICIDE,
+                required_evidence=[
+                    e.EvidenceType.PHOTO_BEFORE.value,
+                    e.EvidenceType.PHOTO_AFTER.value,
+                    e.EvidenceType.CLEARANCE_MEASUREMENT.value,
+                ],
+                verification_policy={"window_days": 30, "cycle": "mid_cycle"},
+                owner_id=users["manager"].id,
+            )
+            db.add(plan)
+            db.flush()
+            events["created"].append(("plan.created", plan.id, users["manager"].id))
+            if status is not e.TreatmentStatus.DRAFT:
+                events["approved"].append(("plan.approved", plan.id, users["manager"].id))
+
+            if status in _EXECUTED_STATES:
+                # Vary how close the crew got to plan, so coverage is a real
+                # spread the queue can rank rather than a constant.
+                shrink = [0.94, 0.86, 0.72, 0.98, 0.81][n % 5]
+                actual = box(px, py, 0.0022 * shrink, 0.0015 * shrink)
+                execution = m.TreatmentExecution(
+                    plan_id=plan.id,
+                    actual_geometry=geom(actual),
+                    performed_at=_now() - timedelta(days=1 + (n % 25)),
+                    crew_id=users["crew"].id,
+                    constraint_acknowledged=True,
+                    coverage_ratio=round(planned.intersection(actual).area / planned.area, 4),
+                )
+                db.add(execution)
+                db.flush()
+                events["executed"].append(("execution.recorded", plan.id, users["crew"].id))
+                # Every 4th record is missing its after-photo — the evidence gate
+                # needs failures to have anything to say.
+                incomplete = n % 4 == 3
+                for et in (
+                    e.EvidenceType.PHOTO_BEFORE,
+                    e.EvidenceType.PHOTO_AFTER,
+                    e.EvidenceType.CLEARANCE_MEASUREMENT,
+                ):
+                    stored = not (incomplete and et is e.EvidenceType.PHOTO_AFTER)
+                    db.add(m.EvidenceItem(
+                        execution_id=execution.id, type=et,
+                        upload_status=e.UploadStatus.STORED if stored else e.UploadStatus.FAILED,
+                        storage_key=f"synthetic/fill/{plan.id}/{et.value}" if stored else None,
+                        captured_at=execution.performed_at,
+                    ))
+                if status in (e.TreatmentStatus.EFFECTIVE, e.TreatmentStatus.PARTIALLY_EFFECTIVE,
+                              e.TreatmentStatus.FOLLOW_UP_PLANNED, e.TreatmentStatus.CLOSED):
+                    events["verified"].append(("verification.recorded", plan.id, users["reviewer"].id))
+            n += 1
+
+
 def seed() -> dict:
     """Rebuild the synthetic demonstration data. Returns the row counts."""
     Base.metadata.create_all(admin_engine)  # safety net if migrations skipped
@@ -323,6 +432,7 @@ def seed() -> dict:
                     ))
 
         _seed_golden_record(db, users, corridors, events)
+        _seed_territory(db, users, corridors, events)
 
         # Flatten in chronological phase order and stamp with recent, spaced
         # timestamps so the feed reads naturally (oldest ~4h ago → newest ~now).

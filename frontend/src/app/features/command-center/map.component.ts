@@ -82,7 +82,15 @@ export class MapComponent implements OnDestroy {
   readonly select = output<string>();
 
   readonly basemaps = BASEMAPS;
-  readonly basemap = signal<BasemapKind>('synthetic');
+  /** Default to a REAL basemap. A dark synthetic canvas reads as a placeholder
+   *  rather than a GIS product, and this is the screen a reviewer judges first.
+   *
+   *  Safe for the offline story: raster tiles simply fail to load with no
+   *  connection, leaving the same background and synthetic operational layers
+   *  the app has always drawn on top — so going offline degrades to the old look
+   *  instead of breaking. The switcher still offers 'Synthetic' for a fully
+   *  self-contained view. */
+  readonly basemap = signal<BasemapKind>('streets');
 
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map?: MlMap;

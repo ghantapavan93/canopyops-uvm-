@@ -49,21 +49,34 @@ def test_filter_subset(client):
 
 
 def test_filter_parenthesised_grouping_and_precedence(client):
-    # Seeded: UVM.2026.1003 = applied + hazard; 1005 = draft + routine; 1006 = hazard.
-    grouped = client.get(
-        "/api/odata/WbsElements"
-        "?$filter=(Status eq 'draft' or Status eq 'applied') and Priority eq 'hazard'"
-        "&$select=Wbs"
-    ).json()["value"]
-    assert [r["Wbs"] for r in grouped] == ["UVM.2026.1003"]
+    """Parentheses must change the meaning, and `and` must bind tighter than `or`.
 
-    # Without parentheses, `and` binds tighter: draft OR (applied AND hazard) → 2 rows.
-    ungrouped = client.get(
-        "/api/odata/WbsElements"
-        "?$filter=Status eq 'draft' or Status eq 'applied' and Priority eq 'hazard'"
-        "&$select=Wbs"
-    ).json()["value"]
-    assert {r["Wbs"] for r in ungrouped} == {"UVM.2026.1003", "UVM.2026.1005"}
+    Asserts the PROPERTY rather than a literal set of ids: naming the exact rows
+    couples an operator-precedence test to the seed, and it broke the moment the
+    demo territory grew. What matters is the relationship between the two results.
+    """
+    def wbs(f: str) -> set[str]:
+        rows = client.get(f"/api/odata/WbsElements?$filter={f}&$select=Wbs,Status,Priority").json()["value"]
+        return {r["Wbs"] for r in rows}
+
+    def rows(f: str) -> list[dict]:
+        return client.get(f"/api/odata/WbsElements?$filter={f}&$select=Wbs,Status,Priority").json()["value"]
+
+    grouped = rows("(Status eq 'draft' or Status eq 'applied') and Priority eq 'hazard'")
+    # The parenthesised form is an AND against hazard — nothing else can appear.
+    assert grouped, "expected at least one draft/applied hazard span in the seed"
+    for r in grouped:
+        assert r["Priority"] == "hazard"
+        assert r["Status"] in ("draft", "applied")
+
+    # Unparenthesised, `and` binds tighter: draft OR (applied AND hazard). So the
+    # result is a strict SUPERSET — it also admits drafts that are not hazards.
+    ungrouped = rows("Status eq 'draft' or Status eq 'applied' and Priority eq 'hazard'")
+    g, u = {r["Wbs"] for r in grouped}, {r["Wbs"] for r in ungrouped}
+    assert g < u, "precedence changed nothing — `and` is not binding tighter than `or`"
+    assert any(r["Status"] == "draft" and r["Priority"] != "hazard" for r in ungrouped), (
+        "the unparenthesised form should admit non-hazard drafts"
+    )
 
 
 def test_etag_conditional_request_returns_304(client):
