@@ -182,13 +182,18 @@ validates it against a strict schema with `additionalProperties: false`, so a
 ### Known degradations (say these out loud, don't discover them)
 
 1. **Worker is in-process.** Dies with the web process; cannot scale separately.
-2. **SSE may fall back to polling.** Two independent risks: Render's 15-min
-   *inbound*-traffic reaper (server keepalives are outbound and don't reset it),
-   and Vercel's rewrite proxy possibly buffering `text/event-stream`. The client
-   detects this and falls back to polling automatically — the "Live" chip reads
-   `poll` instead of `push`. Verify with:
-   `curl -N https://<your-app>.vercel.app/api/events/stream` — a `hello` frame
-   should arrive immediately. If it hangs, the proxy is buffering.
+2. **SSE pushes — Vercel does *not* buffer it.** Measured against the live
+   deployment: `curl -N https://<your-app>.vercel.app/api/events/stream` returns
+   `event: hello` immediately, then `: keepalive`. So the "Live" chip reads
+   `push`. This entry used to hedge that the rewrite proxy *might* buffer
+   `text/event-stream` and the client would fall back to polling; that was a
+   guess, and it was wrong. (A `poll` reading in an embedded preview pane is the
+   pane intercepting the stream, not this stack.)
+
+   The remaining real risk is Render's 15-minute *inbound*-traffic reaper: SSE
+   keepalives are outbound and do not reset it, so a stream can outlive the
+   instance that serves it. The keep-warm ping is what prevents that. The client
+   falls back to polling on its own if the stream dies.
 3. **Cold start** if the pinger stops.
 4. Vercel Hobby is **non-commercial only** — fine for a portfolio piece.
 
