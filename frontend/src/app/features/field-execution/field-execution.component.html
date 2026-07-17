@@ -38,9 +38,10 @@
   </div>
 
   @if (!canRecord()) {
-    <div class="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
-      Only Field Crew or Manager can record execution. Switch role from the menu (mobile) or the header (desktop).
-    </div>
+    <app-role-gate
+      workspace="Field Execution"
+      [roles]="['field_crew', 'program_manager']"
+      reason="Recording what happened on site is the crew's job — the server enforces it, so this button signs you in as a different synthetic user rather than bypassing the check." />
   }
 
   @if (savedMsg()) {

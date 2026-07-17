@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../../core/auth.service';
 import { ConnectivityService } from '../../core/connectivity.service';
+import { DEMO_PASSWORD, DEMO_USERS } from '../../core/demo-users';
 import { Role } from '../../core/models';
 import { SyncService } from '../../core/sync.service';
 import { CommandPaletteComponent } from '../../shared/command-palette.component';
@@ -14,13 +15,60 @@ interface NavItem {
   ready: boolean;
 }
 
-const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = [
-  { key: 'manager', role: 'program_manager', label: 'Manager', email: 'manager@synthetic.test' },
-  { key: 'crew', role: 'field_crew', label: 'Field crew', email: 'crew@synthetic.test' },
-  { key: 'reviewer', role: 'quality_reviewer', label: 'Reviewer', email: 'reviewer@synthetic.test' },
-  { key: 'compliance', role: 'compliance_reviewer', label: 'Compliance', email: 'compliance@synthetic.test' },
-  // A different program (tenant) — switching here proves isolation: the data changes.
-  { key: 'northgrid', role: 'program_manager', label: 'NorthGrid ⧉', email: 'ng.manager@synthetic.test' },
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+/** The rail, grouped by what a person is trying to DO.
+ *
+ *  Fifteen flat destinations made the product look bigger and read smaller — a
+ *  reviewer couldn't tell the core loop (plan → execute → recover → verify →
+ *  prove) from the supporting surfaces. The order is the story: Operations sets
+ *  the work, Field does it, Assurance judges it, Intelligence informs it, and
+ *  Engineering is the proof for a technical reader.
+ */
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: 'Operations',
+    items: [
+      { label: 'Program Overview', route: '/console/overview', glyph: '▦', ready: true },
+      { label: 'Command Center', route: '/console/command', glyph: '◎', ready: true },
+      { label: 'Treatment Plan', route: '/console/plan', glyph: '✎', ready: true },
+    ],
+  },
+  {
+    title: 'Field',
+    items: [
+      { label: 'Field Execution', route: '/console/execution', glyph: '⛏', ready: true },
+      { label: 'Sync & Conflict', route: '/console/sync', glyph: '⇅', ready: true },
+      { label: 'Field Safety · Geofence', route: '/console/geofence', glyph: '🛰', ready: true },
+    ],
+  },
+  {
+    title: 'Assurance',
+    items: [
+      { label: 'Outcome Verification', route: '/console/verification', glyph: '✓', ready: true },
+      { label: 'Quality & Compliance', route: '/console/audit', glyph: '📋', ready: true },
+      { label: 'Stewardship', route: '/console/stewardship', glyph: '❋', ready: true },
+    ],
+  },
+  {
+    title: 'Intelligence',
+    items: [
+      { label: 'Risk Intelligence', route: '/console/risk', glyph: '⚠', ready: true },
+      { label: 'Vegetation Intelligence', route: '/console/vegetation', glyph: '🌿', ready: true },
+      { label: '3D Terrain', route: '/console/terrain', glyph: '⛰', ready: true },
+    ],
+  },
+  {
+    title: 'Engineering',
+    items: [
+      { label: 'Integration · OData', route: '/console/integration', glyph: '🔌', ready: true },
+      { label: 'Engineering Evidence', route: '/console/engineering', glyph: '⚙', ready: true },
+      { label: 'Compliance Report', route: '/report', glyph: '📋', ready: true },
+    ],
+  },
 ];
 
 @Component({
@@ -101,8 +149,11 @@ const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = 
           class="hidden w-52 flex-shrink-0 flex-col gap-0.5 border-r border-border bg-surface p-2 md:flex"
           aria-label="Modules"
         >
-          @for (item of nav; track item.label) {
-            @if (item.ready && item.route) {
+          @for (group of navGroups; track group.title) {
+            <div class="mb-0.5 mt-3 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted first:mt-0">
+              {{ group.title }}
+            </div>
+            @for (item of group.items; track item.label) {
               <a
                 [routerLink]="item.route"
                 routerLinkActive="bg-primary-soft text-primary font-semibold"
@@ -111,23 +162,13 @@ const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = 
                 <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
                 {{ item.label }}
                 @if (item.route === '/console/sync' && (sync.outstanding() + sync.conflicts()) > 0) {
-                  <span class="ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                  <span class="ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-bold"
                         [class.bg-danger]="sync.conflicts() > 0" [class.text-white]="sync.conflicts() > 0"
                         [class.bg-warn-soft]="sync.conflicts() === 0" [class.text-warn]="sync.conflicts() === 0">
                     {{ sync.outstanding() + sync.conflicts() }}
                   </span>
                 }
               </a>
-            } @else {
-              <span
-                class="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted opacity-60"
-                [attr.aria-disabled]="true"
-                [title]="item.label + ' — coming in a later phase'"
-              >
-                <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
-                {{ item.label }}
-                <span class="ml-auto text-[10px] uppercase tracking-wide">soon</span>
-              </span>
             }
           }
         </nav>
@@ -168,22 +209,17 @@ const DEMO_USERS: { key: string; role: Role; label: string; email: string }[] = 
               }
             </div>
 
-            <div class="mb-1 text-[11px] uppercase tracking-wide text-muted">Modules</div>
-            @for (item of nav; track item.label) {
-              @if (item.ready && item.route) {
+            @for (group of navGroups; track group.title) {
+              <div class="mb-0.5 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted first:mt-0">
+                {{ group.title }}
+              </div>
+              @for (item of group.items; track item.label) {
                 <a [routerLink]="item.route" (click)="mobileNav.set(false)"
                    routerLinkActive="bg-primary-soft text-primary font-semibold"
-                   class="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink no-underline hover:bg-surface-2">
+                   class="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm text-ink no-underline hover:bg-surface-2">
                   <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
                   {{ item.label }}
                 </a>
-              } @else {
-                <span class="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted opacity-60"
-                      [attr.aria-disabled]="true">
-                  <span class="w-4 text-center" aria-hidden="true">{{ item.glyph }}</span>
-                  {{ item.label }}
-                  <span class="ml-auto text-[10px] uppercase tracking-wide">soon</span>
-                </span>
               }
             }
           </nav>
@@ -209,29 +245,13 @@ export class ConsoleShellComponent {
     if (this.mobileNav()) this.mobileNav.set(false);
   }
 
-  readonly nav: NavItem[] = [
-    { label: 'Program Overview', route: '/console/overview', glyph: '▦', ready: true },
-    { label: 'Command Center', route: '/console/command', glyph: '◎', ready: true },
-    { label: 'Risk Intelligence', route: '/console/risk', glyph: '⚠', ready: true },
-    { label: 'Vegetation Intelligence', route: '/console/vegetation', glyph: '🌿', ready: true },
-    { label: 'Treatment Plan', route: '/console/plan', glyph: '✎', ready: true },
-    { label: 'Field Execution', route: '/console/execution', glyph: '⛏', ready: true },
-    { label: 'Sync & Conflict', route: '/console/sync', glyph: '⇅', ready: true },
-    { label: 'Outcome Verification', route: '/console/verification', glyph: '✓', ready: true },
-    { label: 'Quality & Compliance', route: '/console/audit', glyph: '📋', ready: true },
-    { label: 'Field Safety · Geofence', route: '/console/geofence', glyph: '🛰', ready: true },
-    { label: '3D Terrain', route: '/console/terrain', glyph: '⛰', ready: true },
-    { label: 'Stewardship', route: '/console/stewardship', glyph: '❋', ready: true },
-    { label: 'Integration · OData', route: '/console/integration', glyph: '🔌', ready: true },
-    { label: 'Engineering Evidence', route: '/console/engineering', glyph: '⚙', ready: true },
-    { label: 'Compliance Report', route: '/report', glyph: '📋', ready: true },
-  ];
+  readonly navGroups = NAV_GROUPS;
 
   async switchRole(u: { role: Role; email: string }): Promise<void> {
     // Synthetic quick-switch to demonstrate role-aware UI + server RBAC.
     try {
       const before = this.auth.user()?.tenantId;
-      await this.auth.login(u.email, 'canopyops');
+      await this.auth.login(u.email, DEMO_PASSWORD);
       // Switching between two different PROGRAMS (tenants) must swap the whole
       // console's data. Component signals + the OData ETag cache hold the previous
       // program's rows, so a full reload of the current route is the reliable reset

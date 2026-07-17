@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { PolygonDrawMapComponent } from '../../shared/charts/polygon-draw-map.component';
+import { RoleGateComponent } from '../../shared/role-gate.component';
 import {
   Geometry,
   ProofPack,
@@ -28,7 +29,7 @@ type QueueFilter = 'all' | 'awaiting' | 'overdue' | 'concluded';
 @Component({
   selector: 'app-verification',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, StatusBadgeComponent, PolygonDrawMapComponent],
+  imports: [FormsModule, RouterLink, DatePipe, StatusBadgeComponent, PolygonDrawMapComponent, RoleGateComponent],
   templateUrl: './verification.component.html',
 })
 export class VerificationComponent implements OnDestroy {

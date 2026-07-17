@@ -17,6 +17,7 @@ import {
 import { CONSTRAINT_META, PRIORITY_META } from '../../core/status';
 import { ToastService } from '../../core/toast.service';
 import { PolygonDrawMapComponent } from '../../shared/charts/polygon-draw-map.component';
+import { RoleGateComponent } from '../../shared/role-gate.component';
 
 const METHODS: MethodCategory[] = ['manual', 'mechanical', 'herbicide', 'biological', 'cultural'];
 const EVIDENCE: EvidenceType[] = ['photo_before', 'photo_after', 'clearance_measurement', 'note', 'form'];
@@ -24,7 +25,7 @@ const EVIDENCE: EvidenceType[] = ['photo_before', 'photo_after', 'clearance_meas
 @Component({
   selector: 'app-plan-builder',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, PolygonDrawMapComponent],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, PolygonDrawMapComponent, RoleGateComponent],
   templateUrl: './plan-builder.component.html',
 })
 export class PlanBuilderComponent {

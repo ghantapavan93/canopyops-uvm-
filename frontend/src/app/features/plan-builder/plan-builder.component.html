@@ -5,9 +5,10 @@
   </header>
 
   @if (!canCreate()) {
-    <div class="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
-      Only a Program Manager can create treatment plans. Switch role in the header.
-    </div>
+    <app-role-gate
+      workspace="Treatment Plan"
+      [roles]="['program_manager']"
+      reason="Prescribing treatment is a manager's decision, so the server gates it. This button signs you in as a different synthetic user — it does not bypass the check." />
   }
 
   <!-- success -->

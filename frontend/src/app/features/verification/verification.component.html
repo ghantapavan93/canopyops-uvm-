@@ -25,9 +25,10 @@
   </div>
 
   @if (!canReview()) {
-    <div class="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn">
-      Only a Quality or Compliance Reviewer can verify outcomes. Switch role in the header.
-    </div>
+    <app-role-gate
+      workspace="Outcome Verification"
+      [roles]="['quality_reviewer', 'compliance_reviewer']"
+      reason="An outcome is only verified when a certified reviewer says so — never the crew who did the work, and never the software. The server enforces it; this button just signs you in as a different synthetic user." />
   }
 
   <!-- PROOF PACK (after close) -->

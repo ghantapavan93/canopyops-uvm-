@@ -15,6 +15,7 @@ import {
 import { CONSTRAINT_META, STATUS_META } from '../../core/status';
 import { SyncService } from '../../core/sync.service';
 import { ToastService } from '../../core/toast.service';
+import { RoleGateComponent } from '../../shared/role-gate.component';
 import { StatusBadgeComponent } from '../../shared/status-badge.component';
 
 interface EvidenceRow {
@@ -27,7 +28,7 @@ interface EvidenceRow {
 @Component({
   selector: 'app-field-execution',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent, RoleGateComponent],
   templateUrl: './field-execution.component.html',
 })
 export class FieldExecutionComponent implements OnDestroy {
