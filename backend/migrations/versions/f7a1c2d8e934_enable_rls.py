@@ -21,7 +21,9 @@ Create Date: 2026-07-15
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -54,33 +56,71 @@ _RLS_TABLES = [
 ]
 
 
+def _ensure_role(role: str, password: str) -> str:
+    """Create/update the app role OUTSIDE this migration's transaction.
+
+    Neon's control plane intercepts role DDL and applies it at COMMIT — that is
+    where a weak password gets rejected with a 400. When the statement is part of
+    a larger transaction it does not survive that commit: on the first Neon
+    deploy every migration applied, 26 work orders committed, alembic stamped
+    head, and `SELECT rolname FROM pg_roles` returned nothing. The GRANTs below
+    had succeeded, which proves the role existed *during* the transaction and was
+    gone afterwards. Running the same CREATE ROLE standalone persists fine.
+
+    So the role is provisioned on its own AUTOCOMMIT connection. It is a cluster
+    object, not schema, and it outlives any single migration — a transaction was
+    never the right place for it. Returns the quoted identifier for the grants.
+    """
+    engine = create_engine(
+        get_settings().effective_admin_url,
+        isolation_level="AUTOCOMMIT",
+        poolclass=NullPool,
+    )
+    try:
+        with engine.connect() as conn:
+            # quote_ident/quote_literal are Postgres' own quoting — correct for
+            # any identifier or password, including quotes and backslashes.
+            ident, secret = conn.exec_driver_sql(
+                "SELECT quote_ident(%s), quote_literal(%s)", (role, password)
+            ).one()
+
+            # Skip when the app already connects as the role running this
+            # migration (single-role dev, ADMIN_DATABASE_URL unset). Creating it
+            # would be a no-op, but ALTERing it NOSUPERUSER would strip
+            # privileges from the connection doing the altering. RLS is then not
+            # enforced for that role — the tradeoff config.py documents.
+            if role != conn.exec_driver_sql("SELECT current_user").scalar():
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)
+                ).first()
+                # ALTER when it exists so a changed DATABASE_URL password is
+                # applied rather than silently ignored.
+                verb = "ALTER" if exists else "CREATE"
+                conn.exec_driver_sql(
+                    f"{verb} ROLE {ident} WITH LOGIN PASSWORD {secret} "
+                    "NOSUPERUSER NOCREATEDB NOCREATEROLE"
+                )
+            return ident
+    finally:
+        engine.dispose()
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     role, password = _app_credentials()
 
-    # quote_ident/quote_literal are Postgres' own quoting — correct for any
-    # identifier or password, including ones with quotes or backslashes in them.
-    ident, secret = bind.exec_driver_sql(
-        "SELECT quote_ident(%s), quote_literal(%s)", (role, password)
-    ).one()
-
     # 1) A non-superuser role the API/worker connect as (so RLS applies).
-    #
-    # Skipped when the app already connects as the role running this migration
-    # (single-role dev, where ADMIN_DATABASE_URL is unset and both URLs are the
-    # owner). Creating it would be a no-op, but ALTERing it NOSUPERUSER would
-    # strip privileges from the very connection executing this statement.
-    # RLS is then not enforced for that role — the tradeoff config.py documents.
-    if role != bind.exec_driver_sql("SELECT current_user").scalar():
-        exists = bind.exec_driver_sql(
-            "SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)
-        ).first()
-        # ALTER rather than skip when it exists, so rotating the password in
-        # DATABASE_URL and redeploying is sufficient to rotate it for real.
-        verb = "ALTER" if exists else "CREATE"
-        bind.exec_driver_sql(
-            f"{verb} ROLE {ident} WITH LOGIN PASSWORD {secret} "
-            "NOSUPERUSER NOCREATEDB NOCREATEROLE"
+    ident = _ensure_role(role, password)
+
+    # Fail loudly if the role did not survive — the failure this migration
+    # existed to hide was precisely that everything "succeeded" without it.
+    if not bind.exec_driver_sql(
+        "SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)
+    ).first():
+        raise RuntimeError(
+            f"Role {role!r} does not exist after provisioning it. The GRANTs "
+            "below would still succeed and this migration would commit a "
+            "database the app cannot log in to."
         )
 
     # 2) Grants: CRUD on current + future tables, read PostGIS' SRS table.
