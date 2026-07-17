@@ -29,30 +29,47 @@ Create a Neon project, then in the SQL Editor:
 CREATE EXTENSION IF NOT EXISTS postgis;
 ```
 
-**The single most important step in this whole document.** The app must connect as
-a plain, SQL-created role — never the Neon console/owner role:
+**Do NOT create the app role by hand.** Migration `f7a1c2d8e934` creates it, with
+SQL, and explicitly as `NOSUPERUSER NOCREATEDB NOCREATEROLE`:
 
 ```sql
-CREATE ROLE canopyops_app WITH LOGIN PASSWORD '<a strong password>';
+CREATE ROLE canopyops_app LOGIN PASSWORD 'canopyops_app' NOSUPERUSER NOCREATEDB NOCREATEROLE;
 ```
 
-Why it matters: Postgres bypasses row security **unconditionally** for roles with
-`SUPERUSER` or `BYPASSRLS` — *even `FORCE ROW LEVEL SECURITY` cannot stop it*.
-Neon's `neon_superuser` carries `BYPASSRLS`, and roles created through the Neon
-**console/CLI/API inherit it**. If you point `DATABASE_URL` at such a role, every
-tenant boundary in this app silently disappears **with no error raised** — the
-demo will look fine and be wrong. Roles created with **SQL** are *not* granted
-`neon_superuser`, which is exactly what we need.
+Why that matters: Postgres bypasses row security **unconditionally** for roles
+with `SUPERUSER` or `BYPASSRLS` — *even `FORCE ROW LEVEL SECURITY` cannot stop
+it*. Neon's `neon_superuser` carries `BYPASSRLS`, and roles created through the
+Neon **console/CLI/API inherit it**. Point `DATABASE_URL` at one of those and
+every tenant boundary silently disappears **with no error raised** — the demo
+looks fine and is wrong. Letting the migration create the role sidesteps this
+entirely; creating one yourself in the console would walk straight into it.
 
-Verify after the first deploy (this must return `off`, `off`):
+Verify after the first deploy (must return `f | f`):
 
 ```sql
 SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'canopyops_app';
 ```
 
-Then:
-- `ADMIN_DATABASE_URL` → the Neon **owner** role (runs alembic + seed; needs `CREATE ROLE`/DDL).
-- `DATABASE_URL` → **`canopyops_app`** (the app connection).
+**The two URLs.** Both come from Neon's *Connect* dialog; note the pooling toggle:
+
+- `ADMIN_DATABASE_URL` → the **owner** role, **Connection pooling OFF** (the
+  direct endpoint, no `-pooler` in the host). Alembic runs DDL, `CREATE ROLE` and
+  lock-taking here; that belongs on a direct connection, not through PgBouncer.
+- `DATABASE_URL` → **`canopyops_app` / `canopyops_app`**, **pooling ON** (the
+  `-pooler` host). Same host/database as the owner string, different credentials.
+  Pooling is right for the app: Neon's free tier is connection-limited, and the
+  tenant GUC is set with `set_config(..., true)` — *transaction*-local, which is
+  exactly what survives PgBouncer's transaction mode.
+
+Rewrite the scheme for SQLAlchemy: `postgresql://` → **`postgresql+psycopg2://`**.
+Keep `sslmode=require`. If a connection ever fails on `channel_binding`, drop that
+parameter — TLS is already enforced by `sslmode`.
+
+The app-role password is the synthetic `canopyops_app` and is public in this repo.
+That is acceptable here because the data is synthetic and RLS is fail-closed (with
+no `app.tenant_id` set, a direct connection reads **zero** rows). For hygiene you
+can rotate it after the first deploy — `ALTER ROLE canopyops_app PASSWORD '…'` —
+and update `DATABASE_URL`.
 
 ### 2. Evidence storage — you can skip it
 

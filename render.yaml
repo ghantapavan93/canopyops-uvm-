@@ -13,7 +13,11 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
-    region: oregon
+    # Keep this in the SAME region as the Neon project. The database is in AWS
+    # us-east-1 (N. Virginia), and a cross-country hop costs ~60-70ms on EVERY
+    # query — which this app makes several of per request, so it compounds into
+    # exactly the latency a reviewer notices first.
+    region: virginia
     healthCheckPath: /api/health
     envVars:
       # --- Database: Neon (PostGIS) -------------------------------------------
