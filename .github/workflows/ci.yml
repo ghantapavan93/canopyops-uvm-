@@ -120,8 +120,13 @@ jobs:
           done
           if [ -z "$ready" ]; then echo "stack not ready"; docker compose logs --tail 80; exit 1; fi
           # Warm cold code paths (shapely + PostGIS spatial) before the e2e run so
-          # the first offline-sync submit isn't slow enough to trip a timeout.
+          # the first render on each screen isn't slow enough to trip a timeout.
+          # The critical-journey flake was its FIRST work-order-list load, so warm
+          # the exact status-filtered queries the execution and verification
+          # screens make, not just the unfiltered list.
           curl -sf http://localhost:8080/api/treatments >/dev/null || true
+          curl -sf 'http://localhost:8080/api/treatments?status=draft&status=scheduled&status=in_progress&status=applied' >/dev/null || true
+          curl -sf 'http://localhost:8080/api/treatments?status=awaiting_verification' >/dev/null || true
           curl -sf http://localhost:8080/api/overview >/dev/null || true
           curl -sf http://localhost:8080/api/stewardship >/dev/null || true
           curl -sf -X POST http://localhost:8080/api/geo/analyze \
