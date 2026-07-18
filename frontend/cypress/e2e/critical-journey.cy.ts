@@ -6,7 +6,7 @@
  *   -> verification -> targeted follow-up -> close.
  *
  * Requires the full stack running (docker compose up) with the frontend on
- * :4200 proxying /api to the FastAPI backend, seeded with synthetic data.
+ * :8080 proxying /api to the FastAPI backend, seeded with synthetic data.
  */
 describe('CanopyOps critical journey', () => {
   // MapLibre needs WebGL; a headless GPU-less browser can throw. Those errors
@@ -23,7 +23,14 @@ describe('CanopyOps critical journey', () => {
     cy.contains('button', 'Off').click(); // simulate signal loss
     cy.contains('Offline').should('exist');
 
-    cy.contains('button', 'WO-2026-1001').click();
+    // The work-order list is fetched after the visit + role switch, and the
+    // FIRST spatial query on a cold/loaded CI runner is slow (the same latency
+    // the CI job's warm-up step exists to blunt). The default 8s command timeout
+    // is occasionally too tight for that first render, which is what flaked this
+    // flagship journey red ~7% of runs. Every other async step in this test
+    // already uses an explicit generous timeout; these first-load work-order
+    // lookups were the two that were missed. Give them the same.
+    cy.contains('button', 'WO-2026-1001', { timeout: 20000 }).click();
     cy.get('#cov').invoke('val', 60).trigger('input');
     cy.contains('60%').should('exist');
     cy.get('input[type=checkbox]').first().check(); // simulate a failed upload
@@ -49,7 +56,8 @@ describe('CanopyOps critical journey', () => {
     // --- Reviewer verifies the outcome and closes the record ---
     cy.visit('/console/verification');
     asRole('Reviewer');
-    cy.contains('button', 'WO-2026-1002').click();
+    // Same first-load-after-role-switch pattern as WO-2026-1001 above.
+    cy.contains('button', 'WO-2026-1002', { timeout: 20000 }).click();
     cy.contains('button', 'Partially effective').click();
     cy.get('textarea').type('Partial regrowth in south subsection.');
     cy.contains('button', 'Record verification').click();
