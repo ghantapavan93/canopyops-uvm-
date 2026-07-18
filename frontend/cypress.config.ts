@@ -16,11 +16,5 @@ export default defineConfig({
     pageLoadTimeout: 60000,
     requestTimeout: 15000,
     responseTimeout: 30000,
-    // Retry a failed spec in CI (not in interactive mode). The e2e failures seen
-    // here are timing flakes — a slow first spatial load, not a real defect — and
-    // the flaky step (waiting for a work-order list to render) fails BEFORE the
-    // journey mutates any data, so a retry restarts from a clean state. A spec
-    // that passes ~93% of the time clears 3 attempts with very high probability.
-    retries: { runMode: 2, openMode: 0 },
   },
 });

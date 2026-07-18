@@ -37,12 +37,21 @@ FRONTEND = ROOT / "frontend"
 EVIDENCE = FRONTEND / "src" / "assets" / "test-evidence.json"
 
 
+# Strip ANSI escape sequences (colour, cursor moves) before parsing. Cypress —
+# and pytest — emit them on the Linux CI runner (a TTY-ish environment) but not
+# in the local Windows capture, so the summary line looked like
+# "\x1b[32m✔\x1b[0m All specs passed! ... 22 22" on CI and the count regex failed
+# to match: "could not parse cypress output", exit 1 — while every spec had
+# actually passed. That mismatch, not any test, is what reddened e2e in CI.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
 def _run(cmd: list[str] | str, cwd: Path) -> tuple[int, str]:
     proc = subprocess.run(
         cmd, cwd=cwd, shell=isinstance(cmd, str),
         capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
-    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+    return proc.returncode, _ANSI.sub("", (proc.stdout or "") + (proc.stderr or ""))
 
 
 def _pytest() -> dict:
