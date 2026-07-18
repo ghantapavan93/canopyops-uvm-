@@ -133,10 +133,20 @@ down after 15 minutes without *inbound* traffic and takes ~1 minute to wake. A
 reviewer who opens the link cold watches a spinner for that minute and forms
 their opinion there.
 
-`.github/workflows/keepwarm.yml` already does this. To arm it, add a repository
+`.github/workflows/keepwarm.yml` does this. To arm it, add a repository
 **variable** (Settings → Secrets and variables → Actions → **Variables**) named
-`API_URL` set to your Render service, e.g. `https://canopyops-api.onrender.com`.
+`API_URL` set to your Render service (**not** the Vercel URL — Vercel never sleeps;
+Render is the one that spins down), e.g. `https://canopyops-api.onrender.com`.
 Until that variable exists the workflow no-ops rather than failing.
+
+**Do not rely on the GitHub schedule alone.** GitHub throttles scheduled
+workflows on free/public repos hard: this one is set to every 10 minutes
+(`*/10`) but in practice fires roughly **once an hour**. Render sleeps after 15
+minutes idle, so an hourly ping leaves it asleep most of the time and a cold
+reviewer still watches the spinner. For a demo that actually stays warm, add a
+dedicated free uptime pinger — **cron-job.org** or **UptimeRobot** — hitting
+`https://<your-render-service>/api/health` **every 5 minutes**. Those honour the
+interval; GitHub's schedule does not. Keep the workflow as harmless backup.
 
 (Render's own cron would be the natural home for it, but Render cron jobs are not
 free — a $0 deploy would either be rejected or quietly start charging.)
